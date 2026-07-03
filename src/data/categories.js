@@ -1,0 +1,31 @@
+export const CATEGORIES = [
+  { id: 'coffee', label: '커피' },
+  { id: 'overseas', label: '해외' },
+  { id: 'hotel', label: '호텔' },
+  { id: 'marriott', label: '메리어트' },
+  { id: 'airline', label: '항공' },
+  { id: 'simplepay', label: '간편결제' },
+  { id: 'ott', label: 'OTT' },
+  { id: 'golf', label: '골프' },
+  { id: 'dutyfree', label: '면세점' },
+  { id: 'transit', label: '대중교통' },
+  { id: 'evcharge', label: '전기차충전' },
+  { id: 'movie', label: '영화' },
+  { id: 'themepark', label: '놀이공원' },
+  { id: 'taxi', label: '택시' },
+  { id: 'telecom', label: '통신비' },
+  { id: 'department', label: '백화점' },
+  { id: 'fuel', label: '주유' },
+  { id: 'medical', label: '의료' },
+  { id: 'restaurant', label: '다이닝' },
+  { id: 'parking', label: '공항주차' },
+  { id: 'shopping', label: '쇼핑' },
+  { id: 'small', label: '소액결제' },
+  { id: 'breakfast', label: '조식' },
+  { id: 'lounge', label: '라운지' },
+  { id: 'spa', label: '스파' },
+  { id: 'premiumgift', label: '기프트' },
+  { id: 'other', label: '기타' }
+];
+
+export const CATEGORY_MAP = Object.fromEntries(CATEGORIES.map((item) => [item.id, item]));

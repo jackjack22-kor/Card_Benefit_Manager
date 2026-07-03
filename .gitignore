@@ -1,0 +1,17 @@
+node_modules/
+dist/
+.agents/
+.codex/
+.local/
+*.local.json
+real-backup*.json
+card-benefit-backup*.json
+card-benefit-backup-*.json
+*backup*.json
+local-data*.json
+exports/
+backups/
+!samples/
+!samples/sample-backup.json
+.DS_Store
+.env

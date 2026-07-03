@@ -1,0 +1,13 @@
+{
+  "schemaVersion": "1.0.0",
+  "settings": {
+    "darkMode": true,
+    "pointValues": {
+      "koreanAir": 15,
+      "asiana": 10,
+      "marriott": 10,
+      "hyundaiMR": 10
+    }
+  },
+  "note": "실제 개인 백업 파일은 GitHub에 올리지 마세요."
+}
