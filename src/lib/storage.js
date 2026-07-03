@@ -1,10 +1,12 @@
 import { CARDS, POINT_DEFAULTS } from '../data/cards.js';
+import { getMonthKey } from './cycles.js';
 
 export const STORAGE_KEY = 'cardBenefitManager.v1';
 export const SCHEMA_VERSION = '2.0.0';
 export const APP_VERSION = '1.0.0-single-html';
 
 export function createInitialState() {
+  const currentMonth = getMonthKey();
   return {
     schemaVersion: SCHEMA_VERSION,
     appVersion: APP_VERSION,
@@ -16,9 +18,13 @@ export function createInitialState() {
       recommendMode: 'bestValue'
     },
     selectedTab: 'dashboard',
+    selectedMonth: currentMonth,
     selectedCategory: 'evcharge',
+    selectedSubcategory: '',
     recommendationAmount: 10000,
     selectedCardId: CARDS[0]?.id || '',
+    isSortingCards: false,
+    cardSettingsOpen: false,
     cardOrder: CARDS.map((card) => card.id),
     cardOverrides: Object.fromEntries(CARDS.map((card) => [card.id, {
       prevMonthStatus: 'met',
@@ -33,6 +39,7 @@ export function createInitialState() {
       },
       memo: ''
     }])),
+    monthlyCardUsage: {},
     usage: {},
     notes: {},
     backupMeta: {
@@ -68,6 +75,7 @@ export function migrateState(state) {
   const importedPointValues = state.pointValues || importedSettings.pointValues || {};
   const importedCardSettings = state.cardSettings || state.cardOverrides || {};
   const importedBenefitUsage = state.benefitUsage || state.usage || {};
+  const importedMonthlyCardUsage = state.monthlyCardUsage || {};
   const importedNotes = state.notes || {};
   const importedBackupMeta = {
     ...(state.backupMeta || {}),
@@ -78,11 +86,14 @@ export function migrateState(state) {
     ...state,
     settings: { ...base.settings, ...importedSettings, pointValues: { ...base.settings.pointValues, ...importedPointValues } },
     cardOverrides: { ...base.cardOverrides, ...importedCardSettings },
+    monthlyCardUsage: { ...importedMonthlyCardUsage },
     usage: { ...importedBenefitUsage },
     notes: { ...importedNotes },
     backupMeta: { ...base.backupMeta, ...importedBackupMeta }
   };
   const known = new Set(CARDS.map((card) => card.id));
+  merged.selectedMonth = state.selectedMonth || base.selectedMonth;
+  merged.selectedSubcategory = state.selectedSubcategory || '';
   merged.cardOrder = [...new Set([...(state.cardOrder || []), ...base.cardOrder])].filter((id) => known.has(id));
   for (const card of CARDS) {
     merged.cardOverrides[card.id] = {
@@ -94,6 +105,15 @@ export function migrateState(state) {
         ...(merged.cardOverrides[card.id]?.cycle || {})
       }
     };
+  }
+  if (!state.monthlyCardUsage) {
+    merged.monthlyCardUsage[merged.selectedMonth] = Object.fromEntries(CARDS.map((card) => {
+      const override = merged.cardOverrides[card.id] || {};
+      return [card.id, {
+        prevMonthStatus: override.prevMonthStatus || 'manual',
+        currentMonthSpend: Number(override.currentMonthSpend || 0)
+      }];
+    }));
   }
   merged.schemaVersion = SCHEMA_VERSION;
   merged.appVersion = APP_VERSION;
@@ -111,6 +131,10 @@ export function exportState(state) {
     pointValues: state.settings?.pointValues || {},
     cardOrder: state.cardOrder || [],
     cardSettings,
+    selectedMonth: state.selectedMonth || getMonthKey(),
+    selectedCategory: state.selectedCategory || '',
+    selectedSubcategory: state.selectedSubcategory || '',
+    monthlyCardUsage: state.monthlyCardUsage || {},
     monthlyUsage: Object.fromEntries(Object.entries(cardSettings).map(([cardId, card]) => [cardId, {
       target: Number(card.monthlyTarget || 0),
       current: Number(card.currentMonthSpend || 0),
