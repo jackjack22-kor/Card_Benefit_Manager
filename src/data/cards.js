@@ -536,6 +536,25 @@ export const CARDS = [
     ]
   },
   {
+    id: 'kb-skypass-platinum',
+    issuer: 'KB국민카드',
+    name: '스카이패스 KB국민 플래티늄카드',
+    shortName: '스카이패스 KB 플래티늄',
+    theme: 'blue',
+    image: 'image/clean/kb-skypass-platinum.png',
+    annualFee: 120000,
+    defaultCycle: { type: 'anniversary', startMonth: 1 },
+    monthlyTargets: [],
+    defaultMonthlyTarget: 0,
+    annualTargets: [],
+    tags: ['MASTER', '대한항공', '스카이패스', '호텔뷔페', '플래티늄'],
+    sourceNote: 'KB국민카드 공식 홈페이지: 스카이패스 KB국민 플래티늄카드(MASTER) 기준.',
+    benefits: [
+      { id: 'kb-skypass-mile', name: '대한항공 마일리지 적립', type: 'reward', priority: 'core', categories: ['other', 'airline'], pointCurrency: 'koreanAir', pointsPer1000: 0.6667, summary: 'KB국민카드 가맹점 이용 시 신판입금액 1,500원당 대한항공 1마일 적립', targets: '국내외 일시불·할부 이용금액. 대한항공 탑승/제휴 호텔 등은 대한항공 기준에 따라 별도 적립 가능', exclusions: '단기카드대출, 장기카드대출, 각종 수수료·이자, 선불카드 구입/충전, 세금, 대학등록금, 연회비, 무이자할부, 아파트관리비, 상품권 이용금액 등 제외', conditions: '마일리지는 결제일로부터 15일 경과 후 확인 가능. MASTER 플래티늄 기준으로 관리.', homeLabel: '1,500원=1M' },
+      { id: 'kb-skypass-hotel-buffet', name: '호텔 뷔페 무료 식사 이용권', type: 'check', priority: 'core', categories: ['premiumgift', 'hotel', 'restaurant'], annualLimitCount: 1, cycleType: 'anniversary', summary: '연 1회 쿠폰서비스 중 택1. 국내 지정 호텔뷔페 2인 무료식사 또는 지정 레스토랑 현장할인', targets: '국내 지정 호텔뷔페 2인 무료식사 및 지정 레스토랑 현장할인 대상점', exclusions: '호텔 사정에 따라 이용 제한 또는 당일 이용 불가 가능. 다른 이용권, 패키지, 시즌특별가 등 행사와 중복 적용 불가', conditions: '쿠폰형 플래티늄카드 회원대상 서비스. 반드시 사전예약 후 이용 당일 플래티늄 카드 제시. 초과금액은 해당 카드로 결제.', homeLabel: '호텔뷔페' }
+    ]
+  },
+  {
     id: 'kb-talktalk-my-point',
     issuer: 'KB국민카드',
     name: '톡톡 my point카드',
