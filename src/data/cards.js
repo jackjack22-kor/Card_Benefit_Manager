@@ -15,8 +15,8 @@ export const CARDS = [
   {
     id: 'shinhan-ace-blue',
     issuer: '신한카드',
-    name: 'The ACE BLUE LABEL',
-    shortName: '신한 ACE',
+    name: '신한 The ACE 블루라벨',
+    shortName: '신한 The ACE 블루라벨',
     theme: 'blue',
     image: 'image/clean/shinhan-ace-blue.png',
     annualFee: 705000,
@@ -150,8 +150,8 @@ export const CARDS = [
   {
     id: 'marriott-best-shinhan',
     issuer: '신한카드',
-    name: '메리어트 본보이™ 더 베스트',
-    shortName: '메리어트 베스트',
+    name: '신한 메리어트 본보이™ 더 베스트',
+    shortName: '신한 메리어트 본보이™ 더 베스트',
     theme: 'coral',
     image: 'image/clean/marriott-best-shinhan.png',
     annualFee: 267000,
@@ -281,8 +281,8 @@ export const CARDS = [
   {
     id: 'marriott-classic-shinhan',
     issuer: '신한카드',
-    name: '메리어트 본보이™ 더 클래식',
-    shortName: '메리어트 클래식',
+    name: '신한 메리어트 본보이™ 더 클래식',
+    shortName: '신한 메리어트 본보이™ 더 클래식',
     theme: 'peach',
     image: 'image/clean/marriott-classic-shinhan.png',
     annualFee: 147000,
