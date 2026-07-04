@@ -421,14 +421,19 @@ function renderCardDetail() {
 
   return `
     <section class="detail-view">
-      <div class="detail-topbar">
-        ${renderMonthStepper()}
-      </div>
-      <div class="card-strip">
+      <section class="page-head compact-head">
+        <div class="head-top">
+          ${renderMonthStepper()}
+        </div>
+        <div>
+          <h2>카드 상세</h2>
+          <p>카드를 선택해 월·연 실적과 혜택 사용 현황을 관리합니다.</p>
+        </div>
+      </section>
+      <div class="card-picker">
         ${getOrderedCards(state).map((card) => `
-          <button class="card-strip-item ${selected.id === card.id ? 'active' : ''}" data-select-card="${card.id}" title="${escapeHtml(card.shortName)}">
-            ${card.image ? `<img src="${escapeHtml(card.image)}" alt="" loading="lazy">` : '<span class="card-strip-fallback"></span>'}
-            <span class="card-strip-name">${escapeHtml(card.shortName)}</span>
+          <button class="card-picker-item ${selected.id === card.id ? 'active' : ''}" data-select-card="${card.id}" title="${escapeHtml(card.shortName)}" aria-label="${escapeHtml(card.shortName)}">
+            ${card.image ? `<img src="${escapeHtml(card.image)}" alt="" loading="lazy">` : `<span class="card-picker-fallback">${escapeHtml(card.shortName)}</span>`}
           </button>
         `).join('')}
       </div>
