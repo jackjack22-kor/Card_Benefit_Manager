@@ -30,7 +30,7 @@ body { margin: 0; background: var(--bg); color: var(--text); }
 button, input, select, textarea { font: inherit; }
 button { cursor: pointer; }
 .app-shell { max-width: 1180px; margin: 0 auto; padding: 14px 18px 104px; }
-.app-header { position: sticky; top: 0; z-index: 20; display: grid; grid-template-columns: 1fr auto auto; align-items: center; gap: 12px; background: color-mix(in srgb, var(--bg) 88%, transparent); backdrop-filter: blur(18px); padding: 8px 0 12px; }
+.app-header { position: sticky; top: 0; z-index: 20; display: grid; grid-template-columns: 1fr auto auto; align-items: center; gap: 12px; background: color-mix(in srgb, var(--bg) 88%, transparent); backdrop-filter: blur(18px); padding: 8px 0 12px; padding-top: max(8px, env(safe-area-inset-top)); }
 .brand-title h1 { font-size: 22px; margin: 2px 0 0; line-height: 1.1; }
 .brand-title .eyebrow { font-size: 10px; }
 .month-nav { display: flex; align-items: center; justify-content: center; gap: 6px; background: var(--surface); border: 1px solid var(--line); border-radius: 8px; padding: 5px; }
