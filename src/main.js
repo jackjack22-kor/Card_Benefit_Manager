@@ -21,11 +21,20 @@ import {
   setBenefitUsage
 } from './lib/recommend.js';
 import { clamp, compactWon, escapeHtml, pct, won } from './lib/format.js';
+import {
+  getInitialSyncStatus,
+  initSync,
+  queueCloudSave,
+  requestCloudSignIn,
+  requestCloudSignOut,
+  requestCloudSyncNow
+} from './lib/sync/syncManager.js';
 
 let state = loadState();
 const app = document.querySelector('#app');
 let suppressNextOpen = false;
 const openBenefits = new Set();
+let syncStatus = getInitialSyncStatus();
 
 function selectedMonthKey() {
   return state.selectedMonth || getMonthKey();
@@ -41,8 +50,13 @@ function monthKey() {
 
 function setState(patch) {
   state = { ...state, ...patch };
-  saveState(state);
+  persistState(state);
   render();
+}
+
+function persistState(nextState) {
+  saveState(nextState);
+  queueCloudSave(nextState);
 }
 
 function updateCard(cardId, patch) {
@@ -58,7 +72,7 @@ function updateCard(cardId, patch) {
     }
   };
   state = next;
-  saveState(state);
+  persistState(state);
   render();
 }
 
@@ -77,13 +91,13 @@ function updateMonthlyCard(cardId, patch) {
       }
     }
   };
-  saveState(state);
+  persistState(state);
   render();
 }
 
 function updateSettings(patch) {
   state = { ...state, settings: { ...state.settings, ...patch } };
-  saveState(state);
+  persistState(state);
   render();
 }
 
@@ -615,8 +629,9 @@ function renderSettings() {
     <section class="settings-grid">
       <div class="settings-card full-span">
         <h3>GitHub Pages 사용 안내</h3>
-        <p>현재 권장 방식은 GitHub Pages 주소를 스마트폰 브라우저에서 열어 사용하는 것입니다. 개인 데이터는 GitHub에 저장되지 않고, 현재 브라우저의 localStorage에 저장됩니다.</p>
+        <p>GitHub Pages 주소를 스마트폰 브라우저에서 열어 사용합니다. 비로그인 상태의 개인 데이터는 현재 브라우저의 localStorage에만 저장되고, Google 로그인 시 Firebase Firestore와 동기화됩니다.</p>
       </div>
+      ${renderCloudSyncCard()}
       ${renderBackupNotice('settings-card full-span')}
       <div class="settings-card">
         <h3>포인트 가치</h3>
@@ -650,6 +665,41 @@ function renderSettings() {
         <p>백업 JSON에는 개인 카드 사용 패턴이 들어가므로 공개 저장소에 올리지 마세요.</p>
       </div>
     </section>
+  `;
+}
+
+function renderCloudSyncCard() {
+  const user = syncStatus.user;
+  const tone = syncStatus.state === 'synced' ? 'good' : syncStatus.state === 'error' ? 'warn' : '';
+  const statusText = syncStatusLabel(syncStatus.state);
+  return `
+    <div class="settings-card full-span cloud-sync-card ${tone}">
+      <div class="cloud-sync-head">
+        <div>
+          <h3>클라우드 동기화</h3>
+          <p>${escapeHtml(syncStatus.message || 'Google 로그인으로 여러 기기에서 같은 데이터를 사용할 수 있습니다.')}</p>
+        </div>
+        <span class="sync-status ${escapeHtml(syncStatus.state)}">${escapeHtml(statusText)}</span>
+      </div>
+      ${user ? `
+        <div class="sync-account">
+          <strong>${escapeHtml(user.displayName || 'Google 계정')}</strong>
+          <span>${escapeHtml(user.email || '')}</span>
+        </div>
+        <p class="sync-meta">마지막 동기화: <strong>${escapeHtml(syncStatus.lastSyncedAt ? formatDateTime(syncStatus.lastSyncedAt) : '아직 없음')}</strong></p>
+        ${syncStatus.error ? `<p class="sync-error">${escapeHtml(syncStatus.error)}</p>` : ''}
+        <div class="backup-actions">
+          <button data-action="cloud-sync-now">지금 동기화</button>
+          <button data-action="cloud-signout">로그아웃</button>
+        </div>
+      ` : `
+        <p class="sync-meta">로그인하지 않아도 앱은 지금처럼 로컬 전용으로 계속 사용할 수 있습니다.</p>
+        ${syncStatus.error ? `<p class="sync-error">${escapeHtml(syncStatus.error)}</p>` : ''}
+        <div class="backup-actions">
+          <button data-action="cloud-signin" ${syncStatus.configured ? '' : 'disabled'}>Google 로그인</button>
+        </div>
+      `}
+    </div>
   `;
 }
 
@@ -694,7 +744,7 @@ function bindEvents() {
   }));
   document.querySelector('.detail-settings')?.addEventListener('toggle', (event) => {
     state = { ...state, cardSettingsOpen: event.target.open };
-    saveState(state);
+    persistState(state);
   });
   document.querySelectorAll('details.benefit-card').forEach((el) => el.addEventListener('toggle', () => {
     if (el.open) openBenefits.add(el.dataset.benefitId);
@@ -726,9 +776,31 @@ function bindEvents() {
 
   document.querySelector('[data-action="export-json"]')?.addEventListener('click', exportJson);
   document.querySelector('[data-action="import-json"]')?.addEventListener('change', importJson);
+  document.querySelector('[data-action="cloud-signin"]')?.addEventListener('click', async () => {
+    try {
+      await requestCloudSignIn();
+    } catch (error) {
+      alert(`Google 로그인에 실패했습니다.\n\n${error.message}`);
+    }
+  });
+  document.querySelector('[data-action="cloud-signout"]')?.addEventListener('click', async () => {
+    try {
+      await requestCloudSignOut();
+    } catch (error) {
+      alert(`로그아웃에 실패했습니다.\n\n${error.message}`);
+    }
+  });
+  document.querySelector('[data-action="cloud-sync-now"]')?.addEventListener('click', async () => {
+    try {
+      await requestCloudSyncNow();
+    } catch (error) {
+      alert(`동기화에 실패했습니다.\n\n${error.message}`);
+    }
+  });
   document.querySelector('[data-action="reset-all"]')?.addEventListener('click', () => {
     if (confirm('모든 입력 데이터를 초기화할까요?')) {
       state = resetState();
+      queueCloudSave(state);
       render();
     }
   });
@@ -747,7 +819,7 @@ function formatNumberInput(value) {
 
 function updateUsage(benefitId, patch) {
   state = setBenefitUsage(state, benefitId, monthKey(), patch);
-  saveState(state);
+  persistState(state);
   render();
 }
 
@@ -953,6 +1025,12 @@ function formatDate(value) {
   return date.toISOString().slice(0, 10);
 }
 
+function formatDateTime(value) {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return '확인 필요';
+  return date.toLocaleString('ko-KR', { dateStyle: 'medium', timeStyle: 'short' });
+}
+
 function formatMonthLabel(value) {
   const [year, month] = String(value).split('-');
   return `${year}년 ${Number(month)}월`;
@@ -978,6 +1056,19 @@ function pointLabel(key) {
   return labels[key] || key;
 }
 
+function syncStatusLabel(value) {
+  const labels = {
+    disabled: '비활성',
+    initializing: '준비 중',
+    'signed-out': '로컬 전용',
+    loading: '확인 중',
+    syncing: '동기화 중',
+    synced: '동기화됨',
+    error: '확인 필요'
+  };
+  return labels[value] || '확인 중';
+}
+
 function exportJson() {
   const now = new Date().toISOString();
   state = {
@@ -987,7 +1078,7 @@ function exportJson() {
       lastBackupAt: now
     }
   };
-  saveState(state);
+  persistState(state);
   const text = exportState(state);
   const box = document.querySelector('#backupBox');
   if (box) box.value = text;
@@ -1013,7 +1104,7 @@ function importJson(event) {
   reader.onload = () => {
     try {
       state = importState(String(reader.result));
-      saveState(state);
+      persistState(state);
       render();
       alert('백업을 불러왔습니다. 카드 설정과 혜택 사용내역이 복원되었습니다.');
     } catch (error) {
@@ -1025,3 +1116,15 @@ function importJson(event) {
 }
 
 render();
+initSync({
+  getState: () => state,
+  applyRemoteState: (remoteState) => {
+    state = remoteState;
+    saveState(state);
+    render();
+  },
+  onStatusChange: (nextStatus) => {
+    syncStatus = nextStatus;
+    render();
+  }
+});

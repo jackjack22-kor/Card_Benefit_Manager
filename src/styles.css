@@ -291,6 +291,18 @@ summary { color: var(--accent); cursor: pointer; font-weight: 800; }
 .settings-card h3 { font-size: 16px; font-weight: 800; }
 .full-span { grid-column: 1 / -1; }
 .settings-card label { margin: 10px 0; }
+.cloud-sync-card.good { border-color: color-mix(in srgb, var(--good) 42%, var(--line)); }
+.cloud-sync-card.warn { border-color: color-mix(in srgb, var(--warn) 50%, var(--line)); }
+.cloud-sync-head { display: flex; justify-content: space-between; gap: 14px; align-items: flex-start; }
+.cloud-sync-head p { margin-bottom: 0; }
+.sync-status { display: inline-flex; align-items: center; justify-content: center; min-width: 84px; border: 1px solid var(--line); border-radius: var(--r-pill); padding: 7px 10px; background: var(--surface-2); color: var(--muted); font-size: 12px; font-weight: 900; white-space: nowrap; }
+.sync-status.synced { color: var(--good); border-color: color-mix(in srgb, var(--good) 38%, var(--line)); background: color-mix(in srgb, var(--good) 12%, transparent); }
+.sync-status.error { color: var(--warn); border-color: color-mix(in srgb, var(--warn) 38%, var(--line)); background: color-mix(in srgb, var(--warn) 12%, transparent); }
+.sync-status.syncing, .sync-status.loading, .sync-status.initializing { color: var(--accent); border-color: color-mix(in srgb, var(--accent) 38%, var(--line)); background: color-mix(in srgb, var(--accent) 12%, transparent); }
+.sync-account { display: grid; gap: 3px; margin: 14px 0 8px; border: 1px solid var(--line); background: var(--surface-2); border-radius: var(--r-md); padding: 12px 14px; }
+.sync-account strong { color: var(--text); }
+.sync-account span, .sync-meta { color: var(--muted); font-size: 13px; }
+.sync-error { color: var(--warn); font-size: 13px; margin: 10px 0 0; }
 .backup-notice { background: var(--surface); border: 1px solid var(--line); border-radius: var(--r-card); padding: 16px; margin: 0 0 16px; box-shadow: var(--shadow-card); }
 .backup-notice.warn, .settings-card.warn { border-color: color-mix(in srgb, var(--warn) 50%, var(--line)); }
 .backup-notice.good, .settings-card.good { border-color: color-mix(in srgb, var(--good) 40%, var(--line)); }
@@ -336,5 +348,7 @@ code { color: var(--accent); background: var(--surface-2); padding: 2px 6px; bor
   .detail-hero { grid-template-columns: 1fr; }
   .detail-card-image { max-width: 240px; justify-self: center; }
   .rank-item { grid-template-columns: 30px 1fr auto; padding: 13px; gap: 10px; }
+  .cloud-sync-head { flex-direction: column; }
+  .sync-status { align-self: flex-start; }
   .tabs { left: 8px; right: 8px; bottom: max(8px, env(safe-area-inset-bottom)); }
 }

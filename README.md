@@ -126,6 +126,7 @@ iPhone Safari의 GitHub Pages 접속 환경에서는 JSON 내보내기/불러오
 - GitHub Pages용 index 생성: `tools/build-pages.mjs`
 - 변경 이력(최신 기준 요약): `CHANGELOG.md`
 - 로드맵: `docs/ROADMAP.md`
+- Firebase 클라우드 동기화 적용 계획: `docs/FIREBASE_SYNC_PLAN.md`
 
 > 이어서 개발할 때는 `CHANGELOG.md` 최상단에 최신 변경을 추가해 주세요. Codex/Claude가 최신 기준을 참고해 연속 작업할 수 있습니다.
 

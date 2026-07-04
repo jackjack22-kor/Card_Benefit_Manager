@@ -5,6 +5,10 @@
 
 ## 2026-07-04
 
+### 클라우드 동기화 준비
+- **Firebase 적용 계획서 추가**: 비로그인=localStorage 전용, 로그인=Firebase Auth + Firestore 동기화 구조를 전제로 `docs/FIREBASE_SYNC_PLAN.md` 작성. 사용자 Firebase 콘솔 설정 체크리스트, Firestore 데이터 모델, 보안 규칙 초안, 구현 단계, 확인 질문을 정리. README/ROADMAP에서 참조 연결.
+- **Firebase Auth + Firestore 동기화 1차 구현**: `CardFit` Firebase 웹앱 설정(`cardfit-ee4b5`)을 연결하고, 설정/백업 탭에 Google 로그인, 동기화 상태, 수동 동기화, 로그아웃 UI 추가. 비로그인 localStorage 모드는 유지하고, 로그인 시 `users/{uid}/private/cardfit` 문서에 현재 상태 스냅샷을 저장/병합/구독.
+
 ### 추천 정확도 · 입력 개선
 - **결제추천 조건 미충족 힌트**: 조건 때문에 혜택가치가 밀린 카드에 사유를 앰버 힌트로 표시(예: `최소 12,000원 이상 필요`, `전월실적 미달`). `scoreCard()`가 `conditions` 배열을 반환하고, `renderRankItem()`이 렌더링. 혜택가치 0(예: SKT 우리카드)이면 큰 힌트, 기본 소액 혜택은 있으나 일부 조건 미충족(예: The O)이면 작은(compact) 힌트를 함께 표시. 중복을 줄이려 설명문장의 `· 조건 확인:` 꼬리표는 제거. (src/lib/recommend.js, src/main.js)
 - **금액 입력 천단위 콤마 통일**: 결제 예정 금액, 혜택 `이번달 사용금액` / `혜택 사용액·적립액`, 횟수형 `혜택금액` 입력을 `type="text" inputmode="numeric" data-money-input`으로 변경, 저장 시 콤마 제거 파싱(`replace(/[^\d]/g,'')`). 포인트 가치 입력은 소수점 값이라 제외.

@@ -18,6 +18,7 @@
 > 상세 변경 요약은 `CHANGELOG.md` 참고.
 
 ## v1.2 후보
+- Firebase Auth + Firestore 클라우드 동기화(localStorage 캐시 유지) - 계획서: `docs/FIREBASE_SYNC_PLAN.md`
 - 월별 사용 이력 보기
 - 혜택 사용 메모
 - 실적 제외 항목 체크리스트

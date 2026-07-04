@@ -9,10 +9,13 @@
     "build:single": "vite build && node tools/build-single.mjs",
     "build:pages": "npm run build:single && node tools/build-pages.mjs",
     "preview": "vite preview --host 127.0.0.1",
-    "check": "node --check src/main.js && node --check src/data/cards.js && node --check src/data/categories.js && node --check src/lib/cycles.js && node --check src/lib/storage.js && node --check src/lib/recommend.js && node --check src/lib/format.js",
+    "check": "node --check src/main.js && node --check src/data/cards.js && node --check src/data/categories.js && node --check src/lib/cycles.js && node --check src/lib/storage.js && node --check src/lib/recommend.js && node --check src/lib/format.js && node --check src/lib/sync/firebaseConfig.js && node --check src/lib/sync/firebaseClient.js && node --check src/lib/sync/syncManager.js",
     "build:zip": "node tools/make-zip.mjs"
   },
   "devDependencies": {
     "vite": "^5.4.0"
+  },
+  "dependencies": {
+    "firebase": "^12.15.0"
   }
 }
