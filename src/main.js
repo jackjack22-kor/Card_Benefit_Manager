@@ -42,6 +42,7 @@ const openSettings = new Set();
 let categoryExpanded = false;
 let subcategoryExpanded = false;
 let syncStatus = getInitialSyncStatus();
+let suppressMonthlyInputRenderUntil = 0;
 
 const PRIMARY_CATEGORIES = ['coffee', 'transit', 'movie', 'department', 'medical', 'simplepay', 'overseas'];
 
@@ -89,7 +90,7 @@ function updateCard(cardId, patch) {
   render();
 }
 
-function updateMonthlyCard(cardId, patch) {
+function updateMonthlyCard(cardId, patch, options = {}) {
   const key = selectedMonthKey();
   state = {
     ...state,
@@ -105,7 +106,22 @@ function updateMonthlyCard(cardId, patch) {
     }
   };
   persistState(state);
-  render();
+  if (options.render !== false) render();
+}
+
+function commitActiveMonthlyCardInput(options = {}) {
+  if (options.suppressRenderMs) suppressMonthlyInputRenderUntil = Date.now() + options.suppressRenderMs;
+  const input = document.activeElement;
+  const isEditable = input instanceof HTMLInputElement || input instanceof HTMLSelectElement || input instanceof HTMLTextAreaElement;
+  if (!isEditable || !input.dataset.monthlyCardField || !input.dataset.cardId) return;
+  updateMonthlyCard(input.dataset.cardId, { [input.dataset.monthlyCardField]: normalizeInput(input.value) }, { render: false });
+}
+
+function commitMonthlyInputBeforeAction(element) {
+  if (!element) return;
+  const commitBeforeNavigation = () => commitActiveMonthlyCardInput({ suppressRenderMs: 500 });
+  element.addEventListener('pointerdown', commitBeforeNavigation, { capture: true });
+  element.addEventListener('touchstart', commitBeforeNavigation, { capture: true, passive: true });
 }
 
 function updateSettings(patch) {
@@ -124,6 +140,7 @@ function updatePointValue(key, value) {
 
 function selectCard(cardId) {
   if (state.selectedCardId === cardId) return;
+  commitActiveMonthlyCardInput();
   state = { ...state, selectedCardId: cardId };
   const main = document.querySelector('.detail-main');
   if (!main || state.selectedTab !== 'cards') { render(); return; }
@@ -818,13 +835,23 @@ function renderBackupNotice(className = 'backup-notice') {
 }
 
 function bindDetailMainEvents(root) {
-  root.querySelectorAll('[data-monthly-card-field]').forEach((input) => input.addEventListener('change', () => updateMonthlyCard(input.dataset.cardId, { [input.dataset.monthlyCardField]: normalizeInput(input.value) })));
-  root.querySelectorAll('[data-card-field]').forEach((input) => input.addEventListener('change', () => updateCard(input.dataset.cardId, { [input.dataset.cardField]: normalizeInput(input.value) })));
-  root.querySelectorAll('[data-cycle-field]').forEach((input) => input.addEventListener('change', () => updateCard(input.dataset.cardId, { cycle: { [input.dataset.cycleField]: normalizeInput(input.value) } })));
   root.querySelectorAll('[data-money-input]').forEach((input) => input.addEventListener('input', () => {
     const digits = String(input.value).replace(/[^\d]/g, '');
     input.value = digits ? formatNumberInput(digits) : '';
   }));
+  root.querySelectorAll('[data-monthly-card-field]').forEach((input) => {
+    const saveMonthlyInput = (options = {}) => {
+      const render = options.render ?? Date.now() > suppressMonthlyInputRenderUntil;
+      updateMonthlyCard(input.dataset.cardId, { [input.dataset.monthlyCardField]: normalizeInput(input.value) }, { render });
+    };
+    input.addEventListener('change', () => saveMonthlyInput());
+    input.addEventListener('blur', () => saveMonthlyInput());
+    if (input.dataset.monthlyCardField === 'currentMonthSpend') {
+      input.addEventListener('input', () => saveMonthlyInput({ render: false }));
+    }
+  });
+  root.querySelectorAll('[data-card-field]').forEach((input) => input.addEventListener('change', () => updateCard(input.dataset.cardId, { [input.dataset.cardField]: normalizeInput(input.value) })));
+  root.querySelectorAll('[data-cycle-field]').forEach((input) => input.addEventListener('change', () => updateCard(input.dataset.cardId, { cycle: { [input.dataset.cycleField]: normalizeInput(input.value) } })));
   root.querySelector('.detail-settings')?.addEventListener('toggle', (event) => {
     state = { ...state, cardSettingsOpen: event.target.open };
     state = saveState(state, { touch: false });
@@ -854,11 +881,28 @@ function bindDetailMainEvents(root) {
 }
 
 function bindEvents() {
-  document.querySelectorAll('[data-tab]').forEach((button) => button.addEventListener('click', () => setState({ selectedTab: button.dataset.tab })));
+  document.querySelectorAll('[data-tab]').forEach((button) => {
+    commitMonthlyInputBeforeAction(button);
+    button.addEventListener('click', () => {
+      commitActiveMonthlyCardInput();
+      setState({ selectedTab: button.dataset.tab });
+    });
+  });
   document.querySelector('[data-action="toggle-dark"]')?.addEventListener('click', () => updateSettings({ darkMode: !state.settings.darkMode }));
   document.querySelector('[data-action="toggle-sort"]')?.addEventListener('click', () => setState({ isSortingCards: !state.isSortingCards }));
-  document.querySelectorAll('[data-month-move]').forEach((button) => button.addEventListener('click', () => moveMonth(Number(button.dataset.monthMove || 0))));
-  document.querySelector('[data-month-today]')?.addEventListener('click', () => setState({ selectedMonth: getMonthKey() }));
+  document.querySelectorAll('[data-month-move]').forEach((button) => {
+    commitMonthlyInputBeforeAction(button);
+    button.addEventListener('click', () => {
+      commitActiveMonthlyCardInput();
+      moveMonth(Number(button.dataset.monthMove || 0));
+    });
+  });
+  const todayButton = document.querySelector('[data-month-today]');
+  commitMonthlyInputBeforeAction(todayButton);
+  todayButton?.addEventListener('click', () => {
+    commitActiveMonthlyCardInput();
+    setState({ selectedMonth: getMonthKey() });
+  });
 
   document.querySelectorAll('[data-open-card]').forEach((el) => el.addEventListener('click', (event) => {
     if (event.target.closest('button, input, select, textarea, summary, details')) return;
@@ -869,9 +913,14 @@ function bindEvents() {
       event.stopPropagation();
       return;
     }
+    commitActiveMonthlyCardInput();
     setState({ selectedTab: 'cards', selectedCardId: el.dataset.openCard });
   }));
-  document.querySelectorAll('[data-select-card]').forEach((el) => el.addEventListener('click', () => selectCard(el.dataset.selectCard)));
+  document.querySelectorAll('[data-open-card]').forEach(commitMonthlyInputBeforeAction);
+  document.querySelectorAll('[data-select-card]').forEach((el) => {
+    commitMonthlyInputBeforeAction(el);
+    el.addEventListener('click', () => selectCard(el.dataset.selectCard));
+  });
   document.querySelectorAll('[data-move-up]').forEach((el) => el.addEventListener('click', (event) => { event.stopPropagation(); moveCard(el.dataset.moveUp, -1); }));
   document.querySelectorAll('[data-move-down]').forEach((el) => el.addEventListener('click', (event) => { event.stopPropagation(); moveCard(el.dataset.moveDown, 1); }));
 

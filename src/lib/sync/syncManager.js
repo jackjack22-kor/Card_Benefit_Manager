@@ -37,6 +37,7 @@ export function initSync(nextCallbacks) {
   callbacks = { ...callbacks, ...nextCallbacks };
   if (initialized) return;
   initialized = true;
+  bindPageLifecycleFlush();
 
   services = getFirebaseServices();
   if (!services) {
@@ -99,7 +100,7 @@ export function queueCloudSave(state) {
   if (!currentUser || !services || savingRemote) return;
   clearTimeout(saveTimer);
   saveTimer = setTimeout(() => {
-    flushCloudSave(state).catch((error) => {
+    flushCloudSave(callbacks.getState()).catch((error) => {
       publish({
         state: 'error',
         user: userSummary(currentUser),
@@ -169,8 +170,12 @@ function subscribeCloud(uid) {
     if (!data.state) return;
 
     try {
+      const incomingState = migrateState(data.state);
+      const localState = callbacks.getState();
+      const shouldProtectLocal = Boolean(saveTimer) || timestamp(localState.updatedAt) > timestamp(incomingState.updatedAt);
+      const nextState = shouldProtectLocal ? mergeStates(localState, incomingState) : incomingState;
       lastAppliedRevision = revision;
-      const remoteState = withSyncMeta(migrateState(data.state), {
+      const remoteState = withSyncMeta(nextState, {
         lastCloudSyncAt: new Date().toISOString(),
         revision,
         cloudRevision: revision,
@@ -325,6 +330,18 @@ function publish(patch) {
 function clearCloudSubscription() {
   if (unsubscribeCloud) unsubscribeCloud();
   unsubscribeCloud = null;
+}
+
+function bindPageLifecycleFlush() {
+  if (typeof window === 'undefined' || typeof document === 'undefined') return;
+  const flushLatest = () => {
+    if (!currentUser || !services || !saveTimer) return;
+    flushCloudSave(callbacks.getState()).catch(() => {});
+  };
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'hidden') flushLatest();
+  });
+  window.addEventListener('pagehide', flushLatest);
 }
 
 function getDeviceId() {
