@@ -110,6 +110,17 @@ function updatePointValue(key, value) {
   updateSettings({ pointValues: { ...state.settings.pointValues, [key]: Number(value || 0) } });
 }
 
+function selectCard(cardId) {
+  if (state.selectedCardId === cardId) return;
+  state = { ...state, selectedCardId: cardId };
+  const main = document.querySelector('.detail-main');
+  if (!main || state.selectedTab !== 'cards') { render(); return; }
+  const selected = CARD_MAP[cardId] || getOrderedCards(state)[0] || CARDS[0];
+  document.querySelectorAll('.card-picker-item').forEach((el) => el.classList.toggle('active', el.dataset.selectCard === cardId));
+  main.innerHTML = renderCardDetailMain(selected);
+  bindDetailMainEvents(main);
+}
+
 function render() {
   document.documentElement.dataset.theme = state.settings.darkMode ? 'dark' : 'light';
   app.innerHTML = `
@@ -413,12 +424,6 @@ function renderRankItem(result, index, mode = 'value') {
 
 function renderCardDetail() {
   const selected = CARD_MAP[state.selectedCardId] || getOrderedCards(state)[0] || CARDS[0];
-  const override = getCardOverride(state, selected.id);
-  const cycle = getCycle(selected, override, {}, selectedDate());
-  const annualSpend = getAnnualSpend(state, selected, selectedDate());
-  const annualShortfall = getAnnualShortfall(selected, override, state);
-  const coreBenefits = selected.benefits.filter((benefit) => benefit.priority === 'core').slice(0, 6);
-
   return `
     <section class="detail-view">
       <section class="page-head compact-head">
@@ -437,7 +442,19 @@ function renderCardDetail() {
           </button>
         `).join('')}
       </div>
-      <div class="detail-main">
+      <div class="detail-main">${renderCardDetailMain(selected)}</div>
+    </section>
+  `;
+}
+
+function renderCardDetailMain(selected) {
+  const override = getCardOverride(state, selected.id);
+  const cycle = getCycle(selected, override, {}, selectedDate());
+  const annualSpend = getAnnualSpend(state, selected, selectedDate());
+  const annualShortfall = getAnnualShortfall(selected, override, state);
+  const coreBenefits = selected.benefits.filter((benefit) => benefit.priority === 'core').slice(0, 6);
+
+  return `
         <section class="detail-card theme-${selected.theme}">
           <div class="detail-hero">
             <div class="detail-copy">
@@ -487,8 +504,6 @@ function renderCardDetail() {
           </div>
           ${selected.benefits.map((benefit) => renderBenefitEditor(selected, benefit)).join('')}
         </section>
-      </div>
-    </section>
   `;
 }
 
@@ -781,6 +796,42 @@ function renderBackupNotice(className = 'backup-notice') {
   `;
 }
 
+function bindDetailMainEvents(root) {
+  root.querySelectorAll('[data-monthly-card-field]').forEach((input) => input.addEventListener('change', () => updateMonthlyCard(input.dataset.cardId, { [input.dataset.monthlyCardField]: normalizeInput(input.value) })));
+  root.querySelectorAll('[data-card-field]').forEach((input) => input.addEventListener('change', () => updateCard(input.dataset.cardId, { [input.dataset.cardField]: normalizeInput(input.value) })));
+  root.querySelectorAll('[data-cycle-field]').forEach((input) => input.addEventListener('change', () => updateCard(input.dataset.cardId, { cycle: { [input.dataset.cycleField]: normalizeInput(input.value) } })));
+  root.querySelectorAll('[data-money-input]').forEach((input) => input.addEventListener('input', () => {
+    const digits = String(input.value).replace(/[^\d]/g, '');
+    input.value = digits ? formatNumberInput(digits) : '';
+  }));
+  root.querySelector('.detail-settings')?.addEventListener('toggle', (event) => {
+    state = { ...state, cardSettingsOpen: event.target.open };
+    persistState(state);
+  });
+  root.querySelectorAll('details.benefit-card').forEach((el) => el.addEventListener('toggle', () => {
+    if (el.open) openBenefits.add(el.dataset.benefitId);
+    else openBenefits.delete(el.dataset.benefitId);
+  }));
+  root.querySelectorAll('[data-card-memo]').forEach((input) => input.addEventListener('blur', () => updateCard(input.dataset.cardMemo, { memo: input.value })));
+
+  root.querySelectorAll('[data-usage-field]').forEach((input) => {
+    const isMemo = input.dataset.usageField === 'memo';
+    const saveUsageField = () => {
+      const value = isMemo ? input.value : Number(String(input.value).replace(/[^\d]/g, '') || 0);
+      updateUsage(input.dataset.benefitId, { [input.dataset.usageField]: value });
+    };
+    if (isMemo) {
+      input.addEventListener('blur', saveUsageField);
+    } else {
+      input.addEventListener('change', saveUsageField);
+      input.addEventListener('blur', saveUsageField);
+    }
+  });
+  root.querySelectorAll('[data-usage-check]').forEach((input) => input.addEventListener('change', () => updateUsage(input.dataset.benefitId, { [input.dataset.usageCheck]: input.checked })));
+  root.querySelectorAll('[data-count-plus]').forEach((button) => button.addEventListener('click', () => bumpCount(button.dataset.countPlus, 1)));
+  root.querySelectorAll('[data-count-minus]').forEach((button) => button.addEventListener('click', () => bumpCount(button.dataset.countMinus, -1)));
+}
+
 function bindEvents() {
   document.querySelectorAll('[data-tab]').forEach((button) => button.addEventListener('click', () => setState({ selectedTab: button.dataset.tab })));
   document.querySelector('[data-action="toggle-dark"]')?.addEventListener('click', () => updateSettings({ darkMode: !state.settings.darkMode }));
@@ -799,43 +850,11 @@ function bindEvents() {
     }
     setState({ selectedTab: 'cards', selectedCardId: el.dataset.openCard });
   }));
-  document.querySelectorAll('[data-select-card]').forEach((el) => el.addEventListener('click', () => setState({ selectedCardId: el.dataset.selectCard })));
+  document.querySelectorAll('[data-select-card]').forEach((el) => el.addEventListener('click', () => selectCard(el.dataset.selectCard)));
   document.querySelectorAll('[data-move-up]').forEach((el) => el.addEventListener('click', (event) => { event.stopPropagation(); moveCard(el.dataset.moveUp, -1); }));
   document.querySelectorAll('[data-move-down]').forEach((el) => el.addEventListener('click', (event) => { event.stopPropagation(); moveCard(el.dataset.moveDown, 1); }));
 
-  document.querySelectorAll('[data-monthly-card-field]').forEach((input) => input.addEventListener('change', () => updateMonthlyCard(input.dataset.cardId, { [input.dataset.monthlyCardField]: normalizeInput(input.value) })));
-  document.querySelectorAll('[data-card-field]').forEach((input) => input.addEventListener('change', () => updateCard(input.dataset.cardId, { [input.dataset.cardField]: normalizeInput(input.value) })));
-  document.querySelectorAll('[data-cycle-field]').forEach((input) => input.addEventListener('change', () => updateCard(input.dataset.cardId, { cycle: { [input.dataset.cycleField]: normalizeInput(input.value) } })));
-  document.querySelectorAll('[data-money-input]').forEach((input) => input.addEventListener('input', () => {
-    const digits = String(input.value).replace(/[^\d]/g, '');
-    input.value = digits ? formatNumberInput(digits) : '';
-  }));
-  document.querySelector('.detail-settings')?.addEventListener('toggle', (event) => {
-    state = { ...state, cardSettingsOpen: event.target.open };
-    persistState(state);
-  });
-  document.querySelectorAll('details.benefit-card').forEach((el) => el.addEventListener('toggle', () => {
-    if (el.open) openBenefits.add(el.dataset.benefitId);
-    else openBenefits.delete(el.dataset.benefitId);
-  }));
-  document.querySelectorAll('[data-card-memo]').forEach((input) => input.addEventListener('blur', () => updateCard(input.dataset.cardMemo, { memo: input.value })));
-
-  document.querySelectorAll('[data-usage-field]').forEach((input) => {
-    const isMemo = input.dataset.usageField === 'memo';
-    const saveUsageField = () => {
-      const value = isMemo ? input.value : Number(String(input.value).replace(/[^\d]/g, '') || 0);
-      updateUsage(input.dataset.benefitId, { [input.dataset.usageField]: value });
-    };
-    if (isMemo) {
-      input.addEventListener('blur', saveUsageField);
-    } else {
-      input.addEventListener('change', saveUsageField);
-      input.addEventListener('blur', saveUsageField);
-    }
-  });
-  document.querySelectorAll('[data-usage-check]').forEach((input) => input.addEventListener('change', () => updateUsage(input.dataset.benefitId, { [input.dataset.usageCheck]: input.checked })));
-  document.querySelectorAll('[data-count-plus]').forEach((button) => button.addEventListener('click', () => bumpCount(button.dataset.countPlus, 1)));
-  document.querySelectorAll('[data-count-minus]').forEach((button) => button.addEventListener('click', () => bumpCount(button.dataset.countMinus, -1)));
+  bindDetailMainEvents(document);
 
   document.querySelectorAll('details.settings-accordion').forEach((el) => el.addEventListener('toggle', () => {
     if (el.open) openSettings.add(el.dataset.settingsId);
