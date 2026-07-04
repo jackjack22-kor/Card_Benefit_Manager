@@ -187,12 +187,13 @@ function renderDashboardCard(card, kind) {
 
   return `
     <article class="dashboard-card theme-${card.theme} ${kind}" draggable="${state.isSortingCards ? 'true' : 'false'}" data-card-id="${card.id}" data-open-card="${card.id}">
-      <div class="card-topline">
-        <div>
+      <div class="dashboard-card-head">
+        <div class="dashboard-card-copy">
           <span class="issuer">${escapeHtml(card.issuer)}</span>
           <h3>${escapeHtml(card.shortName)}</h3>
+          <span class="status-badge ${override.prevMonthStatus}">${prevLabel}</span>
         </div>
-        <span class="status-badge ${override.prevMonthStatus}">${prevLabel}</span>
+        ${renderCardImage(card, 'card-thumb')}
       </div>
       <div class="progress-block">
         <div class="progress-row">
@@ -212,6 +213,11 @@ function renderDashboardCard(card, kind) {
       ` : ''}
     </article>
   `;
+}
+
+function renderCardImage(card, className = 'card-image') {
+  if (!card.image) return '';
+  return `<figure class="${className}"><img src="${escapeHtml(card.image)}" alt="${escapeHtml(card.shortName)} 카드 이미지" loading="lazy"></figure>`;
 }
 
 function renderRecommend() {
@@ -324,19 +330,24 @@ function renderCardDetail() {
       </aside>
       <div class="detail-main">
         <section class="detail-card theme-${selected.theme}">
-          <div class="detail-title">
-            <div>
-              <span class="issuer">${escapeHtml(selected.issuer)}</span>
-              <h2>${escapeHtml(selected.name)}</h2>
-              <p>${escapeHtml(selected.sourceNote || '')}</p>
+          <div class="detail-hero">
+            <div class="detail-copy">
+              <div class="detail-title">
+                <div>
+                  <span class="issuer">${escapeHtml(selected.issuer)}</span>
+                  <h2>${escapeHtml(selected.name)}</h2>
+                  <p>${escapeHtml(selected.sourceNote || '')}</p>
+                </div>
+                <span class="annual-fee">연회비 ${selected.annualFee ? won(selected.annualFee) : '확인 필요'}</span>
+              </div>
+              <div class="summary-grid">
+                ${renderMetric('전월실적', prevMonthLabel(override.prevMonthStatus), override.prevMonthStatus === 'met' ? 'good' : override.prevMonthStatus === 'unmet' ? 'bad' : 'warn')}
+                ${renderMetric('이번달 실적', monthlyMetricText(selected, override), getMonthlyShortfall(selected, override) ? 'warn' : 'good')}
+                ${renderMetric('연간 실적', annualMetricText(override, annualSpend, annualShortfall), annualShortfall ? 'warn' : 'good')}
+                ${renderMetric('현재 주기', cycle.label, 'neutral')}
+              </div>
             </div>
-            <span class="annual-fee">연회비 ${selected.annualFee ? won(selected.annualFee) : '확인 필요'}</span>
-          </div>
-          <div class="summary-grid">
-            ${renderMetric('전월실적', prevMonthLabel(override.prevMonthStatus), override.prevMonthStatus === 'met' ? 'good' : override.prevMonthStatus === 'unmet' ? 'bad' : 'warn')}
-            ${renderMetric('이번달 실적', monthlyMetricText(selected, override), getMonthlyShortfall(selected, override) ? 'warn' : 'good')}
-            ${renderMetric('연간 실적', annualMetricText(override, annualSpend, annualShortfall), annualShortfall ? 'warn' : 'good')}
-            ${renderMetric('현재 주기', cycle.label, 'neutral')}
+            ${renderCardImage(selected, 'detail-card-image')}
           </div>
           <div class="benefit-chips prominent">
             ${coreBenefits.map((benefit) => `<span>${escapeHtml(getBenefitHomeStatus(state, selected, benefit, selectedDate()))}</span>`).join('')}

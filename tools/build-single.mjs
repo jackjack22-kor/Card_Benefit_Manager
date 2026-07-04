@@ -1,4 +1,4 @@
-import { mkdir, readFile, writeFile } from 'node:fs/promises';
+import { cp, mkdir, readFile, writeFile } from 'node:fs/promises';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -25,6 +25,7 @@ function escapeInlineStyle(source) {
 }
 
 await mkdir(distDir, { recursive: true });
+await cp(join(root, 'image'), join(distDir, 'image'), { recursive: true, force: true });
 
 const html = await readFile(indexPath, 'utf8');
 const cssTagPattern = /<link\b(?=[^>]*rel="stylesheet")[^>]*>/;
