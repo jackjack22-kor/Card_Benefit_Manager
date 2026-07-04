@@ -68,6 +68,11 @@ function setState(patch) {
   render();
 }
 
+function updateUiState(patch) {
+  state = { ...state, ...patch };
+  state = saveState(state, { touch: false });
+}
+
 // 데이터 변경: 로컬 저장 + 클라우드 동기화 큐잉
 function persistState(nextState) {
   state = saveState(nextState);
@@ -333,8 +338,6 @@ function renderRecommend() {
   const subcategory = state.selectedSubcategory || '';
   const amount = Number(state.recommendationAmount || 0);
   const subcategories = getSubcategories(category);
-  const valueResults = recommendCards(state, category, amount, subcategory);
-  const fillResults = getFillSpendRecommendations(state, category, amount, subcategory);
 
   return `
     <section class="page-head">
@@ -354,7 +357,16 @@ function renderRecommend() {
         : '<p class="selector-note">이 업종은 현재 세부 사용처보다 카드사 업종 분류 확인이 더 중요합니다.</p>'}
     </section>
 
-    <section class="recommend-columns">
+    ${renderRecommendColumns(category, subcategory, amount, subcategories)}
+  `;
+}
+
+function renderRecommendColumns(category, subcategory, amount, subcategories = getSubcategories(category)) {
+  const valueResults = recommendCards(state, category, amount, subcategory);
+  const fillResults = getFillSpendRecommendations(state, category, amount, subcategory);
+
+  return `
+    <section class="recommend-columns" data-recommend-results>
       <div>
         <div class="list-head">
           <span class="eyebrow">A. VALUE</span>
@@ -377,6 +389,16 @@ function renderRecommend() {
       </aside>
     </section>
   `;
+}
+
+function updateRecommendationAmount(value) {
+  updateUiState({ recommendationAmount: value });
+  const container = document.querySelector('[data-recommend-results]');
+  if (!container) return;
+  const category = state.selectedCategory;
+  const subcategory = state.selectedSubcategory || '';
+  container.outerHTML = renderRecommendColumns(category, subcategory, value, getSubcategories(category));
+  bindOpenCardEvents(document.querySelector('[data-recommend-results]') || document);
 }
 
 function renderCategoryPills(category) {
@@ -882,6 +904,22 @@ function bindDetailMainEvents(root) {
   root.querySelectorAll('[data-count-minus]').forEach((button) => button.addEventListener('click', () => bumpCount(button.dataset.countMinus, -1)));
 }
 
+function bindOpenCardEvents(root = document) {
+  root.querySelectorAll('[data-open-card]').forEach((el) => el.addEventListener('click', (event) => {
+    if (event.target.closest('button, input, select, textarea, summary, details')) return;
+    if (state.isSortingCards && el.classList.contains('dashboard-card')) return;
+    if (suppressNextOpen) {
+      suppressNextOpen = false;
+      event.preventDefault();
+      event.stopPropagation();
+      return;
+    }
+    commitActiveMonthlyCardInput();
+    setState({ selectedTab: 'cards', selectedCardId: el.dataset.openCard });
+  }));
+  root.querySelectorAll('[data-open-card]').forEach(commitMonthlyInputBeforeAction);
+}
+
 function bindEvents() {
   document.querySelectorAll('[data-tab]').forEach((button) => {
     commitMonthlyInputBeforeAction(button);
@@ -906,19 +944,7 @@ function bindEvents() {
     setState({ selectedMonth: getMonthKey() });
   });
 
-  document.querySelectorAll('[data-open-card]').forEach((el) => el.addEventListener('click', (event) => {
-    if (event.target.closest('button, input, select, textarea, summary, details')) return;
-    if (state.isSortingCards && el.classList.contains('dashboard-card')) return;
-    if (suppressNextOpen) {
-      suppressNextOpen = false;
-      event.preventDefault();
-      event.stopPropagation();
-      return;
-    }
-    commitActiveMonthlyCardInput();
-    setState({ selectedTab: 'cards', selectedCardId: el.dataset.openCard });
-  }));
-  document.querySelectorAll('[data-open-card]').forEach(commitMonthlyInputBeforeAction);
+  bindOpenCardEvents(document);
   document.querySelectorAll('[data-select-card]').forEach((el) => {
     commitMonthlyInputBeforeAction(el);
     el.addEventListener('click', () => selectCard(el.dataset.selectCard));
@@ -936,7 +962,12 @@ function bindEvents() {
   document.querySelector('[data-toggle-subcategories]')?.addEventListener('click', () => { subcategoryExpanded = !subcategoryExpanded; render(); });
   document.querySelectorAll('[data-category]').forEach((button) => button.addEventListener('click', () => { subcategoryExpanded = false; setState({ selectedCategory: button.dataset.category, selectedSubcategory: '' }); }));
   document.querySelectorAll('[data-subcategory]').forEach((button) => button.addEventListener('click', () => setState({ selectedSubcategory: button.dataset.subcategory || '' })));
-  document.querySelector('[data-field="recommendationAmount"]')?.addEventListener('change', (event) => setState({ recommendationAmount: Number(String(event.target.value).replace(/[^\d]/g, '') || 0) }));
+  document.querySelector('[data-field="recommendationAmount"]')?.addEventListener('input', (event) => {
+    updateRecommendationAmount(Number(String(event.target.value).replace(/[^\d]/g, '') || 0));
+  });
+  document.querySelector('[data-field="recommendationAmount"]')?.addEventListener('change', (event) => {
+    updateRecommendationAmount(Number(String(event.target.value).replace(/[^\d]/g, '') || 0));
+  });
   document.querySelectorAll('[data-point-value]').forEach((input) => input.addEventListener('change', () => updatePointValue(input.dataset.pointValue, input.value)));
 
   document.querySelector('[data-action="export-json"]')?.addEventListener('click', exportJson);

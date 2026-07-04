@@ -259,11 +259,13 @@ export function getBenefitHomeStatus(state, card, benefit, date = selectedDate(s
   const usage = getBenefitUsage(state, benefit.id, monthKey);
   const override = getCardOverride(state, card.id);
   const prevSpend = inferPrevSpend(card, override);
+  const monthSpend = Number(state.monthlyCardUsage?.[monthKey]?.[card.id]?.currentMonthSpend || override.currentMonthSpend || 0);
+  const capBasis = Math.max(prevSpend, monthSpend);
   const annualCount = getAnnualUsageCount(state, card, benefit, date);
   const monthlyCount = Number(usage.count || 0) + (usage.checked ? 1 : 0) + (usage.tx1 ? 1 : 0) + (usage.tx2 ? 1 : 0);
 
   if (benefit.type === 'amount_cap' || benefit.type === 'amount_cap_pool' || benefit.type === 'reward_cap_pool') {
-    const cap = calculateMonthlyCap(benefit, prevSpend);
+    const cap = calculateMonthlyCap(benefit, capBasis);
     const used = getMonthlyBenefitValueForBenefit(state, card, benefit, monthKey);
     return `${benefit.homeLabel || benefit.name} ${Math.min(used, cap).toLocaleString()}${cap ? `/${cap.toLocaleString()}` : ''}`;
   }
@@ -486,7 +488,7 @@ function estimateBenefitValue(state, card, benefit, categoryId, amount, prevSpen
     let rate = 0;
     let reason = '';
     if (benefit.pointsPer1000) {
-      const points = (amount / 1000) * benefit.pointsPer1000;
+      const points = Math.min((amount / 1000) * benefit.pointsPer1000, benefit.monthlyPointCap || Infinity);
       value = points * pointValue;
       rate = value / Math.max(amount, 1);
       reason = `${benefit.name}: ${Math.round(points).toLocaleString('ko-KR')}P/마일 x ${pointValue.toLocaleString('ko-KR')}원 가치`;
