@@ -34,7 +34,12 @@ let state = loadState();
 const app = document.querySelector('#app');
 let suppressNextOpen = false;
 const openBenefits = new Set();
+const openSettings = new Set();
+let categoryExpanded = false;
+let subcategoryExpanded = false;
 let syncStatus = getInitialSyncStatus();
+
+const PRIMARY_CATEGORIES = ['coffee', 'transit', 'movie', 'department', 'medical', 'simplepay', 'overseas'];
 
 function selectedMonthKey() {
   return state.selectedMonth || getMonthKey();
@@ -137,19 +142,19 @@ function renderHeader() {
           <span class="brand-sub">카드 혜택 매니저</span>
         </div>
       </div>
-      ${renderMonthNavigator()}
       <button class="icon-button" data-action="toggle-dark" aria-label="테마 변경">${themeIcon}</button>
     </header>
   `;
 }
 
-function renderMonthNavigator() {
+function renderMonthStepper() {
+  const isThisMonth = selectedMonthKey() === getMonthKey();
   return `
-    <div class="month-nav" aria-label="월 이동">
+    <div class="month-stepper" aria-label="월 이동">
       <button data-month-move="-1" aria-label="이전 달">‹</button>
       <strong>${formatMonthLabel(selectedMonthKey())}</strong>
       <button data-month-move="1" aria-label="다음 달">›</button>
-      <button class="today-button" data-month-today>이번달</button>
+      ${isThisMonth ? '' : '<button class="today-button" data-month-today>오늘</button>'}
     </div>
   `;
 }
@@ -164,8 +169,8 @@ function renderTabs() {
   };
   const tabs = [
     ['dashboard', '카드현황'],
-    ['recommend', '결제추천'],
     ['cards', '카드상세'],
+    ['recommend', '결제추천'],
     ['settings', '설정/백업']
   ];
   return `<nav class="tabs">${tabs.map(([id, label]) => `<button class="tab ${state.selectedTab === id ? 'active' : ''}" data-tab="${id}">${icons[id]}<span>${label}</span></button>`).join('')}</nav>`;
@@ -182,27 +187,40 @@ function renderDashboard() {
   const managed = cards.filter((card) => Number(getCardOverride(state, card.id).monthlyTarget || 0) > 0);
   const filledCount = managed.length - shortfallCards.length;
   const shortfallSum = shortfallCards.reduce((sum, card) => sum + getMonthlyShortfall(card, getCardOverride(state, card.id)), 0);
+  const totalSpend = cards.reduce((sum, card) => sum + Number(getCardOverride(state, card.id).currentMonthSpend || 0), 0);
 
   return `
     <section class="page-head compact-head">
+      <div class="head-top">
+        ${renderMonthStepper()}
+        ${renderOverflowMenu(`<button data-action="toggle-sort">${state.isSortingCards ? '정렬 완료' : '카드 순서 정렬'}</button>`)}
+      </div>
       <div>
-        <h2>${formatMonthLabel(selectedMonthKey())} 카드 현황</h2>
+        <h2>카드 현황</h2>
         <p>각 카드의 전월실적 충족 여부와 이번달 실적 달성 여부만 빠르게 확인합니다.</p>
       </div>
-      <button class="ghost" data-action="toggle-sort">${state.isSortingCards ? '정렬 완료' : '정렬'}</button>
     </section>
     <div class="summary-strip">
       <div class="summary-chip">
-        <span>이번달 채운 카드</span>
-        <strong>${filledCount} <em>/ ${managed.length}</em></strong>
+        <span>이번달 총 사용 금액</span>
+        <strong>${won(totalSpend)}</strong>
       </div>
       <div class="summary-chip ${shortfallSum ? 'warn' : 'good'}">
         <span>채울 실적 합계</span>
-        <strong>${shortfallSum ? won(shortfallSum) : '모두 달성'}</strong>
+        <strong>${shortfallSum ? won(shortfallSum) : '모두 달성'} <em>${filledCount} / ${managed.length} 달성</em></strong>
       </div>
     </div>
     ${renderDashboardGroup('실적 부족 카드', shortfallCards, 'shortfall')}
     ${renderDashboardGroup('실적 충족/관리 카드', completeCards, 'complete')}
+  `;
+}
+
+function renderOverflowMenu(itemsHtml) {
+  return `
+    <details class="overflow-menu">
+      <summary aria-label="더보기"><span class="dots">⋯</span></summary>
+      <div class="overflow-list">${itemsHtml}</div>
+    </details>
   `;
 }
 
@@ -285,15 +303,9 @@ function renderRecommend() {
     </section>
 
     <section class="picker-panel">
-      <div class="category-pills">
-        ${CATEGORIES.filter((c) => !['breakfast', 'premiumgift'].includes(c.id)).map((cat) => `<button class="${category === cat.id ? 'active' : ''}" data-category="${cat.id}">${cat.label}</button>`).join('')}
-      </div>
-      ${subcategories.length ? `
-        <div class="subcategory-pills">
-          <button class="${!subcategory ? 'active' : ''}" data-subcategory="">전체</button>
-          ${subcategories.map((item) => `<button class="${subcategory === item.id ? 'active' : ''}" data-subcategory="${item.id}">${item.label}</button>`).join('')}
-        </div>
-      ` : '<p class="selector-note">이 업종은 현재 세부 사용처보다 카드사 업종 분류 확인이 더 중요합니다.</p>'}
+      ${renderCategoryPills(category)}
+      ${subcategories.length ? renderSubcategoryPills(subcategories, subcategory)
+        : '<p class="selector-note">이 업종은 현재 세부 사용처보다 카드사 업종 분류 확인이 더 중요합니다.</p>'}
     </section>
 
     <section class="recommend-columns">
@@ -318,6 +330,39 @@ function renderRecommend() {
         </div>
       </aside>
     </section>
+  `;
+}
+
+function renderCategoryPills(category) {
+  const visible = CATEGORIES.filter((c) => !['breakfast', 'premiumgift'].includes(c.id));
+  const primary = PRIMARY_CATEGORIES.map((id) => visible.find((c) => c.id === id)).filter(Boolean);
+  const rest = visible.filter((c) => !PRIMARY_CATEGORIES.includes(c.id));
+  const shown = categoryExpanded ? [...primary, ...rest] : [...primary];
+  if (!categoryExpanded && !shown.some((c) => c.id === category)) {
+    const sel = visible.find((c) => c.id === category);
+    if (sel) shown.push(sel);
+  }
+  return `
+    <div class="category-pills">
+      ${shown.map((cat) => `<button class="${category === cat.id ? 'active' : ''}" data-category="${cat.id}">${escapeHtml(cat.label)}</button>`).join('')}
+      ${rest.length ? `<button class="more-pill" data-toggle-categories>${categoryExpanded ? '접기' : '더보기'}</button>` : ''}
+    </div>
+  `;
+}
+
+function renderSubcategoryPills(subcategories, subcategory) {
+  const shown = subcategoryExpanded ? subcategories : subcategories.slice(0, 3);
+  if (!subcategoryExpanded && subcategory && !shown.some((s) => s.id === subcategory)) {
+    const sel = subcategories.find((s) => s.id === subcategory);
+    if (sel) shown.push(sel);
+  }
+  const hasMore = subcategories.length > shown.length || (subcategoryExpanded && subcategories.length > 3);
+  return `
+    <div class="subcategory-pills">
+      <button class="${!subcategory ? 'active' : ''}" data-subcategory="">전체</button>
+      ${shown.map((item) => `<button class="${subcategory === item.id ? 'active' : ''}" data-subcategory="${item.id}">${escapeHtml(item.label)}</button>`).join('')}
+      ${hasMore ? `<button class="more-pill" data-toggle-subcategories>${subcategoryExpanded ? '접기' : '더보기'}</button>` : ''}
+    </div>
   `;
 }
 
@@ -375,11 +420,18 @@ function renderCardDetail() {
   const coreBenefits = selected.benefits.filter((benefit) => benefit.priority === 'core').slice(0, 6);
 
   return `
-    <section class="detail-layout">
-      <aside class="card-list-panel">
-        <h3>카드 목록</h3>
-        ${getOrderedCards(state).map((card) => `<button class="card-list-item ${selected.id === card.id ? 'active' : ''}" data-select-card="${card.id}">${escapeHtml(card.shortName)}</button>`).join('')}
-      </aside>
+    <section class="detail-view">
+      <div class="detail-topbar">
+        ${renderMonthStepper()}
+      </div>
+      <div class="card-strip">
+        ${getOrderedCards(state).map((card) => `
+          <button class="card-strip-item ${selected.id === card.id ? 'active' : ''}" data-select-card="${card.id}" title="${escapeHtml(card.shortName)}">
+            ${card.image ? `<img src="${escapeHtml(card.image)}" alt="" loading="lazy">` : '<span class="card-strip-fallback"></span>'}
+            <span class="card-strip-name">${escapeHtml(card.shortName)}</span>
+          </button>
+        `).join('')}
+      </div>
       <div class="detail-main">
         <section class="detail-card theme-${selected.theme}">
           <div class="detail-hero">
@@ -626,45 +678,51 @@ function renderBenefitControls(benefit, usage, cap) {
 
 function renderSettings() {
   return `
-    <section class="settings-grid">
-      <div class="settings-card full-span">
-        <h3>GitHub Pages 사용 안내</h3>
-        <p>GitHub Pages 주소를 스마트폰 브라우저에서 열어 사용합니다. 비로그인 상태의 개인 데이터는 현재 브라우저의 localStorage에만 저장되고, Google 로그인 시 Firebase Firestore와 동기화됩니다.</p>
+    <section class="page-head compact-head">
+      <div>
+        <h2>설정 · 백업</h2>
+        <p>동기화, 포인트 가치, 백업을 관리합니다.</p>
       </div>
+    </section>
+    <div class="settings-list">
       ${renderCloudSyncCard()}
-      ${renderBackupNotice('settings-card full-span')}
-      <div class="settings-card">
-        <h3>포인트 가치</h3>
+      ${renderSettingsSection('points', '포인트 가치', `
         <p>추천 탭의 예상 혜택 계산에 사용합니다.</p>
         ${Object.entries(state.settings.pointValues).map(([key, value]) => `<label>${escapeHtml(pointLabel(key))}<input type="number" step="0.1" value="${value}" data-point-value="${key}"></label>`).join('')}
-      </div>
-      <div class="settings-card">
-        <h3>카드 순서 편집</h3>
+      `)}
+      ${renderSettingsSection('order', '카드 순서 편집', `
         <p>카드현황 화면 표시 순서입니다.</p>
         <div class="order-list">
           ${getOrderedCards(state).map((card) => `<div><span>${escapeHtml(card.shortName)}</span><button data-move-up="${card.id}">위</button><button data-move-down="${card.id}">아래</button></div>`).join('')}
         </div>
-      </div>
-      <div class="settings-card">
-        <h3>백업/복원</h3>
-        <p>폰 변경, 브라우저 변경, 사이트 데이터 삭제에 대비하려면 JSON 백업이 필요합니다. iPhone Safari에서도 Pages 주소로 접속한 상태라면 내보내기/불러오기가 가능합니다.</p>
-        <p>마지막 백업: <strong>${escapeHtml(lastBackupLabel())}</strong> · 앱 버전 ${escapeHtml(APP_VERSION)}</p>
+      `)}
+      ${renderSettingsSection('backup', '백업 / 복원', `
+        <p>JSON 백업으로 데이터를 다른 기기로 옮기거나 복원합니다.</p>
+        <p class="sync-meta">마지막 백업: <strong>${escapeHtml(lastBackupLabel())}</strong> · 앱 버전 ${escapeHtml(APP_VERSION)}</p>
         <div class="backup-actions">
           <button data-action="export-json">JSON 내보내기</button>
           <label class="file-button">JSON 불러오기<input type="file" accept="application/json" data-action="import-json"></label>
           <button class="danger" data-action="reset-all">초기화</button>
         </div>
         <textarea id="backupBox" placeholder="내보낸 JSON이 여기에 표시됩니다."></textarea>
-      </div>
-      <div class="settings-card">
-        <h3>데이터 이동 순서</h3>
-        <p>1. 기존 스마트폰에서 JSON 내보내기</p>
-        <p>2. 백업 JSON을 새 스마트폰으로 이동</p>
-        <p>3. 새 스마트폰에서 GitHub Pages 주소 접속</p>
-        <p>4. JSON 불러오기로 기존 설정과 혜택 사용내역 복원</p>
-        <p>백업 JSON에는 개인 카드 사용 패턴이 들어가므로 공개 저장소에 올리지 마세요.</p>
-      </div>
-    </section>
+        <div class="section-note">
+          <p><strong>데이터 이동 순서</strong>: ① 기존 기기에서 JSON 내보내기 → ② 파일을 새 기기로 이동 → ③ 새 기기에서 접속 → ④ JSON 불러오기로 복원</p>
+          <p>백업 JSON에는 개인 카드 사용 패턴이 들어가므로 공개 저장소에 올리지 마세요.</p>
+        </div>
+      `)}
+      ${renderSettingsSection('about', '앱 / 저장 안내', `
+        <p>GitHub Pages 주소를 브라우저에서 열어 사용합니다. 비로그인 데이터는 이 브라우저의 localStorage에만 저장되고, Google 로그인 시 Firebase Firestore와 동기화됩니다.</p>
+      `)}
+    </div>
+  `;
+}
+
+function renderSettingsSection(id, title, bodyHtml) {
+  return `
+    <details class="settings-card settings-accordion" data-settings-id="${id}" ${openSettings.has(id) ? 'open' : ''}>
+      <summary>${escapeHtml(title)}</summary>
+      <div class="settings-body">${bodyHtml}</div>
+    </details>
   `;
 }
 
@@ -682,16 +740,21 @@ function renderCloudSyncCard() {
         <span class="sync-status ${escapeHtml(syncStatus.state)}">${escapeHtml(statusText)}</span>
       </div>
       ${user ? `
-        <div class="sync-account">
-          <strong>${escapeHtml(user.displayName || 'Google 계정')}</strong>
-          <span>${escapeHtml(user.email || '')}</span>
-        </div>
-        <p class="sync-meta">마지막 동기화: <strong>${escapeHtml(syncStatus.lastSyncedAt ? formatDateTime(syncStatus.lastSyncedAt) : '아직 없음')}</strong></p>
-        ${syncStatus.error ? `<p class="sync-error">${escapeHtml(syncStatus.error)}</p>` : ''}
         <div class="backup-actions">
           <button data-action="cloud-sync-now">지금 동기화</button>
-          <button data-action="cloud-signout">로그아웃</button>
         </div>
+        <details class="mini-expand">
+          <summary>계정 정보</summary>
+          <div class="sync-account">
+            <strong>${escapeHtml(user.displayName || 'Google 계정')}</strong>
+            <span>${escapeHtml(user.email || '')}</span>
+          </div>
+          <p class="sync-meta">마지막 동기화: <strong>${escapeHtml(syncStatus.lastSyncedAt ? formatDateTime(syncStatus.lastSyncedAt) : '아직 없음')}</strong></p>
+          ${syncStatus.error ? `<p class="sync-error">${escapeHtml(syncStatus.error)}</p>` : ''}
+          <div class="backup-actions">
+            <button data-action="cloud-signout">로그아웃</button>
+          </div>
+        </details>
       ` : `
         <p class="sync-meta">로그인하지 않아도 앱은 지금처럼 로컬 전용으로 계속 사용할 수 있습니다.</p>
         ${syncStatus.error ? `<p class="sync-error">${escapeHtml(syncStatus.error)}</p>` : ''}
@@ -769,7 +832,13 @@ function bindEvents() {
   document.querySelectorAll('[data-count-plus]').forEach((button) => button.addEventListener('click', () => bumpCount(button.dataset.countPlus, 1)));
   document.querySelectorAll('[data-count-minus]').forEach((button) => button.addEventListener('click', () => bumpCount(button.dataset.countMinus, -1)));
 
-  document.querySelectorAll('[data-category]').forEach((button) => button.addEventListener('click', () => setState({ selectedCategory: button.dataset.category, selectedSubcategory: '' })));
+  document.querySelectorAll('details.settings-accordion').forEach((el) => el.addEventListener('toggle', () => {
+    if (el.open) openSettings.add(el.dataset.settingsId);
+    else openSettings.delete(el.dataset.settingsId);
+  }));
+  document.querySelector('[data-toggle-categories]')?.addEventListener('click', () => { categoryExpanded = !categoryExpanded; render(); });
+  document.querySelector('[data-toggle-subcategories]')?.addEventListener('click', () => { subcategoryExpanded = !subcategoryExpanded; render(); });
+  document.querySelectorAll('[data-category]').forEach((button) => button.addEventListener('click', () => { subcategoryExpanded = false; setState({ selectedCategory: button.dataset.category, selectedSubcategory: '' }); }));
   document.querySelectorAll('[data-subcategory]').forEach((button) => button.addEventListener('click', () => setState({ selectedSubcategory: button.dataset.subcategory || '' })));
   document.querySelector('[data-field="recommendationAmount"]')?.addEventListener('change', (event) => setState({ recommendationAmount: Number(String(event.target.value).replace(/[^\d]/g, '') || 0) }));
   document.querySelectorAll('[data-point-value]').forEach((input) => input.addEventListener('change', () => updatePointValue(input.dataset.pointValue, input.value)));
