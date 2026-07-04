@@ -664,16 +664,16 @@ export const CARDS = [
     name: '쿠팡 와우카드',
     shortName: '쿠팡 와우카드',
     theme: 'navy',
-    image: '',
+    image: 'image/clean/coupang-wow-card.png',
     annualFee: 0,
     defaultCycle: { type: 'calendar', startMonth: 1 },
     monthlyTargets: [],
     defaultMonthlyTarget: 0,
     annualTargets: [],
     tags: ['쿠팡', '와우', '참고용', '월 사용액'],
-    sourceNote: '참고용 카드. 쿠팡 결제 월 사용액 확인 목적으로만 관리.',
+    sourceNote: '참고용 카드. 쿠팡 결제 월 사용액과 쿠팡캐시 4% 적립 효과 확인 목적으로 관리.',
     benefits: [
-      { id: 'coupang-wow-reference', name: '쿠팡 결제 사용액 참고', type: 'info', priority: 'normal', categories: ['other'], summary: '쿠팡 결제에 사용하는 카드의 월 사용액을 추적하기 위한 참고용 항목', targets: '쿠팡, 쿠팡이츠, 쿠팡플레이 등 쿠팡 계열 결제 확인용', exclusions: '정확한 적립률·한도는 공식 상품설명서 확인 후 별도 반영 필요', conditions: '월 실적 목표 없이 이번달 사용액만 입력해 관리. 결제추천에는 반영하지 않음.', homeLabel: '쿠팡' }
+      { id: 'coupang-wow-cashback', name: '쿠팡캐시 4% 적립', type: 'amount_cap', priority: 'normal', categories: ['other'], rate: 0.04, deriveFromMonthlySpend: true, summary: '쿠팡 결제 월 사용액 기준 쿠팡캐시 4% 적립 효과를 실사용 혜택률에 자동 반영', targets: '쿠팡, 쿠팡이츠, 쿠팡플레이 등 쿠팡 계열 결제 확인용', exclusions: '참고용 카드로 결제추천에는 반영하지 않음. 정확한 월 한도·제외 조건은 공식 상품설명서 확인 필요', conditions: '월 실적 목표 없이 이번달 사용액만 입력하면 혜택률 계산에 4%를 자동 반영', homeLabel: '쿠팡캐시' }
     ]
   }
 ];

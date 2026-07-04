@@ -87,6 +87,14 @@ export function getMonthlyBenefitValue(state, card, monthKey = selectedMonthKey(
   return (card.benefits || []).reduce((sum, benefit) => {
     if (!isPracticalBenefitValue(benefit)) return sum;
     const usage = getBenefitUsage(state, benefit.id, monthKey);
+    if (benefit.deriveFromMonthlySpend && !hasExplicitBenefitValue(usage)) {
+      const override = {
+        ...(state.cardOverrides?.[card.id] || {}),
+        ...(state.monthlyCardUsage?.[monthKey]?.[card.id] || {})
+      };
+      const monthlySpend = Number(override.currentMonthSpend || 0);
+      return sum + Math.round(monthlySpend * calculateRate(benefit, inferPrevSpend(card, override)));
+    }
     return sum + readBenefitValue(usage);
   }, 0);
 }
@@ -108,6 +116,10 @@ function isPracticalBenefitValue(benefit) {
 function readBenefitValue(usage = {}) {
   if (Object.prototype.hasOwnProperty.call(usage, 'benefitValue')) return Number(usage.benefitValue || 0);
   return Number(usage.usedBenefit || 0);
+}
+
+function hasExplicitBenefitValue(usage = {}) {
+  return Object.prototype.hasOwnProperty.call(usage, 'benefitValue') || Object.prototype.hasOwnProperty.call(usage, 'usedBenefit');
 }
 
 export function getAnnualSpend(state, card, date = selectedDate(state)) {
