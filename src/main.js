@@ -266,7 +266,7 @@ function renderRecommend() {
         <p>업종과 필요 시 세부 사용처를 고르면 해당 혜택만 추려서 계산 근거와 함께 보여줍니다.</p>
       </div>
       <label class="amount-input">결제 예정 금액
-        <input type="number" min="0" step="1000" value="${amount}" data-field="recommendationAmount">
+        <input type="text" inputmode="numeric" data-money-input value="${formatNumberInput(amount)}" data-field="recommendationAmount">
       </label>
     </section>
 
@@ -313,6 +313,7 @@ function renderRankItem(result, index, mode = 'value') {
   const shortfallLabel = result.monthlyShortfall
     ? `월 ${compactWon(result.monthlyShortfall)}`
     : result.annualShortfall ? `연 ${compactWon(result.annualShortfall)}` : '';
+  const isBlocked = mode === 'value' && result.value === 0 && result.conditions?.length;
 
   return `
     <article class="rank-item ${mode === 'fill' ? 'fill' : 'value'}" data-open-card="${result.card.id}">
@@ -321,17 +322,23 @@ function renderRankItem(result, index, mode = 'value') {
         <strong>${escapeHtml(result.card.shortName)}</strong>
         ${mode === 'fill' ? '' : `<span>${won(result.value)} 혜택 예상</span>`}
         <small class="${result.status.ok ? 'good-text' : result.status.ok === false ? 'bad-text' : 'muted'}">${escapeHtml(result.status.text)}</small>
-        <p>${escapeHtml(result.reason)}</p>
-        ${result.matching?.length ? `
-          <div class="calc-list">
-            ${result.matching.slice(0, 4).map((item) => `
-              <div>
-                <b>${escapeHtml(item.benefit.name)}</b>
-                <span>${escapeHtml(item.reason)}${item.value ? ` · ${won(item.value)}` : ''}</span>
-              </div>
-            `).join('')}
+        ${isBlocked ? `
+          <div class="rank-hint">
+            ${result.conditions.slice(0, 2).map((reason) => `<span><em>조건 미충족</em>${escapeHtml(reason)}</span>`).join('')}
           </div>
-        ` : ''}
+        ` : `
+          <p>${escapeHtml(result.reason)}</p>
+          ${result.matching?.length ? `
+            <div class="calc-list">
+              ${result.matching.slice(0, 4).map((item) => `
+                <div>
+                  <b>${escapeHtml(item.benefit.name)}</b>
+                  <span>${escapeHtml(item.reason)}${item.value ? ` · ${won(item.value)}` : ''}</span>
+                </div>
+              `).join('')}
+            </div>
+          ` : ''}
+        `}
       </div>
       <div class="rank-value">
         ${mode === 'fill'
@@ -568,8 +575,8 @@ function renderBenefitControls(benefit, usage, cap) {
   if (benefit.type === 'amount_cap' || benefit.type === 'amount_cap_pool' || benefit.type === 'reward_cap_pool') {
     return `
       <div class="benefit-controls">
-        <label>이번달 사용금액 <input type="number" min="0" value="${Number(usage.usedAmount || 0)}" data-usage-field="usedAmount" data-benefit-id="${benefit.id}"></label>
-        <label>이번달 혜택 사용액/적립액 <input type="number" min="0" value="${Number(usage.benefitValue || 0)}" data-usage-field="benefitValue" data-benefit-id="${benefit.id}"></label>
+        <label>이번달 사용금액 <input type="text" inputmode="numeric" data-money-input value="${formatNumberInput(usage.usedAmount)}" data-usage-field="usedAmount" data-benefit-id="${benefit.id}"></label>
+        <label>이번달 혜택 사용액/적립액 <input type="text" inputmode="numeric" data-money-input value="${formatNumberInput(usage.benefitValue)}" data-usage-field="benefitValue" data-benefit-id="${benefit.id}"></label>
         ${cap ? `<span class="remaining">남은 한도 ${won(Math.max(0, cap - Number(usage.benefitValue || 0)))}</span>` : ''}
       </div>`;
   }
@@ -579,7 +586,7 @@ function renderBenefitControls(benefit, usage, cap) {
         <button data-count-minus="${benefit.id}">−</button>
         <input type="number" min="0" value="${Number(usage.count || 0)}" data-usage-field="count" data-benefit-id="${benefit.id}">
         <button data-count-plus="${benefit.id}">+</button>
-        ${benefit.type === 'count_amount' ? `<input class="money-input" type="number" min="0" placeholder="혜택금액" value="${Number(usage.benefitValue || 0)}" data-usage-field="benefitValue" data-benefit-id="${benefit.id}">` : ''}
+        ${benefit.type === 'count_amount' ? `<input class="money-input" type="text" inputmode="numeric" data-money-input placeholder="혜택금액" value="${formatNumberInput(usage.benefitValue)}" data-usage-field="benefitValue" data-benefit-id="${benefit.id}">` : ''}
         <label class="inline-check"><input type="checkbox" ${usage.checked ? 'checked' : ''} data-usage-check="checked" data-benefit-id="${benefit.id}"> 이번달 사용함</label>
       </div>`;
   }
@@ -662,6 +669,7 @@ function bindEvents() {
 
   document.querySelectorAll('[data-open-card]').forEach((el) => el.addEventListener('click', (event) => {
     if (event.target.closest('button, input, select, textarea, summary, details')) return;
+    if (state.isSortingCards && el.classList.contains('dashboard-card')) return;
     if (suppressNextOpen) {
       suppressNextOpen = false;
       event.preventDefault();
@@ -692,12 +700,17 @@ function bindEvents() {
   document.querySelectorAll('[data-card-memo]').forEach((input) => input.addEventListener('blur', () => updateCard(input.dataset.cardMemo, { memo: input.value })));
 
   document.querySelectorAll('[data-usage-field]').forEach((input) => {
+    const isMemo = input.dataset.usageField === 'memo';
     const saveUsageField = () => {
-      const value = input.dataset.usageField === 'memo' ? input.value : Number(input.value || 0);
+      const value = isMemo ? input.value : Number(String(input.value).replace(/[^\d]/g, '') || 0);
       updateUsage(input.dataset.benefitId, { [input.dataset.usageField]: value });
     };
-    input.addEventListener(input.dataset.usageField === 'memo' ? 'input' : 'change', saveUsageField);
-    input.addEventListener('blur', saveUsageField);
+    if (isMemo) {
+      input.addEventListener('blur', saveUsageField);
+    } else {
+      input.addEventListener('change', saveUsageField);
+      input.addEventListener('blur', saveUsageField);
+    }
   });
   document.querySelectorAll('[data-usage-check]').forEach((input) => input.addEventListener('change', () => updateUsage(input.dataset.benefitId, { [input.dataset.usageCheck]: input.checked })));
   document.querySelectorAll('[data-count-plus]').forEach((button) => button.addEventListener('click', () => bumpCount(button.dataset.countPlus, 1)));
@@ -705,7 +718,7 @@ function bindEvents() {
 
   document.querySelectorAll('[data-category]').forEach((button) => button.addEventListener('click', () => setState({ selectedCategory: button.dataset.category, selectedSubcategory: '' })));
   document.querySelectorAll('[data-subcategory]').forEach((button) => button.addEventListener('click', () => setState({ selectedSubcategory: button.dataset.subcategory || '' })));
-  document.querySelector('[data-field="recommendationAmount"]')?.addEventListener('change', (event) => setState({ recommendationAmount: Number(event.target.value || 0) }));
+  document.querySelector('[data-field="recommendationAmount"]')?.addEventListener('change', (event) => setState({ recommendationAmount: Number(String(event.target.value).replace(/[^\d]/g, '') || 0) }));
   document.querySelectorAll('[data-point-value]').forEach((input) => input.addEventListener('change', () => updatePointValue(input.dataset.pointValue, input.value)));
 
   document.querySelector('[data-action="export-json"]')?.addEventListener('click', exportJson);

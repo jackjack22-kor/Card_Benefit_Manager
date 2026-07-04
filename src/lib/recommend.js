@@ -215,10 +215,16 @@ export function scoreCard(state, card, categoryId, amount, subcategoryId = '') {
       bestRate: 0,
       hasDirectMatch: false,
       matching: [],
+      conditions: [],
       status: statusText(override),
       reason: '선택한 사용처에 직접 연결되는 혜택이 없습니다.'
     };
   }
+
+  const conditions = matching
+    .filter((item) => item.isDirectMatch && (item.value || 0) <= 0 && (item.rate || 0) <= 0)
+    .map((item) => item.reason)
+    .filter(Boolean);
 
   const shortfall = getMonthlyShortfall(card, override);
   const annualShortfall = getAnnualShortfall(card, override, state);
@@ -236,6 +242,7 @@ export function scoreCard(state, card, categoryId, amount, subcategoryId = '') {
     bestRate,
     hasDirectMatch,
     matching,
+    conditions,
     status: statusText(override),
     reason: buildValueReason(matching, value)
   };
