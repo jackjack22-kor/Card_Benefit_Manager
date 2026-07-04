@@ -297,6 +297,12 @@ summary { color: var(--accent); cursor: pointer; font-weight: 800; }
 .settings-card label { margin: 10px 0; }
 .cloud-sync-card.good { border-color: color-mix(in srgb, var(--good) 42%, var(--line)); }
 .cloud-sync-card.warn { border-color: color-mix(in srgb, var(--warn) 50%, var(--line)); }
+.conflict-card { border-color: color-mix(in srgb, var(--warn) 55%, var(--line)); }
+.conflict-list { display: grid; gap: 12px; }
+.conflict-item { padding: 12px; border: 1px solid var(--line); border-radius: var(--r-sm); background: color-mix(in srgb, var(--warn) 9%, var(--surface)); }
+.conflict-values { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; margin: 10px 0; }
+.conflict-values span { min-width: 0; padding: 8px; border-radius: var(--r-sm); background: var(--surface-2); overflow-wrap: anywhere; }
+.conflict-values em { display: block; color: var(--muted); font-style: normal; font-size: 0.78rem; margin-bottom: 3px; }
 .cloud-sync-head { display: flex; justify-content: space-between; gap: 14px; align-items: flex-start; }
 .cloud-sync-head p { margin-bottom: 0; }
 .sync-status { display: inline-flex; align-items: center; justify-content: center; min-width: 84px; border: 1px solid var(--line); border-radius: var(--r-pill); padding: 7px 10px; background: var(--surface-2); color: var(--muted); font-size: 12px; font-weight: 900; white-space: nowrap; }

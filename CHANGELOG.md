@@ -5,6 +5,14 @@
 
 ## 2026-07-05
 
+### 구조 안정화 마무리
+- **동시 수정 충돌 표시/해결 추가**: 클라우드 저장 시 마지막 동기화 기준 상태와 로컬/원격 변경을 비교해 같은 필드가 서로 다르게 바뀐 경우 `syncConflicts`로 보존. 설정 탭에서 내 값 유지 또는 원격 값 적용을 선택할 수 있도록 충돌 카드 UI를 추가.
+- **Firebase 지연 로딩**: `main.js`의 Firebase 정적 import 경로를 제거하고 `lazySync.js`를 통해 설정 탭 진입/클라우드 액션 시점에만 Firebase Auth/Firestore 런타임을 불러오도록 변경. 검증 빌드 기준 초기 JS chunk가 약 794KB에서 약 116KB로 감소.
+- **CSP 적용**: GitHub Pages/인라인 빌드 구조를 깨지 않는 범위에서 `index.html`에 meta CSP를 추가. Firebase Auth/Firestore에 필요한 도메인을 명시적으로 허용하고 `object-src`, `base-uri`, `frame-src`, `connect-src` 등을 제한.
+- **main.js 책임 일부 분리**: 주요 업종, 원격 반영 시 보존할 UI 상태 키, 백업 파일 크기 제한을 `src/lib/ui/constants.js`로 분리. 큰 화면 렌더 함수는 회귀 위험을 고려해 유지.
+- **정렬 동기화 누락 보정**: 드래그 기반 카드 순서 변경도 `persistState()` 경로를 타도록 수정해 클라우드 저장 큐에 반영.
+- **회귀 방지 감사 추가**: `npm run audit:check`가 Firebase 런타임 동적 import, CSP meta 유지 여부를 함께 검사하도록 보강. 상세 내용은 `docs/STRUCTURAL_HARDENING_REPORT_2026-07-05.md`에 기록.
+
 ### 안정성/보안/성능 보강
 - **Firebase 동기화 저장 보강**: 클라우드 저장 시 Firestore transaction으로 최신 원격 문서를 다시 읽고 병합한 뒤 revision을 올리도록 변경. 저장 실패/종료 시 재시도 힌트를 남기는 pending 플래그를 추가하고, 원격 상태 적용 중 예외가 나도 `savingRemote`가 고정되지 않도록 `try/finally` 처리.
 - **명시적 0원 수동 고정 정책 추가**: `benefitValue: 0`만으로는 기존 자동계산을 유지하되, 사용자가 혜택금액을 직접 저장하면 `manualBenefitOverride`를 기록해 0원도 수동값으로 인정. 사용금액 입력으로 자동계산되는 경우에는 수동 고정을 해제.

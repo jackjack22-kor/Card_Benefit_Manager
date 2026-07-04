@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
 import { CARDS, POINT_DEFAULTS } from '../src/data/cards.js';
 import { CATEGORIES } from '../src/data/categories.js';
 import {
@@ -10,6 +11,9 @@ import {
 import { importState } from '../src/lib/storage.js';
 
 const MONTH = '2026-07';
+const mainSource = readFileSync(new URL('../src/main.js', import.meta.url), 'utf8');
+const lazySyncSource = readFileSync(new URL('../src/lib/sync/lazySync.js', import.meta.url), 'utf8');
+const indexHtml = readFileSync(new URL('../index.html', import.meta.url), 'utf8');
 
 function card(id) {
   const item = CARDS.find((candidate) => candidate.id === id);
@@ -88,6 +92,10 @@ if (unknownCategories.length) {
 
 assertEqual(getOrderedCards(baseState()).length, CARDS.length, 'all cards are orderable');
 assertEqual(getMonthlyShortfall(card('kb-talktalk-my-point'), { monthlyTarget: 200000, currentMonthSpend: 100000 }), 100000, 'monthly shortfall');
+assert.ok(!mainSource.includes('./lib/sync/syncManager.js'), 'main entry must not statically import Firebase sync runtime');
+assert.ok(lazySyncSource.includes("import('./syncManager.js')"), 'sync runtime must stay dynamically imported');
+assert.ok(indexHtml.includes('Content-Security-Policy'), 'index.html must include CSP meta');
+console.log('ok - sync runtime is lazy-loaded and CSP meta exists');
 
 assertEqual(monthlyValue('skt-woori-card', 300000), 10000, 'SKT Woori 300k telecom pattern');
 assertEqual(monthlyValue('skt-woori-card', 300000, { overrides: { 'skt-woori-card': { prevMonthStatus: 'unmet' } } }), 0, 'SKT Woori unmet blocks pattern');

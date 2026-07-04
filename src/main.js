@@ -26,14 +26,16 @@ import {
   setBenefitUsage
 } from './lib/recommend.js';
 import { clamp, compactWon, escapeHtml, pct, won } from './lib/format.js';
+import { MAX_BACKUP_FILE_SIZE, PRIMARY_CATEGORIES, UI_STATE_KEYS } from './lib/ui/constants.js';
 import {
   getInitialSyncStatus,
   initSync,
+  prepareCloudSync,
   queueCloudSave,
   requestCloudSignIn,
   requestCloudSignOut,
   requestCloudSyncNow
-} from './lib/sync/syncManager.js';
+} from './lib/sync/lazySync.js';
 
 let state = loadState();
 const app = document.querySelector('#app');
@@ -47,8 +49,6 @@ let suppressMonthlyInputRenderUntil = 0;
 let recommendationRenderTimer = 0;
 let storageErrorNotified = false;
 
-const PRIMARY_CATEGORIES = ['coffee', 'transit', 'movie', 'department', 'medical', 'simplepay', 'overseas'];
-
 window.addEventListener('cardfit-storage-error', (event) => {
   if (storageErrorNotified) return;
   storageErrorNotified = true;
@@ -56,8 +56,6 @@ window.addEventListener('cardfit-storage-error', (event) => {
 });
 
 // 화면 이동/보기 상태(기기별 로컬 전용, 클라우드 동기화·미러링 제외)
-const UI_STATE_KEYS = ['selectedTab', 'selectedMonth', 'selectedCategory', 'selectedSubcategory', 'recommendationAmount', 'isSortingCards', 'cardSettingsOpen', 'selectedCardId'];
-
 function selectedMonthKey() {
   return state.selectedMonth || getMonthKey();
 }
@@ -138,6 +136,14 @@ function commitMonthlyInputBeforeAction(element) {
   else element.addEventListener('touchstart', commitBeforeNavigation, { capture: true, passive: true });
 }
 
+function commitFocusedInputBeforeRemoteApply() {
+  const input = document.activeElement;
+  const isEditable = input instanceof HTMLInputElement || input instanceof HTMLSelectElement || input instanceof HTMLTextAreaElement;
+  if (!isEditable) return;
+  commitActiveMonthlyCardInput({ suppressRenderMs: 500 });
+  input.blur?.();
+}
+
 function updateSettings(patch) {
   // 테마 등 기기별 표시 설정: 로컬 전용
   state = { ...state, settings: { ...state.settings, ...patch } };
@@ -179,6 +185,7 @@ function render() {
     </div>
   `;
   bindEvents();
+  if (state.selectedTab === 'settings') prepareCloudSync();
 }
 
 function renderHeader() {
@@ -785,6 +792,7 @@ function renderSettings() {
     </section>
     <div class="settings-list">
       ${renderCloudSyncCard()}
+      ${renderSyncConflicts()}
       ${renderSettingsSection('points', '포인트 가치', `
         <p>추천 탭의 예상 혜택 계산에 사용합니다.</p>
         ${Object.entries(state.settings.pointValues).map(([key, value]) => `<label>${escapeHtml(pointLabel(key))}<input type="number" step="0.1" value="${value}" data-point-value="${key}"></label>`).join('')}
@@ -858,6 +866,32 @@ function renderCloudSyncCard() {
         </div>
         ${syncStatus.error ? `<p class="sync-error">${escapeHtml(syncStatus.error)}</p>` : ''}
       `}
+    </div>
+  `;
+}
+
+function renderSyncConflicts() {
+  const conflicts = Array.isArray(state.syncConflicts) ? state.syncConflicts : [];
+  if (!conflicts.length) return '';
+  return `
+    <div class="settings-card conflict-card">
+      <h3>동기화 충돌 확인</h3>
+      <p>다른 기기와 같은 항목을 동시에 수정했습니다. 값을 확인하고 유지할 쪽을 선택하세요.</p>
+      <div class="conflict-list">
+        ${conflicts.map((conflict) => `
+          <div class="conflict-item">
+            <strong>${escapeHtml(conflict.label || conflict.path || '동기화 항목')}</strong>
+            <div class="conflict-values">
+              <span><em>내 값</em>${escapeHtml(displayConflictValue(conflict.localValue))}</span>
+              <span><em>원격 값</em>${escapeHtml(displayConflictValue(conflict.remoteValue))}</span>
+            </div>
+            <div class="backup-actions">
+              <button data-conflict-keep="${escapeHtml(conflict.id)}">내 값 유지</button>
+              <button data-conflict-remote="${escapeHtml(conflict.id)}">원격 값 적용</button>
+            </div>
+          </div>
+        `).join('')}
+      </div>
     </div>
   `;
 }
@@ -1007,6 +1041,12 @@ function bindEvents() {
       alert(`동기화에 실패했습니다.\n\n${error.message}`);
     }
   });
+  document.querySelectorAll('[data-conflict-keep]').forEach((button) => {
+    button.addEventListener('click', () => resolveSyncConflict(button.dataset.conflictKeep, 'local'));
+  });
+  document.querySelectorAll('[data-conflict-remote]').forEach((button) => {
+    button.addEventListener('click', () => resolveSyncConflict(button.dataset.conflictRemote, 'remote'));
+  });
   document.querySelector('[data-action="reset-all"]')?.addEventListener('click', () => {
     if (confirm('모든 입력 데이터를 초기화할까요?')) {
       state = resetState();
@@ -1015,6 +1055,43 @@ function bindEvents() {
     }
   });
   bindDragSort();
+}
+
+function resolveSyncConflict(conflictId, action) {
+  const conflicts = Array.isArray(state.syncConflicts) ? state.syncConflicts : [];
+  const conflict = conflicts.find((item) => item.id === conflictId);
+  if (!conflict) return;
+  let next = state;
+  if (action === 'remote') {
+    next = setPathValue(next, conflict.path, conflict.remoteValue);
+  }
+  next = {
+    ...next,
+    syncConflicts: conflicts.filter((item) => item.id !== conflictId)
+  };
+  persistState(next);
+  render();
+}
+
+function setPathValue(source, path, value) {
+  const keys = String(path || '').split('.').filter(Boolean);
+  if (!keys.length) return source;
+  const setAt = (current, index) => {
+    const key = keys[index];
+    const clone = Array.isArray(current) ? [...current] : { ...(current || {}) };
+    clone[key] = index === keys.length - 1 ? value : setAt(clone[key], index + 1);
+    return clone;
+  };
+  return setAt(source, 0);
+}
+
+function displayConflictValue(value) {
+  if (value == null || value === '') return '-';
+  if (typeof value === 'number') return formatNumberInput(value);
+  if (typeof value === 'boolean') return value ? '예' : '아니오';
+  if (typeof value === 'string') return value.length > 80 ? `${value.slice(0, 80)}...` : value;
+  const text = JSON.stringify(value);
+  return text.length > 120 ? `${text.slice(0, 120)}...` : text;
 }
 
 function normalizeInput(value) {
@@ -1178,7 +1255,9 @@ function reorderCardBefore(draggedId, targetId) {
   if (from < 0 || to < 0 || from === to) return;
   order.splice(from, 1);
   order.splice(to, 0, draggedId);
-  setState({ cardOrder: order });
+  state = { ...state, cardOrder: order };
+  persistState(state);
+  render();
 }
 
 function benefitTypeLabel(type) {
@@ -1374,7 +1453,7 @@ function exportJson() {
 function importJson(event) {
   const file = event.target.files?.[0];
   if (!file) return;
-  if (file.size > 1024 * 1024) {
+  if (file.size > MAX_BACKUP_FILE_SIZE) {
     alert('백업 파일이 너무 큽니다. 1MB 이하의 CardFit JSON 파일만 불러올 수 있습니다.');
     event.target.value = '';
     return;
@@ -1410,6 +1489,7 @@ initSync({
   getState: () => state,
   applyRemoteState: (remoteState) => {
     // 원격에서 데이터만 반영하고, 화면 이동/보기 상태와 테마는 이 기기 것을 유지
+    commitFocusedInputBeforeRemoteApply();
     const preserved = {};
     for (const key of UI_STATE_KEYS) preserved[key] = state[key];
     state = {

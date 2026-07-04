@@ -24,6 +24,10 @@ function escapeInlineStyle(source) {
   return source.replaceAll('</style', '<\\/style');
 }
 
+function rewriteInlinedDynamicImports(source) {
+  return source.replace(/import\("\.\/([^"]+\.js)"\)/g, 'import("./assets/$1")');
+}
+
 await mkdir(distDir, { recursive: true });
 await cp(join(root, 'image', 'clean'), join(distDir, 'image', 'clean'), { recursive: true, force: true });
 
@@ -34,7 +38,7 @@ const cssAsset = findAssetTag(html, cssTagPattern, 'href', 'CSS');
 const jsAsset = findAssetTag(html, jsTagPattern, 'src', 'JavaScript');
 
 const css = await readFile(join(distDir, cssAsset.asset), 'utf8');
-const js = await readFile(join(distDir, jsAsset.asset), 'utf8');
+const js = rewriteInlinedDynamicImports(await readFile(join(distDir, jsAsset.asset), 'utf8'));
 
 let single = html
   .replace(cssAsset.tag, () => `<style>\n${escapeInlineStyle(css)}\n</style>`)

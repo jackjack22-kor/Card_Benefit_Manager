@@ -7,6 +7,8 @@ const DEVICE_KEY = 'cardBenefitManager.deviceId';
 const PENDING_SAVE_KEY = 'cardBenefitManager.pendingCloudSave';
 const SYNC_DEBOUNCE_MS = 1200;
 const CLOUD_DOC_ID = 'cardfit';
+const CONFLICT_ROOTS = ['cardOverrides', 'monthlyCardUsage', 'usage', 'notes', 'settings.pointValues', 'cardOrder'];
+const MAX_CONFLICTS = 20;
 
 let callbacks = {
   getState: () => ({}),
@@ -19,6 +21,7 @@ let unsubscribeCloud = null;
 let saveTimer = null;
 let initialized = false;
 let lastAppliedRevision = 0;
+let lastSyncedState = null;
 let savingRemote = false;
 
 let syncStatus = {
@@ -53,6 +56,7 @@ export function initSync(nextCallbacks) {
     clearCloudSubscription();
     if (!user) {
       lastAppliedRevision = 0;
+      lastSyncedState = null;
       publish({ state: 'signed-out', user: null, message: '로그인하지 않음: 이 기기에만 저장됩니다.' });
       return;
     }
@@ -128,6 +132,7 @@ async function connectCloudState(user) {
   if (!snapshot.exists()) {
     const result = await writeCloudState(localState);
     lastAppliedRevision = result.revision;
+    lastSyncedState = result.state;
     clearPendingCloudSave();
     subscribeCloud(user.uid);
     publish({
@@ -144,6 +149,7 @@ async function connectCloudState(user) {
   const cloudRevision = Number(cloud?.revision || 0);
   const merged = cloudState ? mergeStates(localState, cloudState) : localState;
   lastAppliedRevision = Math.max(cloudRevision, Number(merged.syncMeta?.revision || 0));
+  lastSyncedState = cloudState || merged;
 
   try {
     savingRemote = true;
@@ -159,6 +165,7 @@ async function connectCloudState(user) {
 
   const result = await writeCloudState(callbacks.getState());
   lastAppliedRevision = result.revision;
+  lastSyncedState = result.state;
   clearPendingCloudSave();
   subscribeCloud(user.uid);
   publish({
@@ -184,6 +191,7 @@ function subscribeCloud(uid) {
       const shouldProtectLocal = Boolean(saveTimer) || timestamp(localState.updatedAt) > timestamp(incomingState.updatedAt);
       const nextState = shouldProtectLocal ? mergeStates(localState, incomingState) : incomingState;
       lastAppliedRevision = revision;
+      lastSyncedState = incomingState;
       const remoteState = withSyncMeta(nextState, {
         lastCloudSyncAt: new Date().toISOString(),
         revision,
@@ -228,6 +236,7 @@ async function flushCloudSave(state = callbacks.getState()) {
   markPendingCloudSave();
   const result = await writeCloudState(state);
   lastAppliedRevision = result.revision;
+  lastSyncedState = result.state;
   clearPendingCloudSave();
   try {
     savingRemote = true;
@@ -251,9 +260,13 @@ async function writeCloudState(state) {
     const cloud = snapshot.exists() ? snapshot.data() : null;
     const cloudRevision = Number(cloud?.revision || 0);
     const cloudState = cloud?.state ? migrateState(cloud.state) : null;
+    const conflicts = cloudState && cloudRevision > lastAppliedRevision
+      ? detectFieldConflicts(lastSyncedState, state, cloudState)
+      : [];
     const merged = cloudState && cloudRevision > lastAppliedRevision ? mergeStates(state, cloudState) : state;
-    const revision = Math.max(cloudRevision, lastAppliedRevision, Number(merged.syncMeta?.revision || 0)) + 1;
-    const next = withSyncMeta(merged, {
+    const nextState = conflicts.length ? withConflicts(merged, conflicts) : merged;
+    const revision = Math.max(cloudRevision, lastAppliedRevision, Number(nextState.syncMeta?.revision || 0)) + 1;
+    const next = withSyncMeta(nextState, {
       deviceId: getDeviceId(),
       lastCloudSyncAt: now,
       lastLocalEditAt: state.updatedAt || now,
@@ -303,6 +316,78 @@ function mergeStates(localState, cloudState) {
     backupMeta: { ...(secondary.backupMeta || {}), ...(primary.backupMeta || {}) },
     syncMeta: { ...(secondary.syncMeta || {}), ...(primary.syncMeta || {}) }
   });
+}
+
+function detectFieldConflicts(baseState, localState, remoteState) {
+  if (!baseState || !localState || !remoteState) return [];
+  const paths = new Set();
+  for (const root of CONFLICT_ROOTS) {
+    flattenPaths(getPathValue(baseState, root), root, paths);
+    flattenPaths(getPathValue(localState, root), root, paths);
+    flattenPaths(getPathValue(remoteState, root), root, paths);
+  }
+
+  const conflicts = [];
+  for (const path of paths) {
+    const baseValue = getPathValue(baseState, path);
+    const localValue = getPathValue(localState, path);
+    const remoteValue = getPathValue(remoteState, path);
+    const localChanged = !sameValue(localValue, baseValue);
+    const remoteChanged = !sameValue(remoteValue, baseValue);
+    if (!localChanged || !remoteChanged || sameValue(localValue, remoteValue)) continue;
+    conflicts.push({
+      id: conflictId(path),
+      path,
+      label: conflictLabel(path),
+      baseValue,
+      localValue,
+      remoteValue,
+      detectedAt: new Date().toISOString(),
+      localUpdatedAt: localState.updatedAt || '',
+      remoteUpdatedAt: remoteState.updatedAt || ''
+    });
+    if (conflicts.length >= MAX_CONFLICTS) break;
+  }
+  return conflicts;
+}
+
+function withConflicts(state, conflicts) {
+  const existing = Array.isArray(state.syncConflicts) ? state.syncConflicts : [];
+  const byId = new Map(existing.map((item) => [item.id, item]));
+  for (const conflict of conflicts) byId.set(conflict.id, conflict);
+  return { ...state, syncConflicts: [...byId.values()] };
+}
+
+function flattenPaths(value, prefix, output) {
+  if (value && typeof value === 'object' && !Array.isArray(value)) {
+    const entries = Object.entries(value);
+    if (!entries.length) output.add(prefix);
+    for (const [key, child] of entries) flattenPaths(child, `${prefix}.${key}`, output);
+    return;
+  }
+  output.add(prefix);
+}
+
+function getPathValue(source, path) {
+  return String(path).split('.').reduce((value, key) => (value == null ? undefined : value[key]), source);
+}
+
+function sameValue(left, right) {
+  return JSON.stringify(left ?? null) === JSON.stringify(right ?? null);
+}
+
+function conflictId(path) {
+  return `conflict-${String(path).replace(/[^a-zA-Z0-9_-]+/g, '-')}`;
+}
+
+function conflictLabel(path) {
+  return String(path)
+    .replace(/^monthlyCardUsage\./, '월별 실적 / ')
+    .replace(/^usage\./, '혜택 사용 / ')
+    .replace(/^cardOverrides\./, '카드 설정 / ')
+    .replace(/^notes\./, '메모 / ')
+    .replace(/^settings\.pointValues\./, '포인트 가치 / ')
+    .replace(/^cardOrder$/, '카드 순서');
 }
 
 function hasMeaningfulData(state) {

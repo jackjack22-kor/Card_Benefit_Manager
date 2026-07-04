@@ -51,6 +51,7 @@ export function createInitialState() {
     monthlyCardUsage: {},
     usage: {},
     notes: {},
+    syncConflicts: [],
     backupMeta: {
       lastBackupAt: '',
       lastImportAt: ''
@@ -111,6 +112,7 @@ export function migrateState(state) {
     monthlyCardUsage: { ...importedMonthlyCardUsage },
     usage: { ...importedBenefitUsage },
     notes: { ...importedNotes },
+    syncConflicts: Array.isArray(state.syncConflicts) ? state.syncConflicts : [],
     backupMeta: { ...base.backupMeta, ...importedBackupMeta }
   };
   const known = new Set(CARDS.map((card) => card.id));
