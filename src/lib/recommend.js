@@ -74,9 +74,10 @@ export function getAnnualUsageCount(state, card, benefit, date = selectedDate(st
   }, 0);
 }
 
-export function getAnnualBenefitValue(state, card, benefit, date = selectedDate(state)) {
+export function getAnnualBenefitValue(state, card, benefit, date = selectedDate(state), options = {}) {
   const cycle = getCycle(card, getCardOverride(state, card.id), benefit, date);
   return monthsInCycle(cycle).reduce((sum, monthKey) => {
+    if (monthKey === options.excludeMonthKey) return sum;
     const usage = getBenefitUsage(state, benefit.id, monthKey);
     return sum + Number(usage.benefitValue || usage.usedBenefit || 0);
   }, 0);
@@ -275,25 +276,39 @@ function estimateBenefitValue(state, card, benefit, categoryId, amount, prevSpen
 
   if (benefit.type === 'amount_cap' || benefit.type === 'amount_cap_pool' || benefit.type === 'reward_cap_pool') {
     const rate = calculateRate(benefit, prevSpend);
-    const cap = calculateMonthlyCap(benefit, prevSpend);
-    const used = Number(usage.benefitValue || 0);
+    const cap = effectiveMonthlyCap(card, benefit, prevSpend);
+    const used = benefit.capPoolId
+      ? getMonthlyPoolBenefitValue(state, card, benefit, monthKey)
+      : Number(usage.benefitValue || 0);
     const raw = amount * rate;
-    const value = cap ? Math.max(0, Math.min(raw, cap - used)) : raw;
-    const capText = cap ? `, 잔여 월한도 ${Math.max(0, cap - used).toLocaleString('ko-KR')}원` : '';
-    return { value, rate, reason: `${benefit.name}: ${percent(rate)} x ${amount.toLocaleString('ko-KR')}원${capText}` };
+    const monthlyRemaining = cap ? Math.max(0, cap - used) : Infinity;
+    const annualUsed = benefit.annualCap ? getAnnualBenefitValue(state, card, benefit) : 0;
+    const annualRemaining = benefit.annualCap ? Math.max(0, benefit.annualCap - annualUsed) : Infinity;
+    const value = Math.max(0, Math.min(raw, monthlyRemaining, annualRemaining));
+    const capText = [
+      cap ? `잔여 월한도 ${monthlyRemaining.toLocaleString('ko-KR')}원` : '',
+      benefit.annualCap ? `잔여 연한도 ${annualRemaining.toLocaleString('ko-KR')}원` : ''
+    ].filter(Boolean).join(', ');
+    if (benefit.annualCap && annualRemaining <= 0) return { value: 0, rate: 0, reason: `${benefit.name}: 연간 한도 소진` };
+    if (cap && monthlyRemaining <= 0) return { value: 0, rate: 0, reason: `${benefit.name}: 월 한도 소진` };
+    return { value, rate, reason: `${benefit.name}: ${percent(rate)} x ${amount.toLocaleString('ko-KR')}원${capText ? `, ${capText}` : ''}` };
   }
 
   if (benefit.type === 'count_amount') {
     const current = Number(usage.count || 0);
     if (benefit.monthlyLimitCount && current >= benefit.monthlyLimitCount) return { value: 0, rate: 0, reason: `${benefit.name}: 월 사용 횟수 소진` };
+    const annual = getAnnualUsageCount(state, card, benefit);
+    if (benefit.annualLimitCount && annual >= benefit.annualLimitCount) return { value: 0, rate: 0, reason: `${benefit.name}: 연간 사용 횟수 소진` };
     if (benefit.minAmount && amount < benefit.minAmount) return { value: 0, rate: 0, reason: `${benefit.name}: 최소 ${benefit.minAmount.toLocaleString('ko-KR')}원 이상 필요` };
     const fixed = calculateFixedBenefit(benefit, amount);
     const rate = calculateRate(benefit, prevSpend);
     const rateValue = rate ? amount * rate : 0;
     const raw = fixed || rateValue;
-    const value = benefit.monthlyCap ? Math.min(raw, benefit.monthlyCap) : raw;
+    const used = Number(usage.benefitValue || 0);
+    const monthlyRemaining = benefit.monthlyCap ? Math.max(0, benefit.monthlyCap - used) : Infinity;
+    const value = Math.max(0, Math.min(raw, monthlyRemaining));
     const basis = fixed ? `${fixed.toLocaleString('ko-KR')}원 정액` : `${percent(rate)} 할인/적립`;
-    return { value, rate: value / Math.max(amount, 1), reason: `${benefit.name}: ${basis}, ${current}/${benefit.monthlyLimitCount || '-'}회 사용` };
+    return { value, rate: value / Math.max(amount, 1), reason: `${benefit.name}: ${basis}, ${current}/${benefit.monthlyLimitCount || '-'}회 사용${benefit.annualLimitCount ? `, 연 ${annual}/${benefit.annualLimitCount}회` : ''}` };
   }
 
   if (benefit.type === 'two_transactions') {
@@ -328,6 +343,21 @@ function estimateBenefitValue(state, card, benefit, categoryId, amount, prevSpen
   }
 
   return { value: 0, rate: 0, reason: benefit.summary || benefit.name };
+}
+
+function effectiveMonthlyCap(card, benefit, prevSpend) {
+  const ownCap = calculateMonthlyCap(benefit, prevSpend);
+  if (ownCap) return ownCap;
+  if (!benefit.capPoolId) return 0;
+  const pool = card.benefits.find((item) => item.id === benefit.capPoolId);
+  return pool ? calculateMonthlyCap(pool, prevSpend) : 0;
+}
+
+function getMonthlyPoolBenefitValue(state, card, benefit, monthKey) {
+  if (!benefit.capPoolId) return Number(getBenefitUsage(state, benefit.id, monthKey).benefitValue || 0);
+  return card.benefits
+    .filter((item) => item.capPoolId === benefit.capPoolId)
+    .reduce((sum, item) => sum + Number(getBenefitUsage(state, item.id, monthKey).benefitValue || 0), 0);
 }
 
 function benefitMatchesSelection(benefit, categoryId, subcategoryId = '') {

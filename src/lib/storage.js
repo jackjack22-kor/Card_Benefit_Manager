@@ -66,9 +66,15 @@ export function loadState() {
   }
 }
 
-export function saveState(state) {
-  const next = { ...state, schemaVersion: SCHEMA_VERSION, appVersion: APP_VERSION, updatedAt: new Date().toISOString() };
+export function saveState(state, options = {}) {
+  const next = {
+    ...state,
+    schemaVersion: SCHEMA_VERSION,
+    appVersion: APP_VERSION,
+    updatedAt: options.touch === false ? state.updatedAt : new Date().toISOString()
+  };
   localStorage.setItem(STORAGE_KEY, JSON.stringify(next));
+  return next;
 }
 
 export function migrateState(state) {
@@ -182,6 +188,5 @@ export function importState(text) {
 
 export function resetState() {
   const state = createInitialState();
-  saveState(state);
-  return state;
+  return saveState(state);
 }
