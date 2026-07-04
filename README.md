@@ -1,18 +1,35 @@
-# 카드 혜택 매니저
+# CardFit · 카드 혜택 매니저
 
-개인 보유 신용카드의 실적, 월/연 혜택 한도, 사용 횟수, 사용처별 추천 카드를 관리하는 개인용 웹앱입니다.
+개인 보유 신용카드의 실적, 월/연 혜택 한도, 사용 횟수, 사용처별 추천 카드를 관리하는 개인용 웹앱입니다. **CardFit**은 설치형 PWA로 동작하여, 스마트폰 홈 화면에 추가하면 브라우저 주소창 없이 독립 앱처럼 전체화면으로 실행되고 오프라인에서도 열립니다.
 
-현재 권장 사용 방식은 **GitHub Pages 배포 URL을 스마트폰 브라우저에서 여는 방식**입니다. Android에서 단일 HTML 파일을 직접 여는 방식도 유지하지만, iPhone에서는 `file://` 로컬 파일보다 Safari에서 HTTPS Pages URL로 접속하는 방식이 안정적입니다.
+권장 사용 방식은 **GitHub Pages 배포 URL을 스마트폰 브라우저에서 연 뒤 홈 화면에 설치**하는 것입니다. Android에서 단일 HTML 파일을 직접 여는 방식도 유지하지만, iPhone에서는 `file://` 로컬 파일보다 Safari에서 HTTPS Pages URL로 접속하는 방식이 안정적입니다.
 
 ## 바로 쓰는 주소
-
-GitHub Pages 설정이 끝나면 아래 주소로 접속합니다.
 
 ```text
 https://jackjack22-kor.github.io/Card_Benefit_Manager/
 ```
 
-스마트폰 홈 화면에 추가할 때도 이 주소를 Safari 또는 Chrome/Samsung Internet에서 연 뒤 브라우저의 공유/메뉴 기능을 사용합니다.
+## 앱으로 설치하기 (PWA)
+
+CardFit은 매니페스트와 서비스워커를 갖춘 설치형 PWA입니다. 설치하면 홈 화면 아이콘(CardFit 로고)으로 진입하고, 주소창·탭 없이 독립 창으로 실행됩니다.
+
+### iPhone (Safari)
+
+1. Safari에서 `https://jackjack22-kor.github.io/Card_Benefit_Manager/` 접속
+2. 하단 공유 버튼 선택
+3. `홈 화면에 추가` 선택
+4. 이름 확인 후 `추가`
+
+홈 화면 아이콘으로 진입하면 전체화면 독립 실행됩니다. 데이터는 Safari의 해당 GitHub Pages 주소 저장소(localStorage)에 보관됩니다.
+
+### Android (Chrome / Samsung Internet)
+
+1. 브라우저에서 위 주소 접속
+2. 메뉴에서 `앱 설치` 또는 `홈 화면에 추가` 선택
+3. 홈 화면 아이콘으로 독립 실행
+
+로컬 `dist/card-benefit-manager.html` 파일을 직접 여는 보조 방식도 가능하지만, 이 경우 PWA 설치·오프라인 캐시는 동작하지 않고 브라우저별 `file://` 저장소 정책 차이가 있습니다. 여러 기기에서 계속 쓸 계획이라면 GitHub Pages 주소로 접속하는 편이 더 예측 가능합니다.
 
 ## GitHub Pages 배포
 
@@ -24,29 +41,7 @@ https://jackjack22-kor.github.io/Card_Benefit_Manager/
 4. `Actions` 탭에서 `Deploy GitHub Pages` 워크플로가 성공했는지 확인합니다.
 5. `https://jackjack22-kor.github.io/Card_Benefit_Manager/` 주소로 접속합니다.
 
-워크플로는 `npm ci` 후 `npm run build:pages`를 실행하고, `dist/index.html`을 Pages에 올립니다. `dist/index.html`은 단일 HTML 빌드 결과인 `dist/card-benefit-manager.html`을 복사해 생성합니다.
-
-## iPhone 사용 가이드
-
-iPhone에서는 HTML 파일을 `파일` 앱에서 직접 실행하는 방식은 권장하지 않습니다. 빈 화면이 보이거나 Safari 저장소가 안정적으로 연결되지 않을 수 있습니다.
-
-권장 방식:
-
-1. iPhone Safari에서 `https://jackjack22-kor.github.io/Card_Benefit_Manager/` 접속
-2. 하단 공유 버튼 선택
-3. `홈 화면에 추가` 선택
-4. 이름 확인 후 `추가`
-
-이 방식은 PWA 설치가 아니라 Safari 웹 클립 바로가기입니다. 그래도 홈 화면 아이콘으로 바로 진입할 수 있고, 데이터는 Safari의 해당 GitHub Pages 주소 저장소에 보관됩니다.
-
-## Android 사용 가이드
-
-Android는 두 가지 방식이 가능합니다.
-
-- 권장: Chrome 또는 Samsung Internet에서 GitHub Pages 주소 접속 후 메뉴에서 `홈 화면에 추가`
-- 보조: `dist/card-benefit-manager.html` 파일을 스마트폰으로 복사해 브라우저에서 직접 열기
-
-로컬 HTML 파일을 직접 열면 브라우저별 `file://` 저장소 정책 차이로 데이터 보관 방식이 달라질 수 있습니다. 여러 기기에서 계속 쓸 계획이라면 GitHub Pages 주소로 접속하는 편이 더 예측 가능합니다.
+워크플로는 `npm ci` 후 `npm run build:pages`를 실행하고, `dist` 폴더 전체(단일 HTML, 아이콘, 매니페스트, 서비스워커)를 Pages에 올립니다. `dist/index.html`은 단일 HTML 빌드 결과인 `dist/card-benefit-manager.html`을 복사해 생성합니다.
 
 ## 빌드 방법
 
@@ -60,6 +55,9 @@ npm run build:pages
 ```text
 dist/card-benefit-manager.html
 dist/index.html
+dist/icons/…
+dist/manifest.webmanifest
+dist/sw.js
 ```
 
 개발 중에는 다음 명령으로 Vite 개발 서버를 사용할 수 있습니다.
@@ -79,6 +77,8 @@ npm run dev
 - 같은 스마트폰이라도 다른 브라우저에서 열면 기존 데이터가 보이지 않을 수 있습니다.
 - 브라우저 캐시/사이트 데이터 삭제 시 localStorage 데이터도 사라질 수 있습니다.
 - 스마트폰 변경, 브라우저 변경, 데이터 삭제 전에는 반드시 JSON 백업을 내보내야 합니다.
+
+서비스워커는 앱 파일(HTML/CSS/JS/아이콘)만 오프라인 캐시하며, 개인 데이터는 캐시하지 않습니다. 캐시는 network-first 방식이라 온라인일 때는 항상 최신 버전을 불러오고, 오프라인일 때만 캐시된 버전을 사용합니다.
 
 ## JSON 백업/복원
 
@@ -103,7 +103,7 @@ iPhone Safari의 GitHub Pages 접속 환경에서는 JSON 내보내기/불러오
 
 ## 핵심 화면
 
-- **카드 현황**: 카드별 전월실적 상태와 이번달 실적 현황을 빠르게 확인
+- **카드 현황**: 카드별 전월실적 상태와 이번달 실적 현황, 상단 요약(채운 카드/채울 실적 합계)을 빠르게 확인
 - **결제 추천**: 업종/세부 사용처/금액 기준 최대 혜택 카드 추천 + 실적 채우기 추천
 - **카드 상세**: 월/연 실적, 주요 혜택 사용 현황, 혜택 상세 및 사용 관리
 - **설정/백업**: 포인트 가치 설정, 카드 순서 편집, JSON 백업/복원, 데이터 이동 안내
@@ -119,8 +119,13 @@ iPhone Safari의 GitHub Pages 접속 환경에서는 JSON 내보내기/불러오
 - localStorage와 백업 스키마: `src/lib/storage.js`
 - 화면 렌더링: `src/main.js`
 - 스타일: `src/styles.css`
+- 앱 아이콘/로고 소스: `public/icons/`
+- PWA 매니페스트: `public/manifest.webmanifest`
+- 서비스워커: `public/sw.js`
 - 단일 HTML 생성: `tools/build-single.mjs`
 - GitHub Pages용 index 생성: `tools/build-pages.mjs`
+
+`public/` 아래 파일(아이콘, 매니페스트, 서비스워커)은 Vite 빌드 시 `dist/`로 그대로 복사되어 배포됩니다.
 
 ## 카드 추가 방법
 
@@ -134,6 +139,7 @@ iPhone Safari의 GitHub Pages 접속 환경에서는 JSON 내보내기/불러오
   issuer: '카드사',
   name: '카드명',
   shortName: '짧은 이름',
+  theme: 'blue',
   defaultCycle: { type: 'calendar', startMonth: 1 },
   monthlyTargets: [300000],
   annualTargets: [],
@@ -156,13 +162,15 @@ iPhone Safari의 GitHub Pages 접속 환경에서는 JSON 내보내기/불러오
 }
 ```
 
+`theme` 값은 카드현황·상세 화면의 카드사 브랜드 그라데이션 색을 결정합니다. 지원 값: `blue`, `navy`, `cyan`, `coral`, `peach`, `red`, `mint`, `green`, `yellow`, `purple`, `platinum`, `silver`, `black`.
+
 ## 향후 확장 옵션
 
-이번 버전에서는 GitHub Pages 배포까지 지원합니다. 아직 아래 기능은 구현하지 않습니다.
+설치형 PWA(매니페스트, 서비스워커, 오프라인 캐시)는 이번 버전에서 지원합니다. 아직 아래 기능은 구현하지 않습니다.
 
-- service worker, manifest, 오프라인 PWA 설치 프롬프트
 - Android WebView/APK 패키징
 - NAS 동기화 또는 클라우드 동기화
 - 암호화 원격 백업
+- 추천 엔진 점수 가중치 사용자 설정
 
 이 기능들은 현재 웹앱 사용성이 안정화된 뒤 확장 후보로 검토합니다.
