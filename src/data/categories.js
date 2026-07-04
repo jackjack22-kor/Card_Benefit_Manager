@@ -38,6 +38,7 @@ export const SUBCATEGORIES = {
     { id: 'angelinus', label: '엔제리너스', keywords: ['엔제리너스', 'angel'] },
     { id: 'coffee-bean', label: '커피빈', keywords: ['커피빈', 'coffee bean'] },
     { id: 'twosome', label: '투썸', keywords: ['투썸', 'twosome'] },
+    { id: 'hollys', label: '할리스', keywords: ['할리스', 'hollys'] },
     { id: 'other-coffee', label: '기타 커피', keywords: ['커피', '카페', '커피 업종'] }
   ],
   movie: [
@@ -45,6 +46,13 @@ export const SUBCATEGORIES = {
     { id: 'lotte-cinema', label: '롯데시네마', keywords: ['롯데시네마'] },
     { id: 'megabox', label: '메가박스', keywords: ['메가박스'] },
     { id: 'other-movie', label: '기타 영화', keywords: ['영화', '영화관'] }
+  ],
+  telecom: [
+    { id: 'skt', label: 'SKT', keywords: ['skt', 'sk텔레콤', 'sk telecom'] },
+    { id: 'kt', label: 'KT', keywords: ['kt'] },
+    { id: 'lgu', label: 'LG U+', keywords: ['lgu', 'lg u+', 'lgu+', 'lg유플러스'] },
+    { id: 'mvno', label: '알뜰폰', keywords: ['알뜰폰'] },
+    { id: 'other-telecom', label: '기타 통신', keywords: ['통신', '이동통신'] }
   ],
   simplepay: [
     { id: 'kbpay', label: 'KB Pay', keywords: ['kb pay', 'kbpay'] },

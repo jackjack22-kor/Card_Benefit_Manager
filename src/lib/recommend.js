@@ -153,8 +153,8 @@ export function recommendCards(state, categoryId, amount = 10000, subcategoryId 
   const cards = getOrderedCards(state);
   const results = cards
     .map((card) => scoreCard(state, card, categoryId, amount, subcategoryId))
-    .filter((item) => item.score > 0 || item.baseValue > 0);
-  return results.sort((a, b) => b.score - a.score || b.value - a.value);
+    .filter((item) => item.score > 0 || item.baseValue > 0 || item.hasDirectMatch);
+  return results.sort((a, b) => b.score - a.score || b.value - a.value || Number(b.hasDirectMatch) - Number(a.hasDirectMatch));
 }
 
 export function getFillSpendRecommendations(state, categoryId, amount = 10000, subcategoryId = state.selectedSubcategory || '') {
@@ -187,6 +187,7 @@ export function scoreCard(state, card, categoryId, amount, subcategoryId = '') {
   const override = getCardOverride(state, card.id);
   const prevSpend = inferPrevSpend(card, override);
   const primaryBenefits = card.benefits.filter((benefit) => benefitMatchesSelection(benefit, categoryId, subcategoryId));
+  const primaryBenefitIds = new Set(primaryBenefits.map((benefit) => benefit.id));
   const baseRewards = categoryId === 'other' || primaryBenefits.length === 0
     ? []
     : card.benefits.filter((benefit) => benefit.type === 'reward' && benefit.categories?.includes('other'));
@@ -197,8 +198,9 @@ export function scoreCard(state, card, categoryId, amount, subcategoryId = '') {
 
   for (const benefit of candidates) {
     const result = estimateBenefitValue(state, card, benefit, categoryId, amount, prevSpend);
-    if (result.value > 0 || result.rate > 0) {
-      matching.push({ benefit, ...result });
+    const isDirectMatch = primaryBenefitIds.has(benefit.id);
+    if (result.value > 0 || result.rate > 0 || isDirectMatch) {
+      matching.push({ benefit, ...result, isDirectMatch });
       value += result.value;
       bestRate = Math.max(bestRate, result.rate || 0);
     }
@@ -211,6 +213,7 @@ export function scoreCard(state, card, categoryId, amount, subcategoryId = '') {
       value: 0,
       baseValue: 0,
       bestRate: 0,
+      hasDirectMatch: false,
       matching: [],
       status: statusText(override),
       reason: '선택한 사용처에 직접 연결되는 혜택이 없습니다.'
@@ -221,7 +224,9 @@ export function scoreCard(state, card, categoryId, amount, subcategoryId = '') {
   const annualShortfall = getAnnualShortfall(card, override, state);
   const spendContribution = shortfall > 0 ? Math.min(amount, shortfall) * 0.005 : 0;
   const annualContribution = annualShortfall > 0 ? Math.min(amount, annualShortfall) * 0.001 : 0;
-  const score = value + spendContribution + annualContribution;
+  const hasDirectMatch = primaryBenefits.length > 0;
+  const conditionSignal = hasDirectMatch && value === 0 ? 1 : 0;
+  const score = value + spendContribution + annualContribution + conditionSignal;
 
   return {
     card,
@@ -229,6 +234,7 @@ export function scoreCard(state, card, categoryId, amount, subcategoryId = '') {
     value,
     baseValue: value,
     bestRate,
+    hasDirectMatch,
     matching,
     status: statusText(override),
     reason: buildValueReason(matching, value)
@@ -326,17 +332,19 @@ function benefitMatchesSelection(benefit, categoryId, subcategoryId = '') {
   const subcategory = SUBCATEGORY_MAP[`${categoryId}:${subcategoryId}`];
   if (!subcategory) return true;
 
-  const text = normalizeText([benefit.name, benefit.summary, benefit.targets, benefit.exclusions, benefit.conditions, benefit.homeLabel].join(' '));
-  const hasKeyword = (subcategory.keywords || []).some((keyword) => text.includes(normalizeText(keyword)));
+  const rawText = [benefit.name, benefit.summary, benefit.targets, benefit.exclusions, benefit.conditions, benefit.homeLabel].join(' ');
+  const text = normalizeText(rawText);
+  const hasKeyword = (subcategory.keywords || []).some((keyword) => keywordMatchesText(rawText, text, keyword));
   if (hasKeyword) return true;
+  if (hasCompetingSubcategoryKeyword(text, categoryId, subcategoryId)) return false;
 
   return isBroadCategoryBenefit(text, categoryId);
 }
 
 function isBroadCategoryBenefit(text, categoryId) {
   const broadKeywords = {
-    coffee: ['커피', '카페', '커피 업종'],
-    movie: ['영화', '영화관'],
+    coffee: ['커피업종', '대상커피업종', '모든커피', '전커피'],
+    movie: ['모든영화관', '전국영화관', '영화관전체'],
     simplepay: ['간편결제', '페이'],
     ott: ['ott', '스트리밍'],
     hotel: ['호텔', '특급호텔'],
@@ -349,6 +357,49 @@ function isBroadCategoryBenefit(text, categoryId) {
     parking: ['주차']
   };
   return (broadKeywords[categoryId] || []).some((keyword) => text.includes(normalizeText(keyword)));
+}
+
+function hasCompetingSubcategoryKeyword(text, categoryId, selectedSubcategoryId) {
+  const groups = {
+    coffee: [
+      ['starbucks', ['스타벅스', '스벅', 'starbucks']],
+      ['paul-basset', ['폴바셋', 'paul']],
+      ['ediya', ['이디야', 'ediya']],
+      ['angelinus', ['엔제리너스', 'angel']],
+      ['coffee-bean', ['커피빈', 'coffeebean']],
+      ['twosome', ['투썸', 'twosome']],
+      ['hollys', ['할리스', 'hollys']]
+    ],
+    movie: [
+      ['cgv', ['cgv']],
+      ['lotte-cinema', ['롯데시네마']],
+      ['megabox', ['메가박스']]
+    ],
+    telecom: [
+      ['skt', ['skt', 'sk텔레콤', 'sktelecom']],
+      ['kt', ['kt']],
+      ['lgu', ['lgu', 'lgu+', 'lg유플러스']],
+      ['mvno', ['알뜰폰']]
+    ]
+  };
+  if (selectedSubcategoryId.startsWith('other-')) return false;
+  return (groups[categoryId] || []).some(([id, keywords]) => (
+    id !== selectedSubcategoryId && keywords.some((keyword) => text.includes(normalizeText(keyword)))
+  ));
+}
+
+function keywordMatchesText(rawText, normalizedText, keyword) {
+  const normalizedKeyword = normalizeText(keyword);
+  if (!normalizedKeyword) return false;
+  if (/^[a-z0-9]{1,2}$/.test(normalizedKeyword)) {
+    const pattern = new RegExp(`(^|[^a-z0-9])${escapeRegExp(normalizedKeyword)}([^a-z0-9]|$)`, 'i');
+    return pattern.test(String(rawText || '').toLowerCase());
+  }
+  return normalizedText.includes(normalizedKeyword);
+}
+
+function escapeRegExp(value) {
+  return String(value).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
 
 function uniqueBenefits(benefits) {
@@ -367,8 +418,15 @@ function statusText(override) {
 }
 
 function buildValueReason(matching, totalValue) {
-  const names = matching.map((item) => `${item.benefit.name} ${Math.round(item.value).toLocaleString('ko-KR')}원`).join(' + ');
-  return `${names} = 총 ${Math.round(totalValue).toLocaleString('ko-KR')}원 예상 혜택`;
+  const valued = matching.filter((item) => item.value > 0);
+  if (valued.length > 0) {
+    const names = valued.map((item) => `${item.benefit.name} ${Math.round(item.value).toLocaleString('ko-KR')}원`).join(' + ');
+    const conditional = matching.find((item) => item.value <= 0 && item.isDirectMatch && item.benefit.type !== 'info');
+    const conditionText = conditional ? ` · 조건 확인: ${conditional.reason}` : '';
+    return `${names} = 총 ${Math.round(totalValue).toLocaleString('ko-KR')}원 예상 혜택${conditionText}`;
+  }
+  const direct = matching.find((item) => item.isDirectMatch) || matching[0];
+  return direct ? `선택한 사용처 혜택은 있으나 조건 확인 필요: ${direct.reason}` : '선택한 사용처에 직접 연결되는 혜택이 없습니다.';
 }
 
 function buildFillReason(monthlyShortfall, annualShortfall, amount, benefit) {

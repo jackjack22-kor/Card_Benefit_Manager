@@ -7,12 +7,13 @@ const distDir = join(root, 'dist');
 const indexPath = join(distDir, 'index.html');
 const outputPath = join(distDir, 'card-benefit-manager.html');
 
-function findAsset(html, pattern, label) {
-  const match = html.match(pattern);
+function findAssetTag(html, tagPattern, attrName, label) {
+  const tag = html.match(tagPattern)?.[0] || '';
+  const match = tag.match(new RegExp(`${attrName}="([^"]+)"`));
   if (!match?.[1]) {
     throw new Error(`Could not find ${label} asset in dist/index.html`);
   }
-  return match[1].replace(/^\//, '');
+  return { tag, asset: match[1].replace(/^\//, '') };
 }
 
 function escapeInlineScript(source) {
@@ -26,15 +27,17 @@ function escapeInlineStyle(source) {
 await mkdir(distDir, { recursive: true });
 
 const html = await readFile(indexPath, 'utf8');
-const cssAsset = findAsset(html, /<link[^>]+rel="stylesheet"[^>]+href="([^"]+)"[^>]*>/, 'CSS');
-const jsAsset = findAsset(html, /<script[^>]+type="module"[^>]+src="([^"]+)"[^>]*><\/script>/, 'JavaScript');
+const cssTagPattern = /<link\b(?=[^>]*rel="stylesheet")[^>]*>/;
+const jsTagPattern = /<script\b(?=[^>]*type="module")(?=[^>]*src=")[^>]*><\/script>/;
+const cssAsset = findAssetTag(html, cssTagPattern, 'href', 'CSS');
+const jsAsset = findAssetTag(html, jsTagPattern, 'src', 'JavaScript');
 
-const css = await readFile(join(distDir, cssAsset), 'utf8');
-const js = await readFile(join(distDir, jsAsset), 'utf8');
+const css = await readFile(join(distDir, cssAsset.asset), 'utf8');
+const js = await readFile(join(distDir, jsAsset.asset), 'utf8');
 
 let single = html
-  .replace(/<link[^>]+rel="stylesheet"[^>]+href="([^"]+)"[^>]*>/, `<style>\n${escapeInlineStyle(css)}\n</style>`)
-  .replace(/<script[^>]+type="module"[^>]+src="([^"]+)"[^>]*><\/script>/, `<script type="module">\n${escapeInlineScript(js)}\n</script>`);
+  .replace(cssAsset.tag, () => `<style>\n${escapeInlineStyle(css)}\n</style>`)
+  .replace(jsAsset.tag, () => `<script type="module">\n${escapeInlineScript(js)}\n</script>`);
 
 single = single.replace(
   '</head>',

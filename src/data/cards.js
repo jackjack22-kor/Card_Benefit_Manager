@@ -484,6 +484,28 @@ export const CARDS = [
     ]
   },
   {
+    id: 'skt-woori-card',
+    issuer: '우리카드',
+    name: 'SKT 우리카드',
+    shortName: 'SKT 우리카드',
+    theme: 'red',
+    annualFee: 15000,
+    defaultCycle: { type: 'calendar', startMonth: 1 },
+    monthlyTargets: [300000, 700000, 1000000],
+    defaultMonthlyTarget: 300000,
+    annualTargets: [],
+    tags: ['SKT', '통신비', 'T라이트할부', '영화', '커피'],
+    sourceNote: '첨부 PDF: SKT 우리카드 카드발급/이용안내. 2022년 12월 기준.',
+    benefits: [
+      { id: 'skt-woori-telecom-tlight', name: 'SKT 통신요금 자동납부 할인', type: 'amount_cap', priority: 'core', categories: ['telecom'], rate: 1, monthlyCapBySpend: [{ min: 300000, cap: 11000 }, { min: 700000, cap: 17000 }, { min: 1000000, cap: 23000 }], monthlyLimitCount: 1, cycleType: 'calendar', summary: 'SKT 통신료 자동납부 시 전월실적 구간별 청구할인', targets: 'SKT 통신요금 자동납부. T라이트할부 이용 시 1.1만/1.7만/2.3만원', exclusions: '자동납부가 아닌 일반 결제 제외. T라이트할부 서비스와 SKT 할인서비스 중복 적용 불가', conditions: '통신료 자동납부 필수. 전월 30/70/100만원 이상. T라이트할부 미이용 또는 상환 종료 시 1만/1.5만/2만원 할인.', homeLabel: 'SKT' },
+      { id: 'skt-woori-tlight-installment', name: 'T라이트할부', type: 'info', priority: 'normal', categories: ['telecom'], summary: 'SKT 통신기기 및 통신서비스 구매 시 T라이트할부 제공', targets: 'SKT 통신기기 및 통신서비스 10만원 이상 구매', exclusions: 'SKT 할인서비스와 중복 적용 불가', conditions: '24개월 또는 36개월, 할부수수료율 연 5.9%, 원금균등상환', homeLabel: 'T라이트' },
+      { id: 'skt-woori-themepark', name: '놀이공원 자유이용권 50% 할인', type: 'count_amount', priority: 'normal', categories: ['themepark'], rate: 0.5, monthlyLimitCount: 1, annualLimitCount: 10, cycleType: 'calendar', summary: '주요 놀이공원 자유이용권 50% 현장할인', targets: '롯데월드, 에버랜드, 서울랜드, 이월드, 경주월드, 통도환타지아', exclusions: '본인회원 한정', conditions: '전월 30만원 이상. 통합 월 1회, 연 10회.', homeLabel: '놀이공원' },
+      { id: 'skt-woori-movie', name: '영화관 3천원 할인', type: 'count_amount', priority: 'core', categories: ['movie'], fixedBenefit: 3000, minAmount: 12000, monthlyLimitCount: 1, annualLimitCount: 10, cycleType: 'calendar', summary: '모든 영화관 1만2천원 이상 결제 시 3천원 청구할인', targets: '모든 영화관', exclusions: '예매 대행사이트 제외', conditions: '전월 30만원 이상. 통합 월 1회, 연 10회.', homeLabel: '영화' },
+      { id: 'skt-woori-family-restaurant', name: '패밀리레스토랑 10% 할인', type: 'count_amount', priority: 'normal', categories: ['restaurant'], rate: 0.1, monthlyCap: 20000, monthlyLimitCount: 2, cycleType: 'calendar', summary: 'VIPS, TGIF 10% 청구할인', targets: 'VIPS, TGIF', exclusions: '상품권 구매 및 백화점/대형할인점 내 매장 이용금액 제외', conditions: '전월 30만원 이상. 통합 일 1회, 월 2회. 건당 최대 1만원 할인.', homeLabel: '패밀리' },
+      { id: 'skt-woori-coffee', name: '커피전문점 20% 할인', type: 'count_amount', priority: 'core', categories: ['coffee'], rate: 0.2, monthlyCap: 10000, monthlyLimitCount: 2, cycleType: 'calendar', summary: '할리스, 엔제리너스 20% 청구할인', targets: '할리스, 엔제리너스', exclusions: '상품권, 선불카드 구입/충전 및 백화점/대형할인점 내 매장, 미군부대 매장 제외', conditions: '전월 30만원 이상. 통합 일 1회, 월 2회. 건당 최대 5천원 할인.', homeLabel: '커피' }
+    ]
+  },
+  {
     id: 'kb-talktalk-my-point',
     issuer: 'KB국민카드',
     name: '톡톡 my point카드',
