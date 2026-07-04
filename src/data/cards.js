@@ -657,6 +657,24 @@ export const CARDS = [
       { id: 'always-on-2tx', name: '1만원 이상 2건 월 2,000P', type: 'two_transactions', priority: 'core', categories: ['small', 'other'], fixedBenefit: 2000, minAmount: 10000, monthlyLimitCount: 1, cycleType: 'calendar', summary: '월 1만원 이상 결제 2건 운영용. 마이신한포인트 최대 2,000P', targets: '1만원 내외 소액 결제 2건. 신한 SOL페이 거래 포함 시 특별적립 조건 충족.', exclusions: '카드대출, 연회비, 수수료, 이자, 기프트카드 구매, 선불카드 충전, 취소금액 제외', conditions: '공식 기준: 월 1만원 이상 이용 시 기본 1,000P, SOL페이 실적 또는 일반+SOL페이 조합/2건 이상 조건 충족 시 추가 1,000P.', homeLabel: '2건' },
       { id: 'always-on-movie', name: 'CGV/메가박스 온라인 영화 할인', type: 'count_amount', priority: 'normal', categories: ['movie'], fixedBenefitByAmount: [{ min: 9000, value: 1500 }, { min: 18000, value: 3000 }], monthlyLimitCount: 4, annualLimitCount: 12, cycleType: 'calendar', summary: 'CGV/메가박스 온라인 영화 예매 1,500~3,000원 할인', targets: 'CGV, 메가박스 공식 홈페이지 및 APP', exclusions: '온라인 영화예매 서비스 기준', conditions: '전월 30만원 이상. 통합 일 2회, 월 4회, 연 12회.', homeLabel: '영화' }
     ]
+  },
+  {
+    id: 'coupang-wow-card',
+    issuer: 'KB국민카드',
+    name: '쿠팡 와우카드',
+    shortName: '쿠팡 와우카드',
+    theme: 'navy',
+    image: '',
+    annualFee: 0,
+    defaultCycle: { type: 'calendar', startMonth: 1 },
+    monthlyTargets: [],
+    defaultMonthlyTarget: 0,
+    annualTargets: [],
+    tags: ['쿠팡', '와우', '참고용', '월 사용액'],
+    sourceNote: '참고용 카드. 쿠팡 결제 월 사용액 확인 목적으로만 관리.',
+    benefits: [
+      { id: 'coupang-wow-reference', name: '쿠팡 결제 사용액 참고', type: 'info', priority: 'normal', categories: ['other'], summary: '쿠팡 결제에 사용하는 카드의 월 사용액을 추적하기 위한 참고용 항목', targets: '쿠팡, 쿠팡이츠, 쿠팡플레이 등 쿠팡 계열 결제 확인용', exclusions: '정확한 적립률·한도는 공식 상품설명서 확인 후 별도 반영 필요', conditions: '월 실적 목표 없이 이번달 사용액만 입력해 관리. 결제추천에는 반영하지 않음.', homeLabel: '쿠팡' }
+    ]
   }
 ];
 

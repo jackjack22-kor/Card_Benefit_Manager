@@ -265,7 +265,7 @@ function renderDashboardCard(card, kind) {
   const monthlyShortfall = getMonthlyShortfall(card, override);
   const monthlyPct = monthlyTarget ? clamp(monthlySpend / monthlyTarget, 0, 1) : 1;
   const prevLabel = override.prevMonthStatus === 'met' ? '전월실적 충족' : override.prevMonthStatus === 'unmet' ? '전월실적 미달' : '전월실적 확인';
-  const monthlyLabel = monthlyTarget ? (monthlyShortfall ? `${won(monthlyShortfall)} 더 채우면 달성` : '이번달 목표 달성') : '실적 관리 없음';
+  const monthlyLabel = monthlyTarget ? (monthlyShortfall ? `${won(monthlyShortfall)} 더 채우면 달성` : '이번달 목표 달성') : '사용액 참고';
 
   return `
     <article class="dashboard-card theme-${card.theme} ${kind}" draggable="${state.isSortingCards ? 'true' : 'false'}" data-card-id="${card.id}" data-open-card="${card.id}">
@@ -281,7 +281,7 @@ function renderDashboardCard(card, kind) {
         <div class="progress-row">
           <div>
             <strong>이번달 실적</strong>
-            <span>${monthlyTarget ? `${won(monthlySpend)} / ${won(monthlyTarget)}` : '목표 없음'}</span>
+            <span>${monthlyTarget ? `${won(monthlySpend)} / ${won(monthlyTarget)}` : won(monthlySpend)}</span>
           </div>
           <b class="${monthlyShortfall ? 'warn-text' : 'good-text'}">${monthlyLabel}</b>
         </div>

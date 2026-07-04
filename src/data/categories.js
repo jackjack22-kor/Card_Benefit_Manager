@@ -122,6 +122,11 @@ export const SUBCATEGORIES = {
     { id: 'hotel-deli', label: '호텔 델리', keywords: ['호텔 델리', '델리'] },
     { id: 'family-restaurant', label: '패밀리 레스토랑', keywords: ['패밀리 레스토랑', '패밀리레스토랑'] },
     { id: 'other-restaurant', label: '기타 다이닝', keywords: ['다이닝', '레스토랑', '식당'] }
+  ],
+  shopping: [
+    { id: 'coupang', label: '쿠팡', keywords: ['쿠팡', 'coupang', '쿠팡이츠', '쿠팡플레이', '와우'] },
+    { id: 'online-shopping', label: '온라인쇼핑', keywords: ['온라인쇼핑', '온라인 쇼핑', '11번가', 'g마켓', '옥션', '롯데on', '티몬', '위메프'] },
+    { id: 'other-shopping', label: '기타 쇼핑', keywords: ['쇼핑', '상품권'] }
   ]
 };
 
