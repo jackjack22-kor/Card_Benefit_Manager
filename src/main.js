@@ -403,7 +403,7 @@ function renderMonthlyCardInputs(card, override) {
         </select>
       </label>
       <label>이번달 사용액
-        <input type="number" data-monthly-card-field="currentMonthSpend" data-card-id="${card.id}" value="${Number(override.currentMonthSpend || 0)}" step="10000">
+        <input type="text" inputmode="numeric" data-money-input data-monthly-card-field="currentMonthSpend" data-card-id="${card.id}" value="${formatNumberInput(override.currentMonthSpend)}">
       </label>
       <label>이번달 목표
         <input value="${Number(override.monthlyTarget || 0) ? won(override.monthlyTarget) : '관리 안 함'}" readonly>
@@ -427,7 +427,7 @@ function renderCardControls(card, override, cycle) {
           </select>
         </label>
         <label>연간 사용액 보정
-          <input type="number" data-card-field="annualSpend" data-card-id="${card.id}" value="${Number(state.cardOverrides?.[card.id]?.annualSpend || 0)}" step="100000">
+          <input type="text" inputmode="numeric" data-money-input data-card-field="annualSpend" data-card-id="${card.id}" value="${formatNumberInput(state.cardOverrides?.[card.id]?.annualSpend)}">
         </label>
         <label>연간 기준
           <select data-cycle-field="type" data-card-id="${card.id}">
@@ -625,6 +625,10 @@ function bindEvents() {
   document.querySelectorAll('[data-monthly-card-field]').forEach((input) => input.addEventListener('change', () => updateMonthlyCard(input.dataset.cardId, { [input.dataset.monthlyCardField]: normalizeInput(input.value) })));
   document.querySelectorAll('[data-card-field]').forEach((input) => input.addEventListener('change', () => updateCard(input.dataset.cardId, { [input.dataset.cardField]: normalizeInput(input.value) })));
   document.querySelectorAll('[data-cycle-field]').forEach((input) => input.addEventListener('change', () => updateCard(input.dataset.cardId, { cycle: { [input.dataset.cycleField]: normalizeInput(input.value) } })));
+  document.querySelectorAll('[data-money-input]').forEach((input) => input.addEventListener('input', () => {
+    const digits = String(input.value).replace(/[^\d]/g, '');
+    input.value = digits ? formatNumberInput(digits) : '';
+  }));
   document.querySelector('.detail-settings')?.addEventListener('toggle', (event) => {
     state = { ...state, cardSettingsOpen: event.target.open };
     saveState(state);
@@ -661,8 +665,12 @@ function bindEvents() {
 
 function normalizeInput(value) {
   if (value === 'met' || value === 'unmet' || value === 'manual' || value === 'calendar' || value === 'anniversary' || value === 'issueMonth' || value === 'quarter') return value;
-  const number = Number(value);
+  const number = Number(String(value).replace(/,/g, ''));
   return Number.isNaN(number) ? value : number;
+}
+
+function formatNumberInput(value) {
+  return Number(value || 0).toLocaleString('ko-KR');
 }
 
 function updateUsage(benefitId, patch) {
