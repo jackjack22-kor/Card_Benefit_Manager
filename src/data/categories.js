@@ -33,6 +33,8 @@ export const CATEGORY_MAP = Object.fromEntries(CATEGORIES.map((item) => [item.id
 export const SUBCATEGORIES = {
   coffee: [
     { id: 'starbucks', label: '스타벅스', keywords: ['스타벅스', '스벅', 'starbucks'] },
+    { id: 'artisee', label: '아티제', keywords: ['아티제', 'artisee'] },
+    { id: 'baekmidang', label: '백미당', keywords: ['백미당'] },
     { id: 'paul-basset', label: '폴바셋', keywords: ['폴바셋', 'paul'] },
     { id: 'ediya', label: '이디야', keywords: ['이디야', 'ediya'] },
     { id: 'angelinus', label: '엔제리너스', keywords: ['엔제리너스', 'angel'] },
@@ -74,7 +76,10 @@ export const SUBCATEGORIES = {
   hotel: [
     { id: 'marriott-hotel', label: '메리어트', keywords: ['메리어트', 'marriott'] },
     { id: 'hotel-restaurant', label: '호텔 레스토랑', keywords: ['호텔 레스토랑', '호텔식당', '레스토랑'] },
+    { id: 'hotel-deli', label: '호텔 델리', keywords: ['호텔 델리', '델리'] },
     { id: 'hotel-spa', label: '호텔 스파', keywords: ['스파'] },
+    { id: 'fhr', label: 'FHR', keywords: ['fine hotels', 'fhr'] },
+    { id: 'thc', label: 'THC', keywords: ['the hotel collection', 'hotel collection'] },
     { id: 'other-hotel', label: '기타 호텔', keywords: ['호텔', '특급호텔'] }
   ],
   marriott: [
@@ -106,7 +111,16 @@ export const SUBCATEGORIES = {
   ],
   parking: [
     { id: 'incheon-airport', label: '인천공항', keywords: ['인천공항'] },
+    { id: 'airport-valet', label: '공항 발렛', keywords: ['공항 발레파킹', '공항 발렛'] },
+    { id: 'hotel-valet', label: '호텔 발렛', keywords: ['호텔 발레파킹', '호텔 발렛'] },
     { id: 'other-parking', label: '기타 주차', keywords: ['주차'] }
+  ],
+  restaurant: [
+    { id: 'outback', label: '아웃백', keywords: ['아웃백', 'outback'] },
+    { id: 'hotel-restaurant', label: '호텔 레스토랑', keywords: ['호텔 레스토랑', '호텔식당'] },
+    { id: 'hotel-deli', label: '호텔 델리', keywords: ['호텔 델리', '델리'] },
+    { id: 'family-restaurant', label: '패밀리 레스토랑', keywords: ['패밀리 레스토랑', '패밀리레스토랑'] },
+    { id: 'other-restaurant', label: '기타 다이닝', keywords: ['다이닝', '레스토랑', '식당'] }
   ]
 };
 
