@@ -41,7 +41,8 @@ export const SUBCATEGORIES = {
     { id: 'coffee-bean', label: '커피빈', keywords: ['커피빈', 'coffee bean'] },
     { id: 'twosome', label: '투썸', keywords: ['투썸', 'twosome'] },
     { id: 'hollys', label: '할리스', keywords: ['할리스', 'hollys'] },
-    { id: 'other-coffee', label: '기타 커피', keywords: ['커피', '카페', '커피 업종'] }
+    { id: 'airport-coffee', label: '공항 커피', keywords: ['공항 커피', '인천공항', '김포공항'] },
+    { id: 'other-coffee', label: '기타 커피', keywords: ['커피 업종', '대상 커피 업종'] }
   ],
   movie: [
     { id: 'cgv', label: 'CGV', keywords: ['cgv'] },

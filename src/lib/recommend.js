@@ -361,7 +361,7 @@ function isBroadCategoryBenefit(text, categoryId) {
     evcharge: ['전기차', '충전'],
     dutyfree: ['면세점'],
     themepark: ['놀이공원', '워터파크'],
-    parking: ['주차']
+    parking: ['주차장전체', '모든주차장']
   };
   return (broadKeywords[categoryId] || []).some((keyword) => text.includes(normalizeText(keyword)));
 }
