@@ -1,4 +1,5 @@
 import { CARDS, POINT_DEFAULTS } from '../data/cards.js';
+import { CATEGORIES } from '../data/categories.js';
 import { getMonthKey } from './cycles.js';
 
 export const STORAGE_KEY = 'cardBenefitManager.v1';
@@ -9,6 +10,9 @@ const MONTHLY_TARGET_MIGRATIONS = {
   'kb-talktalk-my-point': 200000,
   'shinhan-always-on': 10000
 };
+const VALID_TABS = new Set(['dashboard', 'cards', 'recommend', 'settings']);
+const CATEGORY_IDS = new Set(CATEGORIES.map((item) => item.id));
+const POINT_KEYS = new Set(Object.keys(POINT_DEFAULTS));
 
 export function createInitialState() {
   const currentMonth = getMonthKey();
@@ -55,13 +59,15 @@ export function createInitialState() {
 }
 
 export function loadState() {
+  let raw = '';
   try {
-    const raw = localStorage.getItem(STORAGE_KEY);
+    raw = localStorage.getItem(STORAGE_KEY);
     if (!raw) return createInitialState();
     const parsed = JSON.parse(raw);
     return migrateState(parsed);
   } catch (error) {
     console.error('Failed to load state', error);
+    preserveCorruptState(raw);
     return createInitialState();
   }
 }
@@ -73,7 +79,12 @@ export function saveState(state, options = {}) {
     appVersion: APP_VERSION,
     updatedAt: options.touch === false ? state.updatedAt : new Date().toISOString()
   };
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(next));
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(next));
+  } catch (error) {
+    console.error('Failed to save state', error);
+    notifyStorageError(error);
+  }
   return next;
 }
 
@@ -83,7 +94,7 @@ export function migrateState(state) {
   }
   const base = createInitialState();
   const importedSettings = state.settings || {};
-  const importedPointValues = state.pointValues || importedSettings.pointValues || {};
+  const importedPointValues = sanitizePointValues(state.pointValues || importedSettings.pointValues || {});
   const importedCardSettings = state.cardSettings || state.cardOverrides || {};
   const importedBenefitUsage = state.benefitUsage || state.usage || {};
   const importedMonthlyCardUsage = state.monthlyCardUsage || {};
@@ -103,6 +114,8 @@ export function migrateState(state) {
     backupMeta: { ...base.backupMeta, ...importedBackupMeta }
   };
   const known = new Set(CARDS.map((card) => card.id));
+  merged.selectedTab = VALID_TABS.has(state.selectedTab) ? state.selectedTab : base.selectedTab;
+  merged.selectedCategory = CATEGORY_IDS.has(state.selectedCategory) ? state.selectedCategory : base.selectedCategory;
   merged.selectedMonth = state.selectedMonth || base.selectedMonth;
   merged.selectedSubcategory = state.selectedSubcategory || '';
   merged.cardOrder = [...new Set([...(state.cardOrder || []), ...base.cardOrder])].filter((id) => known.has(id));
@@ -110,6 +123,11 @@ export function migrateState(state) {
     merged.cardOverrides[card.id] = {
       ...base.cardOverrides[card.id],
       ...(merged.cardOverrides[card.id] || {}),
+      prevMonthStatus: normalizePrevMonthStatus(merged.cardOverrides[card.id]?.prevMonthStatus),
+      currentMonthSpend: Number(merged.cardOverrides[card.id]?.currentMonthSpend || 0),
+      monthlyTarget: Number(merged.cardOverrides[card.id]?.monthlyTarget || base.cardOverrides[card.id]?.monthlyTarget || 0),
+      annualSpend: Number(merged.cardOverrides[card.id]?.annualSpend || 0),
+      annualTarget: Number(merged.cardOverrides[card.id]?.annualTarget || base.cardOverrides[card.id]?.annualTarget || 0),
       cycle: {
         ...(base.cardOverrides[card.id]?.cycle || {}),
         ...(card.defaultCycle || {}),
@@ -117,6 +135,7 @@ export function migrateState(state) {
       }
     };
   }
+  merged.monthlyCardUsage = sanitizeMonthlyCardUsage(merged.monthlyCardUsage, known);
   if (String(state.schemaVersion || '') !== SCHEMA_VERSION) {
     for (const [cardId, target] of Object.entries(MONTHLY_TARGET_MIGRATIONS)) {
       if (Number(merged.cardOverrides[cardId]?.monthlyTarget || 0) === 0) {
@@ -180,6 +199,9 @@ export function importState(text) {
   if (parsed.schemaVersion && !['1.0.0', '2.0.0', '2.0.1'].includes(String(parsed.schemaVersion))) {
     throw new Error(`지원하지 않는 schemaVersion(${parsed.schemaVersion})입니다. 최신 백업 파일인지 확인해 주세요.`);
   }
+  if (!hasImportPayloadData(parsed)) {
+    throw new Error('백업 파일에 복원할 카드/혜택 데이터가 없습니다.');
+  }
   return migrateState({
     ...parsed,
     backupMeta: { ...(parsed.backupMeta || {}), lastImportAt: new Date().toISOString() }
@@ -189,4 +211,61 @@ export function importState(text) {
 export function resetState() {
   const state = createInitialState();
   return saveState(state);
+}
+
+function sanitizePointValues(values = {}) {
+  return Object.fromEntries(Object.entries(values)
+    .filter(([key]) => POINT_KEYS.has(key))
+    .map(([key, value]) => [key, Number(value) || POINT_DEFAULTS[key] || 1]));
+}
+
+function sanitizeMonthlyCardUsage(monthlyCardUsage = {}, knownCards = new Set()) {
+  return Object.fromEntries(Object.entries(monthlyCardUsage || {}).map(([monthKey, cards]) => [
+    monthKey,
+    Object.fromEntries(Object.entries(cards || {})
+      .filter(([cardId]) => knownCards.has(cardId))
+      .map(([cardId, value]) => [cardId, {
+        ...value,
+        prevMonthStatus: normalizePrevMonthStatus(value?.prevMonthStatus),
+        currentMonthSpend: Number(value?.currentMonthSpend || 0)
+      }]))
+  ]));
+}
+
+function normalizePrevMonthStatus(value) {
+  return ['met', 'unmet', 'manual'].includes(value) ? value : 'manual';
+}
+
+function hasImportPayloadData(parsed) {
+  if (!parsed || typeof parsed !== 'object') return false;
+  return [
+    parsed.cardOverrides,
+    parsed.cardSettings,
+    parsed.monthlyCardUsage,
+    parsed.usage,
+    parsed.benefitUsage,
+    parsed.notes,
+    parsed.cardOrder,
+    parsed.settings,
+    parsed.pointValues
+  ].some((value) => {
+    if (Array.isArray(value)) return value.length > 0;
+    return value && typeof value === 'object' && Object.keys(value).length > 0;
+  });
+}
+
+function preserveCorruptState(raw) {
+  if (!raw) return;
+  try {
+    localStorage.setItem(`${STORAGE_KEY}.corrupt.${Date.now()}`, raw);
+  } catch {
+    // Best effort only.
+  }
+}
+
+function notifyStorageError(error) {
+  if (typeof window === 'undefined') return;
+  window.dispatchEvent(new CustomEvent('cardfit-storage-error', {
+    detail: { message: error?.message || String(error) }
+  }));
 }

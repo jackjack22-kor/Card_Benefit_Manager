@@ -5,6 +5,7 @@ export const CATEGORIES = [
   { id: 'marriott', label: '메리어트' },
   { id: 'airline', label: '항공' },
   { id: 'simplepay', label: '간편결제' },
+  { id: 'travel', label: '여행' },
   { id: 'ott', label: 'OTT' },
   { id: 'golf', label: '골프' },
   { id: 'dutyfree', label: '면세점' },

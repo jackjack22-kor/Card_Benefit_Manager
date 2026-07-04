@@ -117,7 +117,7 @@ function readBenefitValue(usage = {}) {
 }
 
 function hasExplicitBenefitValue(usage = {}) {
-  return explicitBenefitValue(usage) > 0;
+  return Boolean(usage.manualBenefitOverride) || explicitBenefitValue(usage) > 0;
 }
 
 function getAutoMonthlyBenefitValue(state, card, benefit, monthKey) {
@@ -431,10 +431,10 @@ export function getShortfallCards(state) {
 function estimateBenefitValue(state, card, benefit, categoryId, amount, prevSpend) {
   const monthKey = selectedMonthKey(state);
   const usage = getBenefitUsage(state, benefit.id, monthKey);
-  const requiresSpend = Boolean(benefit.conditions?.includes('전월') || benefit.monthlyCapBySpend || benefit.rateBySpend);
+  const requiresSpend = requiresPrevMonthSpend(benefit);
   const isMet = getCardOverride(state, card.id).prevMonthStatus !== 'unmet';
 
-  if (requiresSpend && !isMet && benefit.type !== 'reward') {
+  if (requiresSpend && !isMet) {
     return { value: 0, rate: 0, reason: `${benefit.name}: 전월실적 미달로 제외` };
   }
 
@@ -507,6 +507,15 @@ function estimateBenefitValue(state, card, benefit, categoryId, amount, prevSpen
   }
 
   return { value: 0, rate: 0, reason: benefit.summary || benefit.name };
+}
+
+function requiresPrevMonthSpend(benefit) {
+  if (benefit.monthlyCapBySpend || benefit.rateBySpend) return true;
+  const conditions = String(benefit.conditions || '');
+  const hasPrevMonthText = conditions.includes('\uC804\uC6D4');
+  const isPrevMonthExempt = conditions.includes('\uC804\uC6D4\uC2E4\uC801 \uAD00\uACC4\uC5C6')
+    || conditions.includes('\uC804\uC6D4\uC2E4\uC801\uAD00\uACC4\uC5C6');
+  return hasPrevMonthText && !isPrevMonthExempt;
 }
 
 function effectiveMonthlyCap(card, benefit, prevSpend) {

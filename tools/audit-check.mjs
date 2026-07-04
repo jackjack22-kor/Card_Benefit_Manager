@@ -7,6 +7,7 @@ import {
   getOrderedCards,
   recommendCards
 } from '../src/lib/recommend.js';
+import { importState } from '../src/lib/storage.js';
 
 const MONTH = '2026-07';
 
@@ -105,7 +106,16 @@ const zeroManualState = withSpend('kb-talktalk-my-point', 200000, {
     }
   }
 });
-assertEqual(getMonthlyBenefitValue(zeroManualState, card('kb-talktalk-my-point'), MONTH), 11000, 'manual zero keeps auto until explicit-zero policy exists');
+assertEqual(getMonthlyBenefitValue(zeroManualState, card('kb-talktalk-my-point'), MONTH), 11000, 'legacy zero without override keeps auto');
+
+const explicitZeroOverrideState = withSpend('kb-talktalk-my-point', 200000, {
+  usage: {
+    'kb-base': {
+      [MONTH]: { benefitValue: 0, manualBenefitOverride: true }
+    }
+  }
+});
+assertEqual(getMonthlyBenefitValue(explicitZeroOverrideState, card('kb-talktalk-my-point'), MONTH), 10000, 'explicit manual zero suppresses one auto line');
 
 const manualOverrideState = withSpend('kb-talktalk-my-point', 200000, {
   usage: {
@@ -122,5 +132,33 @@ const the1LargeDepartment = baseState({
 });
 const the1Recommendation = findRecommendation(the1LargeDepartment, 'samsung-the1-skypass');
 assertBetween(the1Recommendation.value, 30000, 60000, 'THE 1 special mileage recommendation respects monthly point cap');
+
+const allUnmetOverrides = Object.fromEntries(CARDS.map((item) => [item.id, { prevMonthStatus: 'unmet' }]));
+const hotelUnmetState = baseState({
+  selectedCategory: 'hotel',
+  amount: 100000,
+  overrides: allUnmetOverrides
+});
+const hyundaiHotelUnmet = findRecommendation(hotelUnmetState, 'hyundai-amex-platinum');
+assertEqual(hyundaiHotelUnmet.value, 1500, 'prev-month unmet blocks conditional reward recommendations');
+
+assert.throws(() => importState('{}'), /복원할 카드\/혜택 데이터/, 'empty backup JSON is rejected');
+const imported = importState(JSON.stringify({
+  schemaVersion: '2.0.1',
+  selectedTab: 'dashboard hacked',
+  selectedCategory: 'travel',
+  pointValues: { koreanAir: 17, evil: '<img>' },
+  monthlyCardUsage: {
+    [MONTH]: {
+      'kb-talktalk-my-point': { currentMonthSpend: '200000', prevMonthStatus: 'bad-class' },
+      'unknown-card': { currentMonthSpend: 999999 }
+    }
+  }
+}));
+assertEqual(imported.selectedTab, 'dashboard', 'import sanitizes selected tab');
+assertEqual(imported.settings.pointValues.koreanAir, 17, 'import keeps known point values');
+assert.equal(imported.settings.pointValues.evil, undefined, 'import drops unknown point value keys');
+assertEqual(imported.monthlyCardUsage[MONTH]['kb-talktalk-my-point'].prevMonthStatus, 'manual', 'import sanitizes monthly status');
+assert.equal(imported.monthlyCardUsage[MONTH]['unknown-card'], undefined, 'import drops unknown monthly card ids');
 
 console.log('audit-check passed');

@@ -44,8 +44,16 @@ let categoryExpanded = false;
 let subcategoryExpanded = false;
 let syncStatus = getInitialSyncStatus();
 let suppressMonthlyInputRenderUntil = 0;
+let recommendationRenderTimer = 0;
+let storageErrorNotified = false;
 
 const PRIMARY_CATEGORIES = ['coffee', 'transit', 'movie', 'department', 'medical', 'simplepay', 'overseas'];
+
+window.addEventListener('cardfit-storage-error', (event) => {
+  if (storageErrorNotified) return;
+  storageErrorNotified = true;
+  alert(`브라우저 저장소에 데이터를 저장하지 못했습니다.\n\n로컬 저장공간/비공개 모드/브라우저 권한을 확인하세요.\n\n${event.detail?.message || ''}`);
+});
 
 // 화면 이동/보기 상태(기기별 로컬 전용, 클라우드 동기화·미러링 제외)
 const UI_STATE_KEYS = ['selectedTab', 'selectedMonth', 'selectedCategory', 'selectedSubcategory', 'recommendationAmount', 'isSortingCards', 'cardSettingsOpen', 'selectedCardId'];
@@ -126,8 +134,8 @@ function commitActiveMonthlyCardInput(options = {}) {
 function commitMonthlyInputBeforeAction(element) {
   if (!element) return;
   const commitBeforeNavigation = () => commitActiveMonthlyCardInput({ suppressRenderMs: 500 });
-  element.addEventListener('pointerdown', commitBeforeNavigation, { capture: true });
-  element.addEventListener('touchstart', commitBeforeNavigation, { capture: true, passive: true });
+  if (window.PointerEvent) element.addEventListener('pointerdown', commitBeforeNavigation, { capture: true });
+  else element.addEventListener('touchstart', commitBeforeNavigation, { capture: true, passive: true });
 }
 
 function updateSettings(patch) {
@@ -315,6 +323,7 @@ function renderDashboardCard(card, kind) {
           </div>
           <b class="${monthlyShortfall ? 'warn-text' : 'good-text'}">${monthlyLabel}</b>
         </div>
+        <label class="dashboard-quick-input"><span>이번달 사용액</span><input type="text" inputmode="numeric" data-money-input data-monthly-card-field="currentMonthSpend" data-card-id="${card.id}" value="${formatNumberInput(monthlySpend)}"></label>
         <div class="bar ${monthlyTarget ? (monthlyShortfall ? 'short' : 'met') : 'none'}"><i style="width:${monthlyPct * 100}%"></i></div>
         <div class="benefit-rate-line">실사용 혜택 ${won(practicalBenefit)} · ${benefitRateText(practicalRate, monthlySpend)}</div>
       </div>
@@ -391,14 +400,19 @@ function renderRecommendColumns(category, subcategory, amount, subcategories = g
   `;
 }
 
-function updateRecommendationAmount(value) {
+function updateRecommendationAmount(value, options = {}) {
   updateUiState({ recommendationAmount: value });
-  const container = document.querySelector('[data-recommend-results]');
-  if (!container) return;
-  const category = state.selectedCategory;
-  const subcategory = state.selectedSubcategory || '';
-  container.outerHTML = renderRecommendColumns(category, subcategory, value, getSubcategories(category));
-  bindOpenCardEvents(document.querySelector('[data-recommend-results]') || document);
+  clearTimeout(recommendationRenderTimer);
+  const renderResults = () => {
+    const container = document.querySelector('[data-recommend-results]');
+    if (!container) return;
+    const category = state.selectedCategory;
+    const subcategory = state.selectedSubcategory || '';
+    container.outerHTML = renderRecommendColumns(category, subcategory, Number(state.recommendationAmount || 0), getSubcategories(category));
+    bindOpenCardEvents(document.querySelector('[data-recommend-results]') || document);
+  };
+  if (options.immediate) renderResults();
+  else recommendationRenderTimer = setTimeout(renderResults, 180);
 }
 
 function renderCategoryPills(category) {
@@ -966,7 +980,7 @@ function bindEvents() {
     updateRecommendationAmount(Number(String(event.target.value).replace(/[^\d]/g, '') || 0));
   });
   document.querySelector('[data-field="recommendationAmount"]')?.addEventListener('change', (event) => {
-    updateRecommendationAmount(Number(String(event.target.value).replace(/[^\d]/g, '') || 0));
+    updateRecommendationAmount(Number(String(event.target.value).replace(/[^\d]/g, '') || 0), { immediate: true });
   });
   document.querySelectorAll('[data-point-value]').forEach((input) => input.addEventListener('change', () => updatePointValue(input.dataset.pointValue, input.value)));
 
@@ -1018,7 +1032,7 @@ function benefitRateText(rate, spend) {
 }
 
 function updateUsage(benefitId, patch) {
-  state = setBenefitUsage(state, benefitId, monthKey(), withAutoBenefitValue(benefitId, patch));
+  state = setBenefitUsage(state, benefitId, monthKey(), withManualBenefitOverride(withAutoBenefitValue(benefitId, patch)));
   persistState(state);
   render();
 }
@@ -1029,8 +1043,15 @@ function withAutoBenefitValue(benefitId, patch) {
   if (!context || !canAutoCalculateBenefitValue(context.benefit)) return patch;
   return {
     ...patch,
+    manualBenefitOverride: false,
     benefitValue: calculateAutoBenefitValue(context.card, context.benefit, Number(patch.usedAmount || 0))
   };
+}
+
+function withManualBenefitOverride(patch) {
+  if (!Object.prototype.hasOwnProperty.call(patch, 'benefitValue')) return patch;
+  if (patch.manualBenefitOverride === false) return patch;
+  return { ...patch, manualBenefitOverride: true };
 }
 
 function canAutoCalculateBenefitValue(benefit) {
@@ -1353,6 +1374,11 @@ function exportJson() {
 function importJson(event) {
   const file = event.target.files?.[0];
   if (!file) return;
+  if (file.size > 1024 * 1024) {
+    alert('백업 파일이 너무 큽니다. 1MB 이하의 CardFit JSON 파일만 불러올 수 있습니다.');
+    event.target.value = '';
+    return;
+  }
   if (!confirm('현재 입력 데이터가 백업 파일 내용으로 덮어써집니다. 계속 불러올까요?')) {
     event.target.value = '';
     return;
@@ -1367,6 +1393,13 @@ function importJson(event) {
     } catch (error) {
       alert(`백업 파일을 읽지 못했습니다.\n\n${error.message}`);
     }
+    event.target.value = '';
+  };
+  reader.onerror = () => {
+    alert('백업 파일을 읽지 못했습니다. 파일 권한이나 형식을 확인해 주세요.');
+    event.target.value = '';
+  };
+  reader.onabort = () => {
     event.target.value = '';
   };
   reader.readAsText(file);

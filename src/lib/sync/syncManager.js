@@ -1,9 +1,10 @@
 import { GoogleAuthProvider, getRedirectResult, onAuthStateChanged, signInWithPopup, signInWithRedirect, signOut } from 'firebase/auth';
-import { doc, getDoc, onSnapshot, serverTimestamp, setDoc } from 'firebase/firestore';
+import { doc, getDoc, onSnapshot, runTransaction, serverTimestamp } from 'firebase/firestore';
 import { migrateState } from '../storage.js';
 import { getFirebaseServices, isFirebaseConfigured } from './firebaseClient.js';
 
 const DEVICE_KEY = 'cardBenefitManager.deviceId';
+const PENDING_SAVE_KEY = 'cardBenefitManager.pendingCloudSave';
 const SYNC_DEBOUNCE_MS = 1200;
 const CLOUD_DOC_ID = 'cardfit';
 
@@ -64,6 +65,7 @@ export function initSync(nextCallbacks) {
 
     try {
       await connectCloudState(user);
+      if (hasPendingCloudSave()) await flushCloudSave(callbacks.getState());
     } catch (error) {
       publish({
         state: 'error',
@@ -98,6 +100,7 @@ export async function requestCloudSignOut() {
 
 export function queueCloudSave(state) {
   if (!currentUser || !services || savingRemote) return;
+  markPendingCloudSave();
   clearTimeout(saveTimer);
   saveTimer = setTimeout(() => {
     flushCloudSave(callbacks.getState()).catch((error) => {
@@ -113,6 +116,7 @@ export function queueCloudSave(state) {
 
 export async function requestCloudSyncNow() {
   if (!currentUser || !services) return;
+  markPendingCloudSave();
   await flushCloudSave(callbacks.getState());
 }
 
@@ -122,8 +126,9 @@ async function connectCloudState(user) {
   const localState = callbacks.getState();
 
   if (!snapshot.exists()) {
-    await writeCloudState(localState, 1);
-    lastAppliedRevision = 1;
+    const result = await writeCloudState(localState);
+    lastAppliedRevision = result.revision;
+    clearPendingCloudSave();
     subscribeCloud(user.uid);
     publish({
       state: 'synced',
@@ -140,17 +145,21 @@ async function connectCloudState(user) {
   const merged = cloudState ? mergeStates(localState, cloudState) : localState;
   lastAppliedRevision = Math.max(cloudRevision, Number(merged.syncMeta?.revision || 0));
 
-  savingRemote = true;
-  callbacks.applyRemoteState(withSyncMeta(merged, {
-    lastCloudSyncAt: new Date().toISOString(),
-    revision: lastAppliedRevision,
-    cloudRevision,
-    cloudUserId: user.uid
-  }));
-  savingRemote = false;
+  try {
+    savingRemote = true;
+    callbacks.applyRemoteState(withSyncMeta(merged, {
+      lastCloudSyncAt: new Date().toISOString(),
+      revision: lastAppliedRevision,
+      cloudRevision,
+      cloudUserId: user.uid
+    }));
+  } finally {
+    savingRemote = false;
+  }
 
-  await writeCloudState(callbacks.getState(), lastAppliedRevision + 1);
-  lastAppliedRevision += 1;
+  const result = await writeCloudState(callbacks.getState());
+  lastAppliedRevision = result.revision;
+  clearPendingCloudSave();
   subscribeCloud(user.uid);
   publish({
     state: 'synced',
@@ -181,9 +190,12 @@ function subscribeCloud(uid) {
         cloudRevision: revision,
         cloudUserId: uid
       });
-      savingRemote = true;
-      callbacks.applyRemoteState(remoteState);
-      savingRemote = false;
+      try {
+        savingRemote = true;
+        callbacks.applyRemoteState(remoteState);
+      } finally {
+        savingRemote = false;
+      }
       publish({
         state: 'synced',
         user: userSummary(currentUser),
@@ -191,7 +203,6 @@ function subscribeCloud(uid) {
         lastSyncedAt: new Date().toISOString()
       });
     } catch (error) {
-      savingRemote = false;
       publish({
         state: 'error',
         user: userSummary(currentUser),
@@ -214,9 +225,16 @@ async function flushCloudSave(state = callbacks.getState()) {
   saveTimer = null;
   if (!currentUser || !services || savingRemote) return;
   publish({ state: 'syncing', user: userSummary(currentUser), message: '클라우드에 저장 중입니다.' });
-  const nextRevision = Math.max(lastAppliedRevision + 1, Number(state.syncMeta?.revision || 0) + 1);
-  await writeCloudState(state, nextRevision);
-  lastAppliedRevision = nextRevision;
+  markPendingCloudSave();
+  const result = await writeCloudState(state);
+  lastAppliedRevision = result.revision;
+  clearPendingCloudSave();
+  try {
+    savingRemote = true;
+    callbacks.applyRemoteState(result.state);
+  } finally {
+    savingRemote = false;
+  }
   publish({
     state: 'synced',
     user: userSummary(currentUser),
@@ -225,23 +243,35 @@ async function flushCloudSave(state = callbacks.getState()) {
   });
 }
 
-async function writeCloudState(state, revision) {
+async function writeCloudState(state) {
   const now = new Date().toISOString();
-  const next = withSyncMeta(state, {
-    deviceId: getDeviceId(),
-    lastCloudSyncAt: now,
-    lastLocalEditAt: state.updatedAt || now,
-    revision
+  const ref = cloudDocRef(currentUser.uid);
+  return runTransaction(services.db, async (transaction) => {
+    const snapshot = await transaction.get(ref);
+    const cloud = snapshot.exists() ? snapshot.data() : null;
+    const cloudRevision = Number(cloud?.revision || 0);
+    const cloudState = cloud?.state ? migrateState(cloud.state) : null;
+    const merged = cloudState && cloudRevision > lastAppliedRevision ? mergeStates(state, cloudState) : state;
+    const revision = Math.max(cloudRevision, lastAppliedRevision, Number(merged.syncMeta?.revision || 0)) + 1;
+    const next = withSyncMeta(merged, {
+      deviceId: getDeviceId(),
+      lastCloudSyncAt: now,
+      lastLocalEditAt: state.updatedAt || now,
+      revision,
+      cloudRevision: revision,
+      cloudUserId: currentUser.uid
+    });
+    transaction.set(ref, {
+      appId: 'cardfit',
+      schemaVersion: next.schemaVersion || '2.0.0',
+      clientUpdatedAt: now,
+      deviceId: getDeviceId(),
+      revision,
+      updatedAt: serverTimestamp(),
+      state: toPlainJson(next)
+    }, { merge: true });
+    return { revision, state: next };
   });
-  await setDoc(cloudDocRef(currentUser.uid), {
-    appId: 'cardfit',
-    schemaVersion: next.schemaVersion || '2.0.0',
-    clientUpdatedAt: now,
-    deviceId: getDeviceId(),
-    revision,
-    updatedAt: serverTimestamp(),
-    state: toPlainJson(next)
-  }, { merge: true });
 }
 
 function mergeStates(localState, cloudState) {
@@ -344,11 +374,39 @@ function bindPageLifecycleFlush() {
   window.addEventListener('pagehide', flushLatest);
 }
 
+function markPendingCloudSave() {
+  try {
+    localStorage.setItem(PENDING_SAVE_KEY, new Date().toISOString());
+  } catch {
+    // Best effort only.
+  }
+}
+
+function clearPendingCloudSave() {
+  try {
+    localStorage.removeItem(PENDING_SAVE_KEY);
+  } catch {
+    // Best effort only.
+  }
+}
+
+function hasPendingCloudSave() {
+  try {
+    return Boolean(localStorage.getItem(PENDING_SAVE_KEY));
+  } catch {
+    return false;
+  }
+}
+
 function getDeviceId() {
-  const existing = localStorage.getItem(DEVICE_KEY);
-  if (existing) return existing;
   const id = crypto?.randomUUID?.() || `device-${Date.now()}-${Math.random().toString(16).slice(2)}`;
-  localStorage.setItem(DEVICE_KEY, id);
+  try {
+    const existing = localStorage.getItem(DEVICE_KEY);
+    if (existing) return existing;
+    localStorage.setItem(DEVICE_KEY, id);
+  } catch {
+    return id;
+  }
   return id;
 }
 

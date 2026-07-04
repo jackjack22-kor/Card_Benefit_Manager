@@ -10,7 +10,7 @@ const CORE = [
 self.addEventListener('install', (event) => {
   self.skipWaiting();
   event.waitUntil(
-    caches.open(CACHE).then((cache) => cache.addAll(CORE)).catch(() => {})
+    caches.open(CACHE).then((cache) => cache.addAll(CORE))
   );
 });
 
@@ -27,6 +27,7 @@ self.addEventListener('fetch', (event) => {
   if (request.method !== 'GET') return;
   const url = new URL(request.url);
   if (url.origin !== self.location.origin) return;
+  if (!shouldCache(url, request)) return;
 
   event.respondWith(
     fetch(request, { cache: 'no-cache' })
@@ -39,3 +40,14 @@ self.addEventListener('fetch', (event) => {
       .catch(() => caches.match(request).then((cached) => cached || caches.match('.')))
   );
 });
+
+function shouldCache(url, request) {
+  if (request.mode === 'navigate') return true;
+  return CORE.some((path) => {
+    if (path === '.') return url.pathname.endsWith('/') || url.pathname.endsWith('/index.html');
+    return url.pathname.endsWith(`/${path.replace(/^\//, '')}`);
+  })
+    || url.pathname.includes('/assets/')
+    || url.pathname.includes('/image/clean/')
+    || url.pathname.includes('/icons/');
+}
