@@ -5,6 +5,9 @@
 
 ## 2026-07-04
 
+### 레이아웃
+- **하단 탭바를 풀폭(edge-to-edge)으로 변경**: 기존 플로팅 알약형은 좌우·하단 여백으로 카드가 비쳐 산만했음. 화면 하단에 밀착한 풀폭 바(상단 hairline + 프로스티드 블러 + active 그라데이션 알약)로 전환해 헤더와 톤을 맞추고 가독성 개선. `.app-shell` 하단 패딩 축소, safe-area 반영. 동기화/기능 코드에는 영향 없음(CSS 전용). (src/styles.css)
+
 ### 클라우드 동기화 준비
 - **Firebase 적용 계획서 추가**: 비로그인=localStorage 전용, 로그인=Firebase Auth + Firestore 동기화 구조를 전제로 `docs/FIREBASE_SYNC_PLAN.md` 작성. 사용자 Firebase 콘솔 설정 체크리스트, Firestore 데이터 모델, 보안 규칙 초안, 구현 단계, 확인 질문을 정리. README/ROADMAP에서 참조 연결.
 - **Firebase Auth + Firestore 동기화 1차 구현**: `CardFit` Firebase 웹앱 설정(`cardfit-ee4b5`)을 연결하고, 설정/백업 탭에 Google 로그인, 동기화 상태, 수동 동기화, 로그아웃 UI 추가. 비로그인 localStorage 모드는 유지하고, 로그인 시 `users/{uid}/private/cardfit` 문서에 현재 상태 스냅샷을 저장/병합/구독.
