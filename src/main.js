@@ -182,7 +182,7 @@ function renderTabs() {
     ['dashboard', '카드현황'],
     ['cards', '카드상세'],
     ['recommend', '결제추천'],
-    ['settings', '설정/백업']
+    ['settings', '설정']
   ];
   return `<nav class="tabs">${tabs.map(([id, label]) => `<button class="tab ${state.selectedTab === id ? 'active' : ''}" data-tab="${id}">${icons[id]}<span>${label}</span></button>`).join('')}</nav>`;
 }
@@ -208,7 +208,7 @@ function renderDashboard() {
       </div>
       <div>
         <h2>카드 현황</h2>
-        <p>각 카드의 전월실적 충족 여부와 이번달 실적 달성 여부만 빠르게 확인합니다.</p>
+        <p>전월실적 충족과 이번달 실적 달성 현황을 한눈에 확인합니다.</p>
       </div>
     </section>
     <div class="summary-strip">
@@ -700,7 +700,7 @@ function renderSettings() {
   return `
     <section class="page-head compact-head">
       <div>
-        <h2>설정 · 백업</h2>
+        <h2>설정</h2>
         <p>동기화, 포인트 가치, 백업을 관리합니다.</p>
       </div>
     </section>
@@ -751,19 +751,14 @@ function renderCloudSyncCard() {
   const tone = syncStatus.state === 'synced' ? 'good' : syncStatus.state === 'error' ? 'warn' : '';
   const statusText = syncStatusLabel(syncStatus.state);
   return `
-    <div class="settings-card full-span cloud-sync-card ${tone}">
-      <div class="cloud-sync-head">
-        <div>
-          <h3>클라우드 동기화</h3>
-          <p>${escapeHtml(syncStatus.message || 'Google 로그인으로 여러 기기에서 같은 데이터를 사용할 수 있습니다.')}</p>
-        </div>
-        <span class="sync-status ${escapeHtml(syncStatus.state)}">${escapeHtml(statusText)}</span>
-      </div>
+    <div class="settings-card cloud-sync-card ${tone}">
+      <h3>클라우드 동기화</h3>
       ${user ? `
-        <div class="backup-actions">
+        <div class="sync-row">
+          <span class="sync-status ${escapeHtml(syncStatus.state)}">${escapeHtml(statusText)}</span>
           <button data-action="cloud-sync-now">지금 동기화</button>
         </div>
-        <details class="mini-expand">
+        <details class="account-expand">
           <summary>계정 정보</summary>
           <div class="sync-account">
             <strong>${escapeHtml(user.displayName || 'Google 계정')}</strong>
@@ -776,11 +771,11 @@ function renderCloudSyncCard() {
           </div>
         </details>
       ` : `
-        <p class="sync-meta">로그인하지 않아도 앱은 지금처럼 로컬 전용으로 계속 사용할 수 있습니다.</p>
-        ${syncStatus.error ? `<p class="sync-error">${escapeHtml(syncStatus.error)}</p>` : ''}
-        <div class="backup-actions">
+        <div class="sync-row">
+          <span class="sync-status ${escapeHtml(syncStatus.state)}">${escapeHtml(statusText)}</span>
           <button data-action="cloud-signin" ${syncStatus.configured ? '' : 'disabled'}>Google 로그인</button>
         </div>
+        ${syncStatus.error ? `<p class="sync-error">${escapeHtml(syncStatus.error)}</p>` : ''}
       `}
     </div>
   `;
