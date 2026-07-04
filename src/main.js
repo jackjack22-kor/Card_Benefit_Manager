@@ -313,7 +313,9 @@ function renderRankItem(result, index, mode = 'value') {
   const shortfallLabel = result.monthlyShortfall
     ? `월 ${compactWon(result.monthlyShortfall)}`
     : result.annualShortfall ? `연 ${compactWon(result.annualShortfall)}` : '';
-  const isBlocked = mode === 'value' && result.value === 0 && result.conditions?.length;
+  const hasConditions = mode === 'value' && result.conditions?.length;
+  const isBlocked = hasConditions && result.value === 0;
+  const reasonText = hasConditions ? String(result.reason).replace(/\s*·\s*조건 확인:.*$/, '') : result.reason;
 
   return `
     <article class="rank-item ${mode === 'fill' ? 'fill' : 'value'}" data-open-card="${result.card.id}">
@@ -322,12 +324,13 @@ function renderRankItem(result, index, mode = 'value') {
         <strong>${escapeHtml(result.card.shortName)}</strong>
         ${mode === 'fill' ? '' : `<span>${won(result.value)} 혜택 예상</span>`}
         <small class="${result.status.ok ? 'good-text' : result.status.ok === false ? 'bad-text' : 'muted'}">${escapeHtml(result.status.text)}</small>
-        ${isBlocked ? `
-          <div class="rank-hint">
-            ${result.conditions.slice(0, 2).map((reason) => `<span><em>조건 미충족</em>${escapeHtml(reason)}</span>`).join('')}
+        ${hasConditions ? `
+          <div class="rank-hint ${isBlocked ? '' : 'compact'}">
+            ${result.conditions.slice(0, isBlocked ? 2 : 1).map((reason) => `<span><em>조건 미충족</em>${escapeHtml(reason)}</span>`).join('')}
           </div>
-        ` : `
-          <p>${escapeHtml(result.reason)}</p>
+        ` : ''}
+        ${isBlocked ? '' : `
+          <p>${escapeHtml(reasonText)}</p>
           ${result.matching?.length ? `
             <div class="calc-list">
               ${result.matching.slice(0, 4).map((item) => `
