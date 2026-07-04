@@ -148,7 +148,11 @@ p { color: var(--muted); line-height: 1.55; }
 .progress-row span { color: var(--muted); margin-top: 3px; display: block; }
 .progress-row b { font-weight: 800; font-size: 12px; }
 .bar { margin-top: 8px; height: 8px; background: var(--surface-3); border-radius: var(--r-pill); overflow: hidden; }
-.bar i { display: block; height: 100%; border-radius: inherit; background: linear-gradient(90deg, var(--card-accent), color-mix(in srgb, var(--card-accent) 55%, #fff)); transition: width .4s ease; }
+.bar i { display: block; height: 100%; border-radius: inherit; transition: width .4s ease; background: linear-gradient(90deg, #6b7488, #8b94a7); }
+.bar.met { height: 10px; background: color-mix(in srgb, var(--good) 20%, var(--surface-3)); }
+.bar.met i { background: linear-gradient(90deg, var(--good), #7cf0b4); box-shadow: 0 0 12px color-mix(in srgb, var(--good) 70%, transparent); }
+.bar.short i { background: linear-gradient(90deg, var(--warn), #ffd88a); }
+.bar.none i { background: linear-gradient(90deg, #5b6478, #7d8698); opacity: .55; }
 .bar.annual i { background: linear-gradient(90deg, #a78bfa, #67e8f9); }
 .good-text { color: var(--good) !important; }
 .warn-text { color: var(--warn) !important; }
@@ -234,13 +238,25 @@ p { color: var(--muted); line-height: 1.55; }
 
 /* benefit cards */
 .benefit-list { display: grid; gap: 12px; }
-.benefit-card { background: var(--surface); border: 1px solid var(--line); border-radius: var(--r-card); padding: 16px; box-shadow: var(--shadow-card); }
-.benefit-head { display: flex; justify-content: space-between; gap: 14px; }
-.benefit-head h4 { margin-bottom: 6px; font-size: 18px; font-weight: 800; }
+.benefit-card { background: var(--surface); border: 1px solid var(--line); border-radius: var(--r-card); box-shadow: var(--shadow-card); overflow: hidden; }
+.benefit-card[open] { border-color: var(--line-strong); }
+.benefit-summary { list-style: none; cursor: pointer; display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; padding: 15px 16px; }
+.benefit-summary::-webkit-details-marker { display: none; }
+.benefit-summary-main { min-width: 0; }
+.benefit-summary-main h4 { margin: 4px 0 5px; font-size: 16px; font-weight: 800; line-height: 1.3; word-break: keep-all; overflow-wrap: anywhere; }
+.benefit-summary-main p { margin: 0; font-size: 12px; color: var(--muted); line-height: 1.45; }
 .benefit-type { color: var(--accent); font-size: 11px; font-weight: 900; text-transform: uppercase; letter-spacing: .04em; }
-.benefit-status { display: grid; justify-items: end; gap: 5px; color: var(--muted); white-space: nowrap; }
-.benefit-status strong { color: var(--accent); }
-.benefit-meta { display: flex; flex-wrap: wrap; gap: 8px; margin: 12px 0; }
+.benefit-summary-side { display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
+.benefit-caret { color: var(--muted); font-size: 20px; line-height: 1; transition: transform .2s; }
+.benefit-card[open] .benefit-caret { transform: rotate(180deg); }
+.status-chips { display: flex; flex-direction: column; gap: 5px; align-items: flex-end; }
+.status-chip { display: inline-flex; align-items: center; gap: 5px; background: var(--surface-2); border: 1px solid var(--line); border-radius: var(--r-pill); padding: 4px 10px; font-size: 12px; font-weight: 800; white-space: nowrap; }
+.status-chip em { font-style: normal; font-weight: 700; color: var(--muted); font-size: 11px; }
+.status-chip.done { color: var(--good); background: color-mix(in srgb, var(--good) 14%, transparent); border-color: color-mix(in srgb, var(--good) 32%, transparent); }
+.status-chip.done em { color: color-mix(in srgb, var(--good) 72%, var(--muted)); }
+.benefit-body { padding: 14px 16px 16px; border-top: 1px solid var(--line); }
+.benefit-detail-toggle { margin-top: 10px; }
+.benefit-meta { display: flex; flex-wrap: wrap; gap: 8px; margin: 0 0 12px; }
 .benefit-meta span, .remaining, .milestone-list span { color: var(--muted); background: var(--surface-2); border: 1px solid var(--line); border-radius: var(--r-pill); padding: 6px 11px; font-size: 12px; }
 .benefit-controls, .counter-controls, .two-tx, .milestone-list { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; margin: 12px 0; }
 .benefit-controls label { min-width: 200px; flex: 1; }
@@ -305,7 +321,7 @@ code { color: var(--accent); background: var(--surface-2); padding: 2px 6px; bor
 @media (max-width: 560px) {
   .app-shell { padding: 10px 12px calc(104px + env(safe-area-inset-bottom)); }
   h2, .page-head.compact-head h2 { font-size: 24px; }
-  .section-head, .benefit-head, .detail-title { flex-direction: column; }
+  .section-head, .detail-title { flex-direction: column; }
   .control-grid { grid-template-columns: 1fr; }
   .category-pills button, .subcategory-pills button { padding: 9px 13px; }
   .app-header { gap: 8px; }

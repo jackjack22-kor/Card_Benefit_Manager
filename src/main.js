@@ -25,6 +25,7 @@ import { clamp, compactWon, escapeHtml, pct, won } from './lib/format.js';
 let state = loadState();
 const app = document.querySelector('#app');
 let suppressNextOpen = false;
+const openBenefits = new Set();
 
 function selectedMonthKey() {
   return state.selectedMonth || getMonthKey();
@@ -232,7 +233,7 @@ function renderDashboardCard(card, kind) {
           </div>
           <b class="${monthlyShortfall ? 'warn-text' : 'good-text'}">${monthlyLabel}</b>
         </div>
-        <div class="bar"><i style="width:${monthlyPct * 100}%"></i></div>
+        <div class="bar ${monthlyTarget ? (monthlyShortfall ? 'short' : 'met') : 'none'}"><i style="width:${monthlyPct * 100}%"></i></div>
       </div>
       ${state.isSortingCards ? `
         <div class="sort-controls">
@@ -494,20 +495,19 @@ function renderBenefitEditor(card, benefit) {
   const monthlyValue = Number(usage.benefitValue || 0);
 
   return `
-    <article class="benefit-card" data-benefit-id="${benefit.id}">
-      <div class="benefit-head">
-        <div>
+    <details class="benefit-card" data-benefit-id="${benefit.id}" ${openBenefits.has(benefit.id) ? 'open' : ''}>
+      <summary class="benefit-summary">
+        <div class="benefit-summary-main">
           <span class="benefit-type">${escapeHtml(benefit.priority === 'core' ? '핵심 혜택' : '부가 혜택')}</span>
           <h4>${escapeHtml(benefit.name)}</h4>
           <p>${escapeHtml(benefit.summary || '')}</p>
         </div>
-        <div class="benefit-status">
-          ${benefit.type === 'two_transactions' ? `<strong>${Number(Boolean(usage.tx1)) + Number(Boolean(usage.tx2))}/2건</strong>` : ''}
-          ${benefit.annualLimitCount ? `<strong>연 ${annualCount}/${benefit.annualLimitCount}</strong>` : ''}
-          ${benefit.monthlyLimitCount && benefit.type !== 'two_transactions' ? `<span>월 ${Number(usage.count || 0)}/${benefit.monthlyLimitCount}</span>` : ''}
-          ${cap ? `<span>${Number(usage.benefitValue || 0).toLocaleString()}/${cap.toLocaleString()}</span>` : ''}
+        <div class="benefit-summary-side">
+          ${benefitStatusChips(benefit, usage, cap, annualCount)}
+          <span class="benefit-caret" aria-hidden="true">⌄</span>
         </div>
-      </div>
+      </summary>
+      <div class="benefit-body">
       <div class="benefit-meta">
         <span>유형: ${escapeHtml(benefitTypeLabel(benefit.type))}</span>
         <span>주기: ${escapeHtml(CYCLE_LABELS[benefit.cycleType || override.cycle?.type || card.defaultCycle?.type] || '기본')}</span>
@@ -519,7 +519,7 @@ function renderBenefitEditor(card, benefit) {
       <label class="benefit-memo">메모
         <textarea data-usage-field="memo" data-benefit-id="${benefit.id}" placeholder="확인한 조건, 사용 예정일, 예외사항 등을 기록하세요.">${escapeHtml(usage.memo || '')}</textarea>
       </label>
-      <details>
+      <details class="benefit-detail-toggle">
         <summary>대상/조건/제외 상세 보기</summary>
         <dl class="benefit-detail">
           <dt>혜택 유형</dt><dd>${escapeHtml(benefitTypeLabel(benefit.type))}</dd>
@@ -535,8 +535,33 @@ function renderBenefitEditor(card, benefit) {
           <dt>메모</dt><dd>${escapeHtml(usage.memo || '-')}</dd>
         </dl>
       </details>
-    </article>
+      </div>
+    </details>
   `;
+}
+
+function benefitStatusChips(benefit, usage, cap, annualCount) {
+  const chip = (label, value, done) => `<span class="status-chip ${done ? 'done' : ''}"><em>${label}</em>${escapeHtml(value)}</span>`;
+  const chips = [];
+  if (benefit.type === 'two_transactions') {
+    const n = Number(Boolean(usage.tx1)) + Number(Boolean(usage.tx2));
+    chips.push(chip('이번달', `${n}/2건`, n >= 2));
+  }
+  if (benefit.monthlyLimitCount && benefit.type !== 'two_transactions') {
+    const c = Number(usage.count || 0);
+    chips.push(chip('월', `${c}/${benefit.monthlyLimitCount}회`, c >= benefit.monthlyLimitCount));
+  }
+  if (benefit.annualLimitCount) {
+    chips.push(chip('연', `${annualCount}/${benefit.annualLimitCount}회`, annualCount >= benefit.annualLimitCount));
+  }
+  if (cap) {
+    const v = Number(usage.benefitValue || 0);
+    chips.push(chip('한도', `${compactWon(v)}/${compactWon(cap)}`, v >= cap));
+  }
+  if (!chips.length) {
+    chips.push(chip('이번달', usage.checked ? '사용함' : '미사용', !!usage.checked));
+  }
+  return `<div class="status-chips">${chips.slice(0, 2).join('')}</div>`;
 }
 
 function renderBenefitControls(benefit, usage, cap) {
@@ -660,6 +685,10 @@ function bindEvents() {
     state = { ...state, cardSettingsOpen: event.target.open };
     saveState(state);
   });
+  document.querySelectorAll('details.benefit-card').forEach((el) => el.addEventListener('toggle', () => {
+    if (el.open) openBenefits.add(el.dataset.benefitId);
+    else openBenefits.delete(el.dataset.benefitId);
+  }));
   document.querySelectorAll('[data-card-memo]').forEach((input) => input.addEventListener('blur', () => updateCard(input.dataset.cardMemo, { memo: input.value })));
 
   document.querySelectorAll('[data-usage-field]').forEach((input) => {
