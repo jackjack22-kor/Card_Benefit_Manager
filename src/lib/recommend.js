@@ -79,8 +79,35 @@ export function getAnnualBenefitValue(state, card, benefit, date = selectedDate(
   return monthsInCycle(cycle).reduce((sum, monthKey) => {
     if (monthKey === options.excludeMonthKey) return sum;
     const usage = getBenefitUsage(state, benefit.id, monthKey);
-    return sum + Number(usage.benefitValue || usage.usedBenefit || 0);
+    return sum + readBenefitValue(usage);
   }, 0);
+}
+
+export function getMonthlyBenefitValue(state, card, monthKey = selectedMonthKey(state)) {
+  return (card.benefits || []).reduce((sum, benefit) => {
+    if (!isPracticalBenefitValue(benefit)) return sum;
+    const usage = getBenefitUsage(state, benefit.id, monthKey);
+    return sum + readBenefitValue(usage);
+  }, 0);
+}
+
+export function getTotalMonthlyBenefitValue(state, cards = getOrderedCards(state), monthKey = selectedMonthKey(state)) {
+  return cards.reduce((sum, card) => sum + getMonthlyBenefitValue(state, card, monthKey), 0);
+}
+
+export function getEffectiveBenefitRate(spend, benefitValue) {
+  const amount = Number(spend || 0);
+  if (amount <= 0) return 0;
+  return Number(benefitValue || 0) / amount;
+}
+
+function isPracticalBenefitValue(benefit) {
+  return !['check', 'info', 'info_check', 'milestone'].includes(benefit.type);
+}
+
+function readBenefitValue(usage = {}) {
+  if (Object.prototype.hasOwnProperty.call(usage, 'benefitValue')) return Number(usage.benefitValue || 0);
+  return Number(usage.usedBenefit || 0);
 }
 
 export function getAnnualSpend(state, card, date = selectedDate(state)) {
@@ -279,7 +306,7 @@ function estimateBenefitValue(state, card, benefit, categoryId, amount, prevSpen
     const cap = effectiveMonthlyCap(card, benefit, prevSpend);
     const used = benefit.capPoolId
       ? getMonthlyPoolBenefitValue(state, card, benefit, monthKey)
-      : Number(usage.benefitValue || 0);
+      : readBenefitValue(usage);
     const raw = amount * rate;
     const monthlyRemaining = cap ? Math.max(0, cap - used) : Infinity;
     const annualUsed = benefit.annualCap ? getAnnualBenefitValue(state, card, benefit) : 0;
@@ -304,7 +331,7 @@ function estimateBenefitValue(state, card, benefit, categoryId, amount, prevSpen
     const rate = calculateRate(benefit, prevSpend);
     const rateValue = rate ? amount * rate : 0;
     const raw = fixed || rateValue;
-    const used = Number(usage.benefitValue || 0);
+    const used = readBenefitValue(usage);
     const monthlyRemaining = benefit.monthlyCap ? Math.max(0, benefit.monthlyCap - used) : Infinity;
     const value = Math.max(0, Math.min(raw, monthlyRemaining));
     const basis = fixed ? `${fixed.toLocaleString('ko-KR')}원 정액` : `${percent(rate)} 할인/적립`;
@@ -354,10 +381,10 @@ function effectiveMonthlyCap(card, benefit, prevSpend) {
 }
 
 function getMonthlyPoolBenefitValue(state, card, benefit, monthKey) {
-  if (!benefit.capPoolId) return Number(getBenefitUsage(state, benefit.id, monthKey).benefitValue || 0);
+  if (!benefit.capPoolId) return readBenefitValue(getBenefitUsage(state, benefit.id, monthKey));
   return card.benefits
     .filter((item) => item.capPoolId === benefit.capPoolId)
-    .reduce((sum, item) => sum + Number(getBenefitUsage(state, item.id, monthKey).benefitValue || 0), 0);
+    .reduce((sum, item) => sum + readBenefitValue(getBenefitUsage(state, item.id, monthKey)), 0);
 }
 
 function benefitMatchesSelection(benefit, categoryId, subcategoryId = '') {

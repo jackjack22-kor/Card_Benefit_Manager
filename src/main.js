@@ -13,10 +13,13 @@ import {
   getBenefitHomeStatus,
   getBenefitUsage,
   getCardOverride,
+  getEffectiveBenefitRate,
   getFillSpendRecommendations,
+  getMonthlyBenefitValue,
   getMonthlyShortfall,
   getOrderedCards,
   getShortfallCards,
+  getTotalMonthlyBenefitValue,
   inferPrevSpend,
   recommendCards,
   setBenefitUsage
@@ -208,6 +211,8 @@ function renderDashboard() {
   const filledCount = managed.length - shortfallCards.length;
   const shortfallSum = shortfallCards.reduce((sum, card) => sum + getMonthlyShortfall(card, getCardOverride(state, card.id)), 0);
   const totalSpend = cards.reduce((sum, card) => sum + Number(getCardOverride(state, card.id).currentMonthSpend || 0), 0);
+  const totalBenefit = getTotalMonthlyBenefitValue(state, cards, selectedMonthKey());
+  const totalBenefitRate = getEffectiveBenefitRate(totalSpend, totalBenefit);
 
   return `
     <section class="page-head compact-head">
@@ -223,7 +228,7 @@ function renderDashboard() {
     <div class="summary-strip">
       <div class="summary-chip">
         <span>이번달 총 사용 금액</span>
-        <strong>${won(totalSpend)}</strong>
+        <strong>${won(totalSpend)} <em>실사용 혜택 ${won(totalBenefit)} · ${benefitRateText(totalBenefitRate, totalSpend)}</em></strong>
       </div>
       <div class="summary-chip ${shortfallSum ? 'warn' : 'good'}">
         <span>채울 실적 합계</span>
@@ -264,6 +269,8 @@ function renderDashboardCard(card, kind) {
   const monthlySpend = Number(override.currentMonthSpend || 0);
   const monthlyShortfall = getMonthlyShortfall(card, override);
   const monthlyPct = monthlyTarget ? clamp(monthlySpend / monthlyTarget, 0, 1) : 1;
+  const practicalBenefit = getMonthlyBenefitValue(state, card, selectedMonthKey());
+  const practicalRate = getEffectiveBenefitRate(monthlySpend, practicalBenefit);
   const prevLabel = override.prevMonthStatus === 'met' ? '전월실적 충족' : override.prevMonthStatus === 'unmet' ? '전월실적 미달' : '전월실적 확인';
   const monthlyLabel = monthlyTarget ? (monthlyShortfall ? `${won(monthlyShortfall)} 더 채우면 달성` : '이번달 목표 달성') : '사용액 참고';
 
@@ -286,6 +293,7 @@ function renderDashboardCard(card, kind) {
           <b class="${monthlyShortfall ? 'warn-text' : 'good-text'}">${monthlyLabel}</b>
         </div>
         <div class="bar ${monthlyTarget ? (monthlyShortfall ? 'short' : 'met') : 'none'}"><i style="width:${monthlyPct * 100}%"></i></div>
+        <div class="benefit-rate-line">실사용 혜택 ${won(practicalBenefit)} · ${benefitRateText(practicalRate, monthlySpend)}</div>
       </div>
       ${state.isSortingCards ? `
         <div class="sort-controls">
@@ -461,6 +469,9 @@ function renderCardDetailMain(selected) {
   const cycle = getCycle(selected, override, {}, selectedDate());
   const annualSpend = getAnnualSpend(state, selected, selectedDate());
   const annualShortfall = getAnnualShortfall(selected, override, state);
+  const monthlySpend = Number(override.currentMonthSpend || 0);
+  const practicalBenefit = getMonthlyBenefitValue(state, selected, selectedMonthKey());
+  const practicalRate = getEffectiveBenefitRate(monthlySpend, practicalBenefit);
   const coreBenefits = selected.benefits.filter((benefit) => benefit.priority === 'core').slice(0, 6);
 
   return `
@@ -479,6 +490,7 @@ function renderCardDetailMain(selected) {
                 ${renderMetric('전월실적', prevMonthLabel(override.prevMonthStatus), override.prevMonthStatus === 'met' ? 'good' : override.prevMonthStatus === 'unmet' ? 'bad' : 'warn')}
                 ${renderMetric('이번달 실적', monthlyMetricText(selected, override), getMonthlyShortfall(selected, override) ? 'warn' : 'good')}
                 ${renderMetric('연간 실적', annualMetricText(override, annualSpend, annualShortfall), annualShortfall ? 'warn' : 'good')}
+                ${renderMetric('실사용 혜택률', `${won(practicalBenefit)} · ${benefitRateText(practicalRate, monthlySpend)}`, practicalBenefit ? 'good' : 'neutral')}
                 ${renderMetric('현재 주기', cycle.label, 'neutral')}
               </div>
             </div>
@@ -917,6 +929,10 @@ function normalizeInput(value) {
 
 function formatNumberInput(value) {
   return Number(value || 0).toLocaleString('ko-KR');
+}
+
+function benefitRateText(rate, spend) {
+  return Number(spend || 0) > 0 ? pct(rate, 1) : '-';
 }
 
 function updateUsage(benefitId, patch) {
