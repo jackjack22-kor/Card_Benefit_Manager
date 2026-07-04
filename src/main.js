@@ -108,14 +108,22 @@ function render() {
 }
 
 function renderHeader() {
+  const themeIcon = state.settings.darkMode
+    ? '<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"></circle><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"></path></svg>'
+    : '<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"></path></svg>';
   return `
     <header class="app-header">
       <div class="brand-title">
-        <span class="eyebrow">CARD OPS</span>
-        <h1>카드 혜택 매니저</h1>
+        <span class="brand-mark" aria-hidden="true">
+          <svg viewBox="0 0 100 100" width="36" height="36"><defs><linearGradient id="brandg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#5b9bff"/><stop offset="1" stop-color="#3459d6"/></linearGradient></defs><rect x="4" y="4" width="92" height="92" rx="22" fill="url(#brandg)"/><rect x="24" y="30" width="52" height="34" rx="7" fill="#ffffff"/><rect x="24" y="38" width="52" height="6" fill="#cdd9f2"/><circle cx="70" cy="64" r="15" fill="#2fd085" stroke="#3459d6" stroke-width="4"/><path d="M63.5 64.5 l4.5 4.5 l8 -9" fill="none" stroke="#ffffff" stroke-width="4.4" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        </span>
+        <div class="brand-text">
+          <h1>CardFit</h1>
+          <span class="brand-sub">카드 혜택 매니저</span>
+        </div>
       </div>
       ${renderMonthNavigator()}
-      <button class="icon-button" data-action="toggle-dark" aria-label="테마 변경">${state.settings.darkMode ? 'Light' : 'Dark'}</button>
+      <button class="icon-button" data-action="toggle-dark" aria-label="테마 변경">${themeIcon}</button>
     </header>
   `;
 }
@@ -132,13 +140,20 @@ function renderMonthNavigator() {
 }
 
 function renderTabs() {
+  const icon = (paths) => `<svg class="tab-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${paths}</svg>`;
+  const icons = {
+    dashboard: icon('<rect x="3" y="3" width="8" height="8" rx="2"></rect><rect x="13" y="3" width="8" height="8" rx="2"></rect><rect x="3" y="13" width="8" height="8" rx="2"></rect><rect x="13" y="13" width="8" height="8" rx="2"></rect>'),
+    recommend: icon('<path d="M12 3l1.9 4.6L18.5 9l-4.6 1.9L12 15l-1.9-4.1L5.5 9l4.6-1.4z"></path><path d="M19 14l.8 2 .2.8.8.2-2 .8-.8 2-.8-2-2-.8 2-.8z"></path>'),
+    cards: icon('<rect x="2.5" y="5" width="19" height="14" rx="3"></rect><path d="M2.5 9.5h19"></path><path d="M6 15h4"></path>'),
+    settings: icon('<path d="M4 6h10"></path><path d="M18 6h2"></path><circle cx="16" cy="6" r="2"></circle><path d="M4 12h2"></path><path d="M10 12h10"></path><circle cx="8" cy="12" r="2"></circle><path d="M4 18h10"></path><path d="M18 18h2"></path><circle cx="16" cy="18" r="2"></circle>')
+  };
   const tabs = [
     ['dashboard', '카드현황'],
     ['recommend', '결제추천'],
     ['cards', '카드상세'],
     ['settings', '설정/백업']
   ];
-  return `<nav class="tabs">${tabs.map(([id, label]) => `<button class="tab ${state.selectedTab === id ? 'active' : ''}" data-tab="${id}">${label}</button>`).join('')}</nav>`;
+  return `<nav class="tabs">${tabs.map(([id, label]) => `<button class="tab ${state.selectedTab === id ? 'active' : ''}" data-tab="${id}">${icons[id]}<span>${label}</span></button>`).join('')}</nav>`;
 }
 
 function renderDashboard() {
@@ -149,6 +164,10 @@ function renderDashboard() {
   });
   const completeCards = cards.filter((card) => !shortfallCards.includes(card));
 
+  const managed = cards.filter((card) => Number(getCardOverride(state, card.id).monthlyTarget || 0) > 0);
+  const filledCount = managed.length - shortfallCards.length;
+  const shortfallSum = shortfallCards.reduce((sum, card) => sum + getMonthlyShortfall(card, getCardOverride(state, card.id)), 0);
+
   return `
     <section class="page-head compact-head">
       <div>
@@ -157,6 +176,16 @@ function renderDashboard() {
       </div>
       <button class="ghost" data-action="toggle-sort">${state.isSortingCards ? '정렬 완료' : '정렬'}</button>
     </section>
+    <div class="summary-strip">
+      <div class="summary-chip">
+        <span>이번달 채운 카드</span>
+        <strong>${filledCount} <em>/ ${managed.length}</em></strong>
+      </div>
+      <div class="summary-chip ${shortfallSum ? 'warn' : 'good'}">
+        <span>채울 실적 합계</span>
+        <strong>${shortfallSum ? won(shortfallSum) : '모두 달성'}</strong>
+      </div>
+    </div>
     ${renderDashboardGroup('실적 부족 카드', shortfallCards, 'shortfall')}
     ${renderDashboardGroup('실적 충족/관리 카드', completeCards, 'complete')}
   `;
@@ -183,7 +212,7 @@ function renderDashboardCard(card, kind) {
   const monthlyShortfall = getMonthlyShortfall(card, override);
   const monthlyPct = monthlyTarget ? clamp(monthlySpend / monthlyTarget, 0, 1) : 1;
   const prevLabel = override.prevMonthStatus === 'met' ? '전월실적 충족' : override.prevMonthStatus === 'unmet' ? '전월실적 미달' : '전월실적 확인';
-  const monthlyLabel = monthlyTarget ? (monthlyShortfall ? `${won(monthlyShortfall)} 부족` : '이번달 달성') : '실적 관리 없음';
+  const monthlyLabel = monthlyTarget ? (monthlyShortfall ? `${won(monthlyShortfall)} 더 채우면 달성` : '이번달 목표 달성') : '실적 관리 없음';
 
   return `
     <article class="dashboard-card theme-${card.theme} ${kind}" draggable="${state.isSortingCards ? 'true' : 'false'}" data-card-id="${card.id}" data-open-card="${card.id}">
@@ -280,19 +309,16 @@ function renderRecommend() {
 function renderRankItem(result, index, mode = 'value') {
   const amount = Math.max(Number(state.recommendationAmount || 1), 1);
   const estimatedRate = result.value ? result.value / amount : result.bestRate;
-  const fillText = mode === 'fill'
-    ? [
-        result.monthlyShortfall ? `월 ${won(result.monthlyShortfall)} 부족` : '',
-        result.annualShortfall ? `연 ${won(result.annualShortfall)} 부족` : ''
-      ].filter(Boolean).join(' · ')
-    : `${pct(estimatedRate, 1)} 예상`;
+  const shortfallLabel = result.monthlyShortfall
+    ? `월 ${compactWon(result.monthlyShortfall)}`
+    : result.annualShortfall ? `연 ${compactWon(result.annualShortfall)}` : '';
 
   return `
-    <article class="rank-item" data-open-card="${result.card.id}">
+    <article class="rank-item ${mode === 'fill' ? 'fill' : 'value'}" data-open-card="${result.card.id}">
       <div class="rank-no">${index + 1}</div>
       <div class="rank-body">
         <strong>${escapeHtml(result.card.shortName)}</strong>
-        <span>${mode === 'fill' ? escapeHtml(fillText) : `${won(result.value)} 혜택 예상`}</span>
+        ${mode === 'fill' ? '' : `<span>${won(result.value)} 혜택 예상</span>`}
         <small class="${result.status.ok ? 'good-text' : result.status.ok === false ? 'bad-text' : 'muted'}">${escapeHtml(result.status.text)}</small>
         <p>${escapeHtml(result.reason)}</p>
         ${result.matching?.length ? `
@@ -307,8 +333,9 @@ function renderRankItem(result, index, mode = 'value') {
         ` : ''}
       </div>
       <div class="rank-value">
-        <strong>${mode === 'fill' ? '실적' : `~${pct(estimatedRate, 1)}`}</strong>
-        <span>${mode === 'fill' ? fillText : won(result.value)}</span>
+        ${mode === 'fill'
+          ? `<span class="fill-badge">${escapeHtml(shortfallLabel || '실적 부족')}</span><span>더 채우기</span>`
+          : `<strong>~${pct(estimatedRate, 1)}</strong><span>${won(result.value)}</span>`}
       </div>
     </article>
   `;
