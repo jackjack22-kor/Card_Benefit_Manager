@@ -16,6 +16,7 @@ import {
   getEffectiveBenefitRate,
   getFillSpendRecommendations,
   getMonthlyBenefitValue,
+  getMonthlyBenefitValueForBenefit,
   getMonthlyShortfall,
   getOrderedCards,
   getShortfallCards,
@@ -621,11 +622,12 @@ function renderBenefitEditor(card, benefit) {
   const annualCount = getAnnualUsageCount(state, card, benefit, selectedDate());
   const annualValue = getAnnualBenefitValue(state, card, benefit, selectedDate());
   const override = getCardOverride(state, card.id);
-  const cap = calculateMonthlyCap(benefit, Number(override.monthlyTarget || 0));
-  const rate = calculateRate(benefit, Number(override.monthlyTarget || 0));
+  const capBasis = Math.max(Number(override.monthlyTarget || 0), Number(override.currentMonthSpend || 0));
+  const cap = calculateMonthlyCap(benefit, capBasis);
+  const rate = calculateRate(benefit, capBasis);
   const benefitCycle = getCycle(card, override, benefit, selectedDate());
   const monthlyCount = Number(usage.count || 0) + (usage.checked ? 1 : 0) + (usage.tx1 ? 1 : 0) + (usage.tx2 ? 1 : 0);
-  const monthlyValue = Number(usage.benefitValue || 0);
+  const monthlyValue = getMonthlyBenefitValueForBenefit(state, card, benefit, monthKey());
 
   return `
     <details class="benefit-card" data-benefit-id="${benefit.id}" ${openBenefits.has(benefit.id) ? 'open' : ''}>
@@ -636,7 +638,7 @@ function renderBenefitEditor(card, benefit) {
           <p>${escapeHtml(benefit.summary || '')}</p>
         </div>
         <div class="benefit-summary-side">
-          ${benefitStatusChips(benefit, usage, cap, annualCount, annualValue)}
+          ${benefitStatusChips(benefit, usage, cap, annualCount, annualValue, monthlyValue)}
           <span class="benefit-caret" aria-hidden="true">⌄</span>
         </div>
       </summary>
@@ -648,7 +650,7 @@ function renderBenefitEditor(card, benefit) {
         ${rate ? `<span>혜택률 ${pct(rate)}</span>` : ''}
         ${limitText(benefit, cap)}
       </div>
-      ${renderBenefitControls(benefit, usage, cap, annualValue)}
+      ${renderBenefitControls(benefit, usage, cap, annualValue, monthlyValue)}
       <label class="benefit-memo">메모
         <textarea data-usage-field="memo" data-benefit-id="${benefit.id}" placeholder="확인한 조건, 사용 예정일, 예외사항 등을 기록하세요.">${escapeHtml(usage.memo || '')}</textarea>
       </label>
@@ -662,7 +664,7 @@ function renderBenefitEditor(card, benefit) {
           <dt>연 한도/횟수</dt><dd>${escapeHtml(annualLimitText(benefit))}</dd>
           <dt>이번달 사용</dt><dd>${escapeHtml(monthlyUsageText(benefit, usage, monthlyCount, monthlyValue))}</dd>
           <dt>연간 누적</dt><dd>${benefit.annualLimitCount ? `${annualCount}/${benefit.annualLimitCount}회` : '-'} ${annualValue ? `· 누적 혜택 ${won(annualValue)}` : ''}</dd>
-          <dt>잔여 한도</dt><dd>${escapeHtml(remainingText(benefit, cap, usage, annualCount, annualValue))}</dd>
+          <dt>잔여 한도</dt><dd>${escapeHtml(remainingText(benefit, cap, usage, annualCount, annualValue, monthlyValue))}</dd>
           <dt>조건</dt><dd>${escapeHtml(benefit.conditions || '-')}</dd>
           <dt>제외/주의</dt><dd>${escapeHtml(benefit.exclusions || '-')}</dd>
           <dt>메모</dt><dd>${escapeHtml(usage.memo || '-')}</dd>
@@ -673,11 +675,11 @@ function renderBenefitEditor(card, benefit) {
   `;
 }
 
-function benefitStatusChips(benefit, usage, cap, annualCount, annualValue) {
+function benefitStatusChips(benefit, usage, cap, annualCount, annualValue, effectiveMonthlyValue = Number(usage.benefitValue || 0)) {
   const chip = (label, value, done) => `<span class="status-chip ${done ? 'done' : ''}"><em>${label}</em>${escapeHtml(value)}</span>`;
   const chips = [];
   if (benefit.type === 'two_transactions') {
-    const n = Number(Boolean(usage.tx1)) + Number(Boolean(usage.tx2));
+    const n = effectiveMonthlyValue >= Number(benefit.fixedBenefit || 0) ? 2 : Number(Boolean(usage.tx1)) + Number(Boolean(usage.tx2));
     chips.push(chip('이번달', `${n}/2건`, n >= 2));
   }
   if (benefit.monthlyLimitCount && benefit.type !== 'two_transactions') {
@@ -688,7 +690,7 @@ function benefitStatusChips(benefit, usage, cap, annualCount, annualValue) {
     chips.push(chip('연', `${annualCount}/${benefit.annualLimitCount}회`, annualCount >= benefit.annualLimitCount));
   }
   if (cap) {
-    const v = Number(usage.benefitValue || 0);
+    const v = Number(effectiveMonthlyValue || 0);
     chips.push(chip('월한도', `${compactWon(v)}/${compactWon(cap)}`, v >= cap));
   }
   if (benefit.annualCap) {
@@ -700,13 +702,13 @@ function benefitStatusChips(benefit, usage, cap, annualCount, annualValue) {
   return `<div class="status-chips">${chips.slice(0, 2).join('')}</div>`;
 }
 
-function renderBenefitControls(benefit, usage, cap, annualValue = 0) {
+function renderBenefitControls(benefit, usage, cap, annualValue = 0, effectiveMonthlyValue = Number(usage.benefitValue || 0)) {
   if (benefit.type === 'amount_cap' || benefit.type === 'amount_cap_pool' || benefit.type === 'reward_cap_pool') {
     return `
       <div class="benefit-controls">
         <label>이번달 사용금액 <input type="text" inputmode="numeric" data-money-input value="${formatNumberInput(usage.usedAmount)}" data-usage-field="usedAmount" data-benefit-id="${benefit.id}"></label>
         <label>이번달 혜택 사용액/적립액 <input type="text" inputmode="numeric" data-money-input value="${formatNumberInput(usage.benefitValue)}" data-usage-field="benefitValue" data-benefit-id="${benefit.id}"></label>
-        ${cap ? `<span class="remaining">남은 한도 ${won(Math.max(0, cap - Number(usage.benefitValue || 0)))}</span>` : ''}
+        ${cap ? `<span class="remaining">남은 한도 ${won(Math.max(0, cap - Number(effectiveMonthlyValue || 0)))}</span>` : ''}
         ${benefit.annualCap ? `<span class="remaining">남은 연한도 ${won(Math.max(0, benefit.annualCap - annualValue))}</span>` : ''}
       </div>`;
   }
@@ -1014,6 +1016,7 @@ function findBenefitContext(benefitId) {
 
 function calculateAutoBenefitValue(card, benefit, usedAmount) {
   if (!usedAmount) return 0;
+  if (benefit.minAmount && usedAmount < benefit.minAmount) return 0;
   const override = getCardOverride(state, card.id);
   const prevSpend = inferPrevSpend(card, override);
   const rate = calculateRate(benefit, prevSpend);
@@ -1187,13 +1190,13 @@ function monthlyUsageText(benefit, usage, monthlyCount, monthlyValue) {
   return usage.checked ? '사용함' : '미사용';
 }
 
-function remainingText(benefit, cap, usage, annualCount, annualValue) {
+function remainingText(benefit, cap, usage, annualCount, annualValue, effectiveMonthlyValue = Number(usage.benefitValue || 0)) {
   if (benefit.type === 'two_transactions') {
     const done = Number(Boolean(usage.tx1)) + Number(Boolean(usage.tx2));
     return `${Math.max(0, 2 - done)}건 더 필요`;
   }
   const parts = [];
-  if (cap) parts.push(`월 ${won(Math.max(0, cap - Number(usage.benefitValue || 0)))}`);
+  if (cap) parts.push(`월 ${won(Math.max(0, cap - Number(effectiveMonthlyValue || 0)))}`);
   if (benefit.monthlyLimitCount) parts.push(`월 ${Math.max(0, benefit.monthlyLimitCount - Number(usage.count || 0))}회`);
   if (benefit.annualLimitCount) parts.push(`연 ${Math.max(0, benefit.annualLimitCount - annualCount)}회`);
   if (benefit.annualCap) parts.push(`연 ${won(Math.max(0, benefit.annualCap - annualValue))}`);

@@ -127,6 +127,8 @@ export const CARDS = [
         priority: 'normal',
         categories: ['other'],
         rewardType: 'airline_selectable',
+        pointCurrency: 'koreanAir',
+        pointsPer1000: 0.6667,
         summary: '스카이패스 1,500원당 1마일 또는 아시아나 1,000원당 1마일',
         targets: '일시불·할부 이용금액',
         exclusions: '무이자할부, 할인 적용 금액, 카드대출, 연회비, 세금, 수도요금, 오토리스 등 제외',

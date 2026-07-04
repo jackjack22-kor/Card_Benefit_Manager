@@ -86,17 +86,14 @@ export function getAnnualBenefitValue(state, card, benefit, date = selectedDate(
 export function getMonthlyBenefitValue(state, card, monthKey = selectedMonthKey(state)) {
   return (card.benefits || []).reduce((sum, benefit) => {
     if (!isPracticalBenefitValue(benefit)) return sum;
-    const usage = getBenefitUsage(state, benefit.id, monthKey);
-    if (benefit.deriveFromMonthlySpend && !hasExplicitBenefitValue(usage)) {
-      const override = {
-        ...(state.cardOverrides?.[card.id] || {}),
-        ...(state.monthlyCardUsage?.[monthKey]?.[card.id] || {})
-      };
-      const monthlySpend = Number(override.currentMonthSpend || 0);
-      return sum + Math.round(monthlySpend * calculateRate(benefit, inferPrevSpend(card, override)));
-    }
-    return sum + readBenefitValue(usage);
+    return sum + getMonthlyBenefitValueForBenefit(state, card, benefit, monthKey);
   }, 0);
+}
+
+export function getMonthlyBenefitValueForBenefit(state, card, benefit, monthKey = selectedMonthKey(state)) {
+  const usage = getBenefitUsage(state, benefit.id, monthKey);
+  if (hasExplicitBenefitValue(usage)) return readBenefitValue(usage);
+  return getAutoMonthlyBenefitValue(state, card, benefit, monthKey);
 }
 
 export function getTotalMonthlyBenefitValue(state, cards = getOrderedCards(state), monthKey = selectedMonthKey(state)) {
@@ -110,6 +107,7 @@ export function getEffectiveBenefitRate(spend, benefitValue) {
 }
 
 function isPracticalBenefitValue(benefit) {
+  if (isCapContainerBenefit(benefit)) return false;
   return !['check', 'info', 'info_check', 'milestone'].includes(benefit.type);
 }
 
@@ -119,7 +117,131 @@ function readBenefitValue(usage = {}) {
 }
 
 function hasExplicitBenefitValue(usage = {}) {
-  return Object.prototype.hasOwnProperty.call(usage, 'benefitValue') || Object.prototype.hasOwnProperty.call(usage, 'usedBenefit');
+  return explicitBenefitValue(usage) > 0;
+}
+
+function getAutoMonthlyBenefitValue(state, card, benefit, monthKey) {
+  const override = {
+    ...(state.cardOverrides?.[card.id] || {}),
+    ...(state.monthlyCardUsage?.[monthKey]?.[card.id] || {})
+  };
+  const monthlySpend = Number(override.currentMonthSpend || 0);
+  if (monthlySpend <= 0) return 0;
+
+  const patternValue = getPatternMonthlyBenefitValue(state, card, benefit, monthlySpend, monthKey, override);
+  if (patternValue !== null) return Math.round(patternValue);
+
+  if (benefit.deriveFromMonthlySpend && (benefit.type === 'amount_cap' || benefit.type === 'amount_cap_pool' || benefit.type === 'reward_cap_pool')) {
+    return Math.round(calculateCappedRateValue(card, benefit, monthlySpend, inferPrevSpend(card, override)));
+  }
+
+  if (isAutomaticBaseReward(benefit)) {
+    return Math.round(calculateRewardValue(state, benefit, monthlySpend));
+  }
+
+  return 0;
+}
+
+function getPatternMonthlyBenefitValue(state, card, benefit, monthlySpend, monthKey, override) {
+  if (card.id === 'skt-woori-card' && benefit.id === 'skt-woori-telecom-tlight') {
+    if (override.prevMonthStatus === 'unmet') return 0;
+    return tierValue(monthlySpend, [
+      { min: 300000, value: 10000 },
+      { min: 700000, value: 15000 },
+      { min: 1000000, value: 20000 }
+    ]);
+  }
+
+  if (card.id === 'woori-point-main' && benefit.id === 'woori-pay-plus') {
+    if (override.prevMonthStatus === 'unmet') return 0;
+    const cap = tierValue(monthlySpend, [
+      { min: 300000, value: 10000 },
+      { min: 600000, value: 20000 },
+      { min: 1200000, value: 50000 }
+    ]);
+    return cap ? Math.max(0, Math.min(monthlySpend * 0.038, cap) - getExplicitPoolValue(state, card, benefit, monthKey)) : 0;
+  }
+
+  if (card.id === 'woori-point-main' && benefit.id === 'woori-basic') {
+    return 0;
+  }
+
+  if (card.id === 'kb-talktalk-my-point' && benefit.id === 'kb-pay-5') {
+    return Math.min(monthlySpend * 0.05, 10000);
+  }
+
+  if (card.id === 'kb-talktalk-my-point' && benefit.id === 'kb-base') {
+    return monthlySpend * 0.005;
+  }
+
+  if (card.id === 'mg-s-hana' && benefit.id === 'mg-simplepay') {
+    if (override.prevMonthStatus === 'unmet') return 0;
+    const cap = tierValue(monthlySpend, [
+      { min: 300000, value: 15000 },
+      { min: 600000, value: 30000 },
+      { min: 1000000, value: 60000 }
+    ]);
+    return cap ? Math.max(0, Math.min(monthlySpend * 0.10, cap) - getExplicitPoolValue(state, card, benefit, monthKey)) : 0;
+  }
+
+  if (card.id === 'shinhan-always-on' && benefit.id === 'always-on-2tx') {
+    return monthlySpend >= Number(benefit.minAmount || 0) ? Number(benefit.fixedBenefit || 0) : 0;
+  }
+
+  return null;
+}
+
+function calculateCappedRateValue(card, benefit, amount, prevSpend) {
+  if (benefit.minAmount && amount < benefit.minAmount) return 0;
+  const raw = amount * calculateRate(benefit, prevSpend);
+  const cap = effectiveMonthlyCap(card, benefit, prevSpend);
+  return Math.max(0, Math.min(raw, cap || Infinity));
+}
+
+function calculateRewardValue(state, benefit, amount) {
+  const pointValue = state.settings?.pointValues?.[benefit.pointCurrency] || 1;
+  if (benefit.pointsPer1000) {
+    const points = Math.min((amount / 1000) * benefit.pointsPer1000, benefit.monthlyPointCap || Infinity);
+    return points * pointValue;
+  }
+  if (benefit.rate) return amount * benefit.rate * pointValue;
+  return 0;
+}
+
+function explicitBenefitValue(usage = {}) {
+  if (Object.prototype.hasOwnProperty.call(usage, 'benefitValue')) return Number(usage.benefitValue || 0);
+  if (Object.prototype.hasOwnProperty.call(usage, 'usedBenefit')) return Number(usage.usedBenefit || 0);
+  return 0;
+}
+
+function getExplicitPoolValue(state, card, benefit, monthKey) {
+  if (!benefit.capPoolId) return 0;
+  return card.benefits
+    .filter((item) => item.capPoolId === benefit.capPoolId && item.id !== benefit.id && !isCapContainerBenefit(item))
+    .reduce((sum, item) => sum + explicitBenefitValue(getBenefitUsage(state, item.id, monthKey)), 0);
+}
+
+function isAutomaticBaseReward(benefit) {
+  if (benefit.type !== 'reward' || !benefit.categories?.includes('other')) return false;
+  if (benefit.id === 'mb-classic-point-plus') return false;
+  return Boolean(benefit.rate || benefit.pointsPer1000);
+}
+
+function isCapContainerBenefit(benefit) {
+  return Boolean(
+    benefit.monthlyCapBySpend
+    && !benefit.rate
+    && !benefit.rateBySpend
+    && !benefit.fixedBenefit
+    && !benefit.fixedBenefitByAmount
+    && !benefit.pointsPer1000
+  );
+}
+
+function tierValue(amount, rows = []) {
+  return [...rows].sort((a, b) => a.min - b.min).reduce((value, row) => (
+    amount >= row.min ? row.value : value
+  ), 0);
 }
 
 export function getAnnualSpend(state, card, date = selectedDate(state)) {
@@ -142,7 +264,7 @@ export function getBenefitHomeStatus(state, card, benefit, date = selectedDate(s
 
   if (benefit.type === 'amount_cap' || benefit.type === 'amount_cap_pool' || benefit.type === 'reward_cap_pool') {
     const cap = calculateMonthlyCap(benefit, prevSpend);
-    const used = Number(usage.benefitValue || 0);
+    const used = getMonthlyBenefitValueForBenefit(state, card, benefit, monthKey);
     return `${benefit.homeLabel || benefit.name} ${Math.min(used, cap).toLocaleString()}${cap ? `/${cap.toLocaleString()}` : ''}`;
   }
   if (benefit.type === 'count' || benefit.type === 'count_amount' || benefit.type === 'info_check') {
@@ -154,7 +276,8 @@ export function getBenefitHomeStatus(state, card, benefit, date = selectedDate(s
     return `${benefit.homeLabel || benefit.name} ${annualCount ? '사용' : '미사용'}`;
   }
   if (benefit.type === 'two_transactions') {
-    const done = Number(Boolean(usage.tx1)) + Number(Boolean(usage.tx2));
+    const autoValue = getMonthlyBenefitValueForBenefit(state, card, benefit, monthKey);
+    const done = autoValue >= Number(benefit.fixedBenefit || 0) ? 2 : Number(Boolean(usage.tx1)) + Number(Boolean(usage.tx2));
     const remaining = Math.max(0, 2 - done);
     return `1만원 이상 결제 ${done}/2건${remaining ? `, ${remaining}건 더 필요` : ', 완료'}`;
   }
