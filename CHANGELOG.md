@@ -5,6 +5,9 @@
 
 ## 2026-07-04
 
+### PWA 업데이트 반영 속도
+- **서비스워커 네비게이션을 `cache: 'no-cache'` 재검증으로 변경**(`public/sw.js`, CACHE `cardfit-v1`→`v2`): GitHub Pages의 HTML `Cache-Control: max-age=600`(최대 10분) 때문에 배포 후에도 옛 버전이 잠깐 뜨던 문제 완화. 온라인이면 매 실행 시 origin에 ETag 재검증(변경 없으면 304)으로 최신 HTML을 받아옴. 오프라인 폴백은 그대로 유지. (앱 재설치 불필요 — 데이터 보존)
+
 ### 레이아웃
 - **하단 탭바를 풀폭(edge-to-edge)으로 변경**: 기존 플로팅 알약형은 좌우·하단 여백으로 카드가 비쳐 산만했음. 화면 하단에 밀착한 풀폭 바(상단 hairline + 프로스티드 블러 + active 그라데이션 알약)로 전환해 헤더와 톤을 맞추고 가독성 개선. `.app-shell` 하단 패딩 축소, safe-area 반영. 동기화/기능 코드에는 영향 없음(CSS 전용). (src/styles.css)
 

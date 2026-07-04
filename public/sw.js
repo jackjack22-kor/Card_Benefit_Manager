@@ -1,4 +1,4 @@
-const CACHE = 'cardfit-v1';
+const CACHE = 'cardfit-v2';
 const CORE = [
   '.',
   'manifest.webmanifest',
@@ -29,7 +29,7 @@ self.addEventListener('fetch', (event) => {
   if (url.origin !== self.location.origin) return;
 
   event.respondWith(
-    fetch(request)
+    fetch(request, { cache: 'no-cache' })
       .then((response) => {
         const copy = response.clone();
         caches.open(CACHE).then((cache) => cache.put(request, copy)).catch(() => {});
