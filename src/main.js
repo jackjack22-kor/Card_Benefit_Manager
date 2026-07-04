@@ -41,6 +41,9 @@ let syncStatus = getInitialSyncStatus();
 
 const PRIMARY_CATEGORIES = ['coffee', 'transit', 'movie', 'department', 'medical', 'simplepay', 'overseas'];
 
+// 화면 이동/보기 상태(기기별 로컬 전용, 클라우드 동기화·미러링 제외)
+const UI_STATE_KEYS = ['selectedTab', 'selectedMonth', 'selectedCategory', 'selectedSubcategory', 'recommendationAmount', 'isSortingCards', 'cardSettingsOpen', 'selectedCardId'];
+
 function selectedMonthKey() {
   return state.selectedMonth || getMonthKey();
 }
@@ -55,10 +58,11 @@ function monthKey() {
 
 function setState(patch) {
   state = { ...state, ...patch };
-  persistState(state);
+  saveState(state);
   render();
 }
 
+// 데이터 변경: 로컬 저장 + 클라우드 동기화 큐잉
 function persistState(nextState) {
   saveState(nextState);
   queueCloudSave(nextState);
@@ -101,13 +105,17 @@ function updateMonthlyCard(cardId, patch) {
 }
 
 function updateSettings(patch) {
+  // 테마 등 기기별 표시 설정: 로컬 전용
   state = { ...state, settings: { ...state.settings, ...patch } };
-  persistState(state);
+  saveState(state);
   render();
 }
 
 function updatePointValue(key, value) {
-  updateSettings({ pointValues: { ...state.settings.pointValues, [key]: Number(value || 0) } });
+  // 포인트 가치는 실제 데이터: 동기화 대상
+  state = { ...state, settings: { ...state.settings, pointValues: { ...state.settings.pointValues, [key]: Number(value || 0) } } };
+  persistState(state);
+  render();
 }
 
 function selectCard(cardId) {
@@ -473,7 +481,6 @@ function renderCardDetailMain(selected) {
                 ${renderMetric('현재 주기', cycle.label, 'neutral')}
               </div>
             </div>
-            ${renderCardImage(selected, 'detail-card-image')}
           </div>
           <div class="benefit-chips prominent">
             ${coreBenefits.map((benefit) => `<span>${escapeHtml(getBenefitHomeStatus(state, selected, benefit, selectedDate()))}</span>`).join('')}
@@ -730,9 +737,11 @@ function renderSettings() {
           <p>백업 JSON에는 개인 카드 사용 패턴이 들어가므로 공개 저장소에 올리지 마세요.</p>
         </div>
       `)}
-      ${renderSettingsSection('about', '앱 / 저장 안내', `
+      <div class="settings-card">
+        <h3>앱 / 저장 안내</h3>
         <p>GitHub Pages 주소를 브라우저에서 열어 사용합니다. 비로그인 데이터는 이 브라우저의 localStorage에만 저장되고, Google 로그인 시 Firebase Firestore와 동기화됩니다.</p>
-      `)}
+        <p class="sync-meta">데이터는 실적·혜택 사용내역 등 값을 입력·변경할 때만 클라우드에 저장됩니다. 화면 이동은 기기별로 따로 동작합니다.</p>
+      </div>
     </div>
   `;
 }
@@ -801,7 +810,7 @@ function bindDetailMainEvents(root) {
   }));
   root.querySelector('.detail-settings')?.addEventListener('toggle', (event) => {
     state = { ...state, cardSettingsOpen: event.target.open };
-    persistState(state);
+    saveState(state);
   });
   root.querySelectorAll('details.benefit-card').forEach((el) => el.addEventListener('toggle', () => {
     if (el.open) openBenefits.add(el.dataset.benefitId);
@@ -928,7 +937,9 @@ function moveCard(cardId, direction) {
   const nextIdx = idx + direction;
   if (idx < 0 || nextIdx < 0 || nextIdx >= order.length) return;
   [order[idx], order[nextIdx]] = [order[nextIdx], order[idx]];
-  setState({ cardOrder: order });
+  state = { ...state, cardOrder: order };
+  persistState(state);
+  render();
 }
 
 function bindDragSort() {
@@ -1207,7 +1218,14 @@ render();
 initSync({
   getState: () => state,
   applyRemoteState: (remoteState) => {
-    state = remoteState;
+    // 원격에서 데이터만 반영하고, 화면 이동/보기 상태와 테마는 이 기기 것을 유지
+    const preserved = {};
+    for (const key of UI_STATE_KEYS) preserved[key] = state[key];
+    state = {
+      ...remoteState,
+      ...preserved,
+      settings: { ...remoteState.settings, darkMode: state.settings?.darkMode }
+    };
     saveState(state);
     render();
   },
