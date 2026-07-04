@@ -2,8 +2,13 @@ import { CARDS, POINT_DEFAULTS } from '../data/cards.js';
 import { getMonthKey } from './cycles.js';
 
 export const STORAGE_KEY = 'cardBenefitManager.v1';
-export const SCHEMA_VERSION = '2.0.0';
+export const SCHEMA_VERSION = '2.0.1';
 export const APP_VERSION = '1.0.0-single-html';
+
+const MONTHLY_TARGET_MIGRATIONS = {
+  'kb-talktalk-my-point': 200000,
+  'shinhan-always-on': 10000
+};
 
 export function createInitialState() {
   const currentMonth = getMonthKey();
@@ -106,6 +111,13 @@ export function migrateState(state) {
       }
     };
   }
+  if (String(state.schemaVersion || '') !== SCHEMA_VERSION) {
+    for (const [cardId, target] of Object.entries(MONTHLY_TARGET_MIGRATIONS)) {
+      if (Number(merged.cardOverrides[cardId]?.monthlyTarget || 0) === 0) {
+        merged.cardOverrides[cardId].monthlyTarget = target;
+      }
+    }
+  }
   if (!state.monthlyCardUsage) {
     merged.monthlyCardUsage[merged.selectedMonth] = Object.fromEntries(CARDS.map((card) => {
       const override = merged.cardOverrides[card.id] || {};
@@ -159,7 +171,7 @@ export function importState(text) {
   } catch {
     throw new Error('JSON 문법이 올바르지 않습니다. 이 앱에서 내보낸 백업 파일인지 확인해 주세요.');
   }
-  if (parsed.schemaVersion && !['1.0.0', '2.0.0'].includes(String(parsed.schemaVersion))) {
+  if (parsed.schemaVersion && !['1.0.0', '2.0.0', '2.0.1'].includes(String(parsed.schemaVersion))) {
     throw new Error(`지원하지 않는 schemaVersion(${parsed.schemaVersion})입니다. 최신 백업 파일인지 확인해 주세요.`);
   }
   return migrateState({
