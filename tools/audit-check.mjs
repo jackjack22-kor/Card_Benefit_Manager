@@ -116,6 +116,7 @@ console.log('ok - sync runtime is lazy-loaded and CSP meta exists');
 
 assertEqual(monthlyValue('skt-woori-card', 300000), 10000, 'SKT Woori 300k telecom pattern');
 assertEqual(monthlyValue('skt-woori-card', 300000, { overrides: { 'skt-woori-card': { prevMonthStatus: 'unmet' } } }), 0, 'SKT Woori unmet blocks pattern');
+assertEqual('monthlyLimitCount' in benefit('skt-woori-card', 'skt-woori-telecom-tlight'), false, 'SKT Woori telecom status uses only monthly cap');
 assertEqual(monthlyValue('woori-point-main', 300000), 10000, 'Woori Point simplepay 300k cap');
 assertEqual(monthlyValue('woori-point-main', 600000), 20000, 'Woori Point simplepay 600k cap');
 assertEqual(monthlyValue('kb-talktalk-my-point', 200000), 11000, 'KB TalkTalk KB Pay plus base');
