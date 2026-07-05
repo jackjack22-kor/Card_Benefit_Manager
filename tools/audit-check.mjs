@@ -135,6 +135,7 @@ function assertBenefitValue(state, cardId, benefitId, expected, label) {
   assertEqual(getMonthlyBenefitValueForBenefit(state, card(cardId), benefit(cardId, benefitId), MONTH), expected, label);
 }
 
+assertEqual(card('shinhan-ace-blue').benefits[0].id, 'ace-reward-mile', 'Shinhan The ACE Skypass mileage appears first');
 assertBenefitValue(withSpend('marriott-classic-shinhan', 300000), 'marriott-classic-shinhan', 'mb-classic-point-basic', 3000, 'Marriott Classic base row reflects monthly spend');
 assertBenefitValue(withSpend('marriott-best-shinhan', 300000), 'marriott-best-shinhan', 'mb-best-point-basic', 3000, 'Marriott Best base row reflects monthly spend');
 assert.ok(

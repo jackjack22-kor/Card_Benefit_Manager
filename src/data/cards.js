@@ -28,6 +28,22 @@ export const CARDS = [
     sourceNote: '업로드 PDF: 신한 더에이스블루라벨. 2025년 안내장 기준.',
     benefits: [
       {
+        id: 'ace-reward-mile',
+        name: '스카이패스 마일리지 적립',
+        type: 'reward',
+        priority: 'normal',
+        categories: ['other'],
+        rewardType: 'airline_selectable',
+        pointCurrency: 'koreanAir',
+        pointsPer1000: 0.6667,
+        deriveFromMonthlySpend: true,
+        summary: '스카이패스 1,500원당 1마일',
+        targets: '일시불·할부 이용금액',
+        exclusions: '무이자할부, 할인 적용 금액, 카드대출, 연회비, 세금, 수도요금, 오토리스 등 제외',
+        conditions: '선택형 리워드 중 스카이패스 선택 기준. 가족카드 합산.',
+        homeLabel: '스카이패스'
+      },
+      {
         id: 'ace-medical',
         name: '의료비 10% 할인',
         type: 'amount_cap',
@@ -119,22 +135,6 @@ export const CARDS = [
         exclusions: '카드사 등록 기준',
         conditions: '전월 30만원 이상 8천원, 60만원 이상 3만2천원 월 한도.',
         homeLabel: 'JDC'
-      },
-      {
-        id: 'ace-reward-mile',
-        name: '스카이패스 마일리지 적립',
-        type: 'reward',
-        priority: 'normal',
-        categories: ['other'],
-        rewardType: 'airline_selectable',
-        pointCurrency: 'koreanAir',
-        pointsPer1000: 0.6667,
-        deriveFromMonthlySpend: true,
-        summary: '스카이패스 1,500원당 1마일',
-        targets: '일시불·할부 이용금액',
-        exclusions: '무이자할부, 할인 적용 금액, 카드대출, 연회비, 세금, 수도요금, 오토리스 등 제외',
-        conditions: '선택형 리워드 중 스카이패스 선택 기준. 가족카드 합산.',
-        homeLabel: '스카이패스'
       }
     ]
   },
