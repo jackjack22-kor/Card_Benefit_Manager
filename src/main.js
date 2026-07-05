@@ -1652,7 +1652,10 @@ function pointLabel(key) {
     ecoMoney: '에코머니 1P',
     wooriMoa: '우리 모아포인트 1P',
     hanaDiscount: '하나 할인 1원',
-    samsungBigPoint: '삼성 빅포인트 1P'
+    samsungBigPoint: '삼성 빅포인트 1P',
+    paybookMoney: '페이북 머니 1원',
+    allReward: 'ALL 리워드 1P',
+    hilton: '힐튼 아너스 1P'
   };
   return labels[key] || key;
 }

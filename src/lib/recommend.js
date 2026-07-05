@@ -109,6 +109,24 @@ export function calculateFixedBenefit(benefit, amount = 0) {
   return Number(benefit.fixedBenefit || 0);
 }
 
+function calculateAmountTierValue(benefit, amount = 0) {
+  if (!Array.isArray(benefit.amountTiers)) return 0;
+  let remaining = Math.max(0, Number(amount || 0));
+  let previousLimit = 0;
+  let value = 0;
+  for (const row of benefit.amountTiers) {
+    if (remaining <= 0) break;
+    const upper = Number(row.upto || 0);
+    const tierAmount = upper > 0
+      ? Math.max(0, Math.min(remaining, upper - previousLimit))
+      : remaining;
+    value += tierAmount * Number(row.rate || 0);
+    remaining -= tierAmount;
+    if (upper > 0) previousLimit = upper;
+  }
+  return value;
+}
+
 export function isCheckOnlyFixedAmountBenefit(benefit) {
   return benefit.type === 'count_amount'
     && Number(benefit.fixedBenefit || 0) > 0
@@ -301,6 +319,9 @@ function calculateCappedRateValue(card, benefit, amount, prevSpend) {
 
 function calculateRewardValue(state, benefit, amount, card = null) {
   const pointValue = state.settings?.pointValues?.[benefit.pointCurrency] || 1;
+  if (Array.isArray(benefit.amountTiers)) {
+    return calculateAmountTierValue(benefit, amount) * pointValue;
+  }
   if (benefit.pointsPer1000) {
     const base = benefit.bonusOverBase ? getBaseRewardPointsPer1000(card, benefit) : 0;
     const grossPoints = Math.min((amount / 1000) * Number(benefit.pointsPer1000 || 0), benefit.monthlyPointCap || Infinity);
@@ -367,7 +388,7 @@ function getAppliedPoolValue(state, card, poolId, monthKey) {
 function isAutomaticBaseReward(benefit) {
   if (benefit.type !== 'reward' || !benefit.categories?.includes('other')) return false;
   if (benefit.id === 'mb-classic-point-plus') return false;
-  return Boolean(benefit.rate || benefit.pointsPer1000);
+  return Boolean(benefit.rate || benefit.pointsPer1000 || benefit.amountTiers);
 }
 
 export function isCapContainerBenefit(benefit) {
@@ -377,6 +398,7 @@ export function isCapContainerBenefit(benefit) {
     && !benefit.rateBySpend
     && !benefit.fixedBenefit
     && !benefit.fixedBenefitByAmount
+    && !benefit.amountTiers
     && !benefit.pointsPer1000
   );
 }
@@ -631,8 +653,15 @@ function estimateBenefitValue(state, card, benefit, categoryId, amount, prevSpen
     let value = 0;
     let rate = 0;
     let reason = '';
-    if (benefit.pointsPer1000) {
-      const points = Math.min((amount / 1000) * benefit.pointsPer1000, benefit.monthlyPointCap || Infinity);
+    if (Array.isArray(benefit.amountTiers)) {
+      value = calculateAmountTierValue(benefit, amount) * pointValue;
+      rate = value / Math.max(amount, 1);
+      reason = `${benefit.name}: ${percent(rate)} x ${amount.toLocaleString('ko-KR')}원`;
+    } else if (benefit.pointsPer1000) {
+      const base = benefit.bonusOverBase ? getBaseRewardPointsPer1000(card, benefit) : 0;
+      const grossPoints = Math.min((amount / 1000) * benefit.pointsPer1000, benefit.monthlyPointCap || Infinity);
+      const basePoints = benefit.bonusOverBase ? (amount / 1000) * base : 0;
+      const points = Math.max(0, grossPoints - basePoints);
       value = points * pointValue;
       rate = value / Math.max(amount, 1);
       reason = `${benefit.name}: ${Math.round(points).toLocaleString('ko-KR')}P/마일 x ${pointValue.toLocaleString('ko-KR')}원 가치`;

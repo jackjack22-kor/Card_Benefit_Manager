@@ -1,4 +1,4 @@
-import { CARDS, POINT_DEFAULTS } from '../data/cards.js';
+import { CARDS, DEFAULT_HIDDEN_CARD_IDS, POINT_DEFAULTS } from '../data/cards.js';
 import { CATEGORIES } from '../data/categories.js';
 import { getMonthKey } from './cycles.js';
 
@@ -35,7 +35,7 @@ export function createInitialState() {
     isSortingCards: false,
     cardSettingsOpen: false,
     cardOrder: CARDS.map((card) => card.id),
-    hiddenCardIds: [],
+    hiddenCardIds: [...DEFAULT_HIDDEN_CARD_IDS],
     cardOverrides: Object.fromEntries(CARDS.map((card) => [card.id, {
       prevMonthStatus: 'met',
       currentMonthSpend: 0,
@@ -121,8 +121,10 @@ export function migrateState(state) {
   merged.selectedCategory = CATEGORY_IDS.has(state.selectedCategory) ? state.selectedCategory : base.selectedCategory;
   merged.selectedMonth = state.selectedMonth || base.selectedMonth;
   merged.selectedSubcategory = state.selectedSubcategory || '';
+  const previousCardOrder = Array.isArray(state.cardOrder) ? state.cardOrder : [];
+  const newlyIntroducedDefaultHidden = DEFAULT_HIDDEN_CARD_IDS.filter((id) => !previousCardOrder.includes(id));
   merged.cardOrder = [...new Set([...(state.cardOrder || []), ...base.cardOrder])].filter((id) => known.has(id));
-  merged.hiddenCardIds = sanitizeCardIdList(state.hiddenCardIds || [], known);
+  merged.hiddenCardIds = sanitizeCardIdList([...(state.hiddenCardIds || []), ...newlyIntroducedDefaultHidden], known);
   for (const card of CARDS) {
     merged.cardOverrides[card.id] = {
       ...base.cardOverrides[card.id],

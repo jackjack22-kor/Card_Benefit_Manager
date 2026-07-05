@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { CARDS, POINT_DEFAULTS } from '../src/data/cards.js';
+import { CARDS, DEFAULT_HIDDEN_CARD_IDS, POINT_DEFAULTS } from '../src/data/cards.js';
 import { CATEGORIES } from '../src/data/categories.js';
 import {
   getAnnualUsageCount,
@@ -18,7 +18,7 @@ import {
   isCapContainerBenefit,
   recommendCards
 } from '../src/lib/recommend.js';
-import { importState } from '../src/lib/storage.js';
+import { createInitialState, importState, migrateState } from '../src/lib/storage.js';
 
 const MONTH = '2026-07';
 const mainSource = readFileSync(new URL('../src/main.js', import.meta.url), 'utf8');
@@ -103,6 +103,20 @@ if (unknownCategories.length) {
 }
 
 assertEqual(getOrderedCards(baseState()).length, CARDS.length, 'all cards are orderable');
+assert.deepEqual(createInitialState().hiddenCardIds, DEFAULT_HIDDEN_CARD_IDS, 'new optional cards are hidden by default for fresh installs');
+const oldStateWithoutNewCards = migrateState({
+  schemaVersion: '2.0.1',
+  cardOrder: CARDS.map((item) => item.id).filter((id) => !DEFAULT_HIDDEN_CARD_IDS.includes(id)),
+  monthlyCardUsage: { [MONTH]: {} }
+});
+assert.deepEqual(oldStateWithoutNewCards.hiddenCardIds, DEFAULT_HIDDEN_CARD_IDS, 'new optional cards are hidden when introduced to existing state');
+const userUnhiddenOptionalCards = migrateState({
+  schemaVersion: '2.0.1',
+  cardOrder: CARDS.map((item) => item.id),
+  hiddenCardIds: [],
+  monthlyCardUsage: { [MONTH]: {} }
+});
+assert.deepEqual(userUnhiddenOptionalCards.hiddenCardIds, [], 'visible optional cards stay visible after the user enables them');
 const hiddenCardState = withSpend('kb-talktalk-my-point', 200000, { hiddenCardIds: ['kb-talktalk-my-point'] });
 assertEqual(getAllOrderedCards(hiddenCardState).length, CARDS.length, 'all ordered cards still include hidden cards for settings');
 assertEqual(getOrderedCards(hiddenCardState).some((item) => item.id === 'kb-talktalk-my-point'), false, 'hidden card is excluded from visible ordered cards');
@@ -124,6 +138,9 @@ assertEqual(monthlyValue('mg-s-hana', 300000), 15000, 'MG+S simplepay 300k cap')
 assertEqual(monthlyValue('shinhan-always-on', 10000), 2000, 'Shinhan Always On two transactions pattern');
 assertEqual(monthlyValue('coupang-wow-card', 100000), 4000, 'Coupang WOW 4 percent reference benefit');
 assertEqual(monthlyValue('marriott-classic-shinhan', 300000), 3000, 'Marriott Classic base 1P auto-counts monthly spend');
+assertEqual(monthlyValue('bc-goat-card', 1200000), 17000, 'BC GOAT domestic Paybook tiered reward');
+assertEqual(monthlyValue('all-woori-infinite', 300000), 4186, 'ALL Woori base reward uses official ALL point value');
+assertEqual(monthlyValue('lotte-hilton-amex', 300000), 200, 'Hilton Amex base point value reflects monthly spend');
 
 function benefit(cardId, benefitId) {
   const found = card(cardId).benefits.find((item) => item.id === benefitId);
@@ -207,6 +224,23 @@ assert.ok(getBenefitHomeStatus(mgCapState, card('mg-s-hana'), benefit('mg-s-hana
 assertBenefitValue(withSpend('lotte-green-card', 300000), 'lotte-green-card', 'lotte-green-domestic', 600, 'Lotte Green domestic row reflects monthly spend');
 assertBenefitValue(withSpend('kb-skypass-platinum', 300000), 'kb-skypass-platinum', 'kb-skypass-mile', 3000, 'KB Skypass mileage row reflects monthly spend');
 assertBenefitValue(withSpend('coupang-wow-card', 100000), 'coupang-wow-card', 'coupang-wow-cashback', 4000, 'Coupang WOW detail row reflects 4 percent Coupang spend');
+
+const bcGoatOverseasState = withSpend('bc-goat-card', 0, {
+  usage: { 'bc-goat-overseas-paybook': { [MONTH]: { usedAmount: 1200000 } } }
+});
+assertBenefitValue(bcGoatOverseasState, 'bc-goat-card', 'bc-goat-overseas-paybook', 34000, 'BC GOAT overseas Paybook tiered reward');
+
+const allWooriSpecialState = withSpend('all-woori-infinite', 300000, {
+  usage: { 'all-woori-accor-5p': { [MONTH]: { usedAmount: 300000 } } }
+});
+assertBenefitValue(allWooriSpecialState, 'all-woori-infinite', 'all-woori-basic-reward', 4186, 'ALL Woori base reward row reflects monthly spend');
+assertBenefitValue(allWooriSpecialState, 'all-woori-infinite', 'all-woori-accor-5p', 11915, 'ALL Woori Accor special row counts only extra over base');
+
+const hiltonSpecialState = withSpend('lotte-hilton-amex', 300000, {
+  usage: { 'hilton-special-point': { [MONTH]: { usedAmount: 150000 } } }
+});
+assertBenefitValue(hiltonSpecialState, 'lotte-hilton-amex', 'hilton-base-point', 200, 'Hilton base reward row reflects monthly spend');
+assertBenefitValue(hiltonSpecialState, 'lotte-hilton-amex', 'hilton-special-point', 100, 'Hilton special row counts only extra over base');
 
 const lotteAmexOverseasState = withSpend('lotte-amex-skypass', 1000000, {
   usage: { 'lotte-amex-overseas-mile': { [MONTH]: { usedAmount: 500000 } } }
@@ -406,7 +440,7 @@ const imported = importState(JSON.stringify({
   }
 }));
 assertEqual(imported.selectedTab, 'dashboard', 'import sanitizes selected tab');
-assert.deepEqual(imported.hiddenCardIds, ['kb-talktalk-my-point'], 'import sanitizes hidden card ids');
+assert.deepEqual(imported.hiddenCardIds, ['kb-talktalk-my-point', ...DEFAULT_HIDDEN_CARD_IDS], 'import sanitizes hidden card ids and adds default-hidden optional cards');
 assertEqual(imported.settings.pointValues.koreanAir, 17, 'import keeps known point values');
 assert.equal(imported.settings.pointValues.evil, undefined, 'import drops unknown point value keys');
 assertEqual(imported.monthlyCardUsage[MONTH]['kb-talktalk-my-point'].prevMonthStatus, 'manual', 'import sanitizes monthly status');
