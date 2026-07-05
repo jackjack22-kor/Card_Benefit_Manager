@@ -402,9 +402,10 @@ assert.ok(mainSource.includes('if (cap && !isMonetaryBenefit(benefit))'), 'monet
 console.log('ok - auto-derived usage UI avoids sticky no-op overrides and read-only cap containers');
 assert.ok(mainSource.includes('sticky-month-bar'), 'dashboard/card detail month bar stays in a dedicated sticky region');
 assert.ok(stylesSource.includes('.sticky-month-bar { position: sticky;'), 'sticky month bar CSS is preserved');
-assert.ok(stylesSource.includes('padding: 10px 16px 2px;'), 'app header bottom padding stays tight above sticky month bar');
-assert.ok(stylesSource.includes('top: calc(60px + env(safe-area-inset-top));'), 'sticky month bar sticks directly under compact app header');
-assert.ok(stylesSource.includes('margin: -1px 0 8px; padding: 0 0 4px;'), 'sticky month bar top spacing stays flush');
+assert.ok(stylesSource.includes('background: var(--bg); backdrop-filter: blur(20px);'), 'app header uses an opaque backdrop to avoid iOS sticky bleed-through');
+assert.ok(stylesSource.includes('top: calc(54px + env(safe-area-inset-top));'), 'sticky month bar overlaps directly under compact app header');
+assert.ok(stylesSource.includes('margin: -8px 0 8px; padding: 8px 0 4px;'), 'sticky month bar top spacing overlaps the header edge');
+assert.ok(stylesSource.includes('.sticky-month-bar::before'), 'sticky month bar has an iOS gap cover pseudo-element');
 assert.ok(mainSource.includes('getConfiguredMonthlyTarget(card, override)'), 'card detail monthly metric uses configured monthly target');
 assert.ok(mainSource.includes('/ ${won(target)} (${status})'), 'card detail monthly metric shows spend, target, and status together');
 console.log('ok - sticky month bar and amount-bearing card detail metrics are preserved');
