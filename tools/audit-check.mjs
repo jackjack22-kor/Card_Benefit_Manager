@@ -15,6 +15,7 @@ import { importState } from '../src/lib/storage.js';
 
 const MONTH = '2026-07';
 const mainSource = readFileSync(new URL('../src/main.js', import.meta.url), 'utf8');
+const stylesSource = readFileSync(new URL('../src/styles.css', import.meta.url), 'utf8');
 const lazySyncSource = readFileSync(new URL('../src/lib/sync/lazySync.js', import.meta.url), 'utf8');
 const indexHtml = readFileSync(new URL('../index.html', import.meta.url), 'utf8');
 
@@ -227,6 +228,9 @@ assert.ok(!mainSource.includes('function renderMonthlyCardInputs'), 'card detail
 assert.ok(!mainSource.includes('data-monthly-card-field="prevMonthStatus"'), 'manual prev-month status selector is removed');
 assert.ok(!mainSource.includes('data-cycle-field="issueMonth"'), 'issue month setting is removed');
 console.log('ok - redundant card detail inputs are removed');
+assert.ok(stylesSource.includes('appearance: none'), 'native checkbox rendering is removed from benefit check controls');
+assert.ok(stylesSource.includes('input:checked::after'), 'custom check mark is rendered for selected benefit check controls');
+console.log('ok - benefit checkbox controls use custom theme-safe rendering');
 
 const the1LargeDepartment = baseState({
   selectedCategory: 'department',
