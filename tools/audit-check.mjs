@@ -136,6 +136,11 @@ function assertBenefitValue(state, cardId, benefitId, expected, label) {
 
 assertBenefitValue(withSpend('marriott-classic-shinhan', 300000), 'marriott-classic-shinhan', 'mb-classic-point-basic', 3000, 'Marriott Classic base row reflects monthly spend');
 assertBenefitValue(withSpend('marriott-best-shinhan', 300000), 'marriott-best-shinhan', 'mb-best-point-basic', 3000, 'Marriott Best base row reflects monthly spend');
+assert.ok(
+  card('marriott-best-shinhan').benefits.findIndex((item) => item.id === 'mb-best-point-basic')
+    < card('marriott-best-shinhan').benefits.findIndex((item) => item.id === 'mb-best-point-marriott'),
+  'Marriott Best base 1P benefit appears before Marriott 5P benefit'
+);
 assertBenefitValue(withSpend('hyundai-amex-platinum', 1000000), 'hyundai-amex-platinum', 'hy-amex-mr-base', 15000, 'Hyundai Amex base MR row reflects monthly spend');
 const hyundaiAmexSpecialState = withSpend('hyundai-amex-platinum', 1000000, {
   usage: { 'hy-amex-mr-2x': { [MONTH]: { usedAmount: 500000 } } }

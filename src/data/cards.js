@@ -168,6 +168,21 @@ export const CARDS = [
         homeLabel: '숙박권'
       },
       {
+        id: 'mb-best-point-basic',
+        name: '기본 1P/천원 적립',
+        type: 'reward',
+        priority: 'normal',
+        categories: ['other'],
+        pointCurrency: 'marriott',
+        pointsPer1000: 1,
+        deriveFromMonthlySpend: true,
+        summary: '전 가맹점 1천원당 1P',
+        targets: '특별적립 외 국내외 모든 가맹점',
+        exclusions: '무이자할부, 세금, 4대보험, 관리비, 상품권 등 제외',
+        conditions: '기본적립은 일반 결제 기준',
+        homeLabel: '1P'
+      },
+      {
         id: 'mb-best-point-marriott',
         name: '메리어트 5P/천원 적립',
         type: 'reward',
@@ -196,21 +211,6 @@ export const CARDS = [
         exclusions: '간편결제/여행사 항공권, 카페 입점매장/상품권/배달앱 등 제외 가능',
         conditions: '전월 국내 30만원 이상 시 특별적립',
         homeLabel: '3P'
-      },
-      {
-        id: 'mb-best-point-basic',
-        name: '기본 1P/천원 적립',
-        type: 'reward',
-        priority: 'normal',
-        categories: ['other'],
-        pointCurrency: 'marriott',
-        pointsPer1000: 1,
-        deriveFromMonthlySpend: true,
-        summary: '전 가맹점 1천원당 1P',
-        targets: '특별적립 외 국내외 모든 가맹점',
-        exclusions: '무이자할부, 세금, 4대보험, 관리비, 상품권 등 제외',
-        conditions: '기본적립은 일반 결제 기준',
-        homeLabel: '1P'
       },
       {
         id: 'mb-best-bonus-points',
