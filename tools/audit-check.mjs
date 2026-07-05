@@ -8,6 +8,7 @@ import {
   getMonthlyBenefitValue,
   getMonthlyShortfall,
   getOrderedCards,
+  hasPrevMonthRequirement,
   recommendCards
 } from '../src/lib/recommend.js';
 import { importState } from '../src/lib/storage.js';
@@ -212,6 +213,9 @@ explicitPrevStatusOverride.monthlyCardUsage['2026-05'] = {
   'shinhan-ace-blue': { currentMonthSpend: 780000 }
 };
 assertEqual(getCardOverride(explicitPrevStatusOverride, 'shinhan-ace-blue').prevMonthStatus, 'manual', 'explicit prev-month manual override is preserved');
+assertEqual(hasPrevMonthRequirement(card('kb-skypass-platinum'), getCardOverride(baseState(), 'kb-skypass-platinum')), false, 'zero-target card is not treated as prev-month achievement managed');
+assert.ok(mainSource.includes('전월실적 무관'), 'dashboard has neutral prev-month label for unmanaged cards');
+console.log('ok - dashboard has neutral prev-month label for unmanaged cards');
 
 const the1LargeDepartment = baseState({
   selectedCategory: 'department',

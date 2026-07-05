@@ -140,6 +140,8 @@ p { color: var(--muted); line-height: 1.55; }
 .status-badge.unmet::before { content: '✕'; }
 .status-badge.manual { color: var(--warn); background: color-mix(in srgb, var(--warn) 14%, transparent); border-color: color-mix(in srgb, var(--warn) 32%, transparent); }
 .status-badge.manual::before { content: '!'; }
+.status-badge.neutral { color: var(--muted); background: var(--surface-2); border-color: var(--line); }
+.status-badge.neutral::before { content: '–'; }
 
 /* progress */
 .progress-block { margin: 12px 0; }

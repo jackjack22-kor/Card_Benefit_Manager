@@ -22,6 +22,7 @@ import {
   getOrderedCards,
   getShortfallCards,
   getTotalMonthlyBenefitValue,
+  hasPrevMonthRequirement,
   inferPrevSpend,
   recommendCards,
   setBenefitUsage
@@ -313,7 +314,7 @@ function renderDashboardCard(card, kind) {
   const monthlyPct = monthlyTarget ? clamp(monthlySpend / monthlyTarget, 0, 1) : 1;
   const practicalBenefit = getMonthlyBenefitValue(state, card, selectedMonthKey());
   const practicalRate = getEffectiveBenefitRate(monthlySpend, practicalBenefit);
-  const prevLabel = override.prevMonthStatus === 'met' ? '전월실적 충족' : override.prevMonthStatus === 'unmet' ? '전월실적 미달' : '전월실적 확인';
+  const prevDisplay = prevMonthDisplay(card, override);
   const monthlyLabel = monthlyTarget ? (monthlyShortfall ? `${won(monthlyShortfall)} 더 채우면 달성` : '이번달 목표 달성') : '사용액 참고';
 
   return `
@@ -322,7 +323,7 @@ function renderDashboardCard(card, kind) {
         <div class="dashboard-card-copy">
           <span class="issuer">${escapeHtml(card.issuer)}</span>
           <h3>${escapeHtml(card.shortName)}</h3>
-          <span class="status-badge ${override.prevMonthStatus}">${prevLabel}</span>
+          <span class="status-badge ${prevDisplay.badgeClass}">${prevDisplay.dashboardLabel}</span>
         </div>
         ${renderCardImage(card, 'card-thumb')}
       </div>
@@ -538,6 +539,7 @@ function renderCardDetailMain(selected) {
   const practicalBenefit = getMonthlyBenefitValue(state, selected, selectedMonthKey());
   const practicalRate = getEffectiveBenefitRate(monthlySpend, practicalBenefit);
   const coreBenefits = selected.benefits.filter((benefit) => benefit.priority === 'core').slice(0, 6);
+  const prevDisplay = prevMonthDisplay(selected, override);
 
   return `
         <section class="detail-card theme-${selected.theme}">
@@ -552,7 +554,7 @@ function renderCardDetailMain(selected) {
                 <span class="annual-fee">연회비 ${selected.annualFee ? won(selected.annualFee) : '확인 필요'}</span>
               </div>
               <div class="summary-grid">
-                ${renderMetric('전월실적', prevMonthLabel(override.prevMonthStatus), override.prevMonthStatus === 'met' ? 'good' : override.prevMonthStatus === 'unmet' ? 'bad' : 'warn')}
+                ${renderMetric('전월실적', prevDisplay.metricLabel, prevDisplay.tone)}
                 ${renderMetric('이번달 실적', monthlyMetricText(selected, override), getMonthlyShortfall(selected, override) ? 'warn' : 'good')}
                 ${renderMetric('연간 실적', annualMetricText(override, annualSpend, annualShortfall), annualShortfall ? 'warn' : 'good')}
                 ${renderMetric('실사용 혜택률', `${won(practicalBenefit)} · ${benefitRateText(practicalRate, monthlySpend)}`, practicalBenefit ? 'good' : 'neutral')}
@@ -1425,6 +1427,39 @@ function prevMonthLabel(status) {
   if (status === 'met') return '충족';
   if (status === 'unmet') return '미달';
   return '확인 필요';
+}
+
+function prevMonthDisplay(card, override) {
+  if (!hasPrevMonthRequirement(card, override)) {
+    return {
+      dashboardLabel: '전월실적 무관',
+      metricLabel: '관리 안함',
+      tone: 'neutral',
+      badgeClass: 'neutral'
+    };
+  }
+  if (override.prevMonthStatus === 'met') {
+    return {
+      dashboardLabel: '전월실적 충족',
+      metricLabel: '충족',
+      tone: 'good',
+      badgeClass: 'met'
+    };
+  }
+  if (override.prevMonthStatus === 'unmet') {
+    return {
+      dashboardLabel: '전월실적 미달',
+      metricLabel: '미달',
+      tone: 'bad',
+      badgeClass: 'unmet'
+    };
+  }
+  return {
+    dashboardLabel: '전월실적 확인',
+    metricLabel: prevMonthLabel(override.prevMonthStatus),
+    tone: 'warn',
+    badgeClass: 'manual'
+  };
 }
 
 function monthlyMetricText(card, override) {

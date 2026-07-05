@@ -118,6 +118,10 @@ export function getMonthlyUsageCount(benefit, usage = {}) {
   return count > 0 ? count : (usage.checked ? 1 : 0);
 }
 
+export function hasPrevMonthRequirement(card, override = {}) {
+  return Number(override.monthlyTarget || card.defaultMonthlyTarget || 0) > 0;
+}
+
 export function getAnnualBenefitValue(state, card, benefit, date = selectedDate(state), options = {}) {
   const cycle = getCycle(card, getCardOverride(state, card.id), benefit, date);
   return monthsInCycle(cycle).reduce((sum, monthKey) => {
