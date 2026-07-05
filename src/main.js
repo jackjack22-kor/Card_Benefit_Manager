@@ -16,6 +16,7 @@ import {
   getCardOverride,
   getEffectiveBenefitRate,
   getFillSpendRecommendations,
+  getBenefitAmountInput,
   getHiddenCardIds,
   getMonthlyBenefitValue,
   getMonthlyBenefitValueForBenefit,
@@ -28,6 +29,7 @@ import {
   hasPrevMonthRequirement,
   inferPrevSpend,
   isCheckOnlyFixedAmountBenefit,
+  isCapContainerBenefit,
   recommendCards,
   setBenefitUsage
 } from './lib/recommend.js';
@@ -729,6 +731,10 @@ function benefitStatusChips(benefit, usage, cap, annualCount, annualValue, effec
     const v = Number(effectiveMonthlyValue || 0);
     chips.push(chip('월한도', `${compactWon(v)}/${compactWon(cap)}`, v >= cap));
   }
+  if (benefit.type === 'reward') {
+    const v = Number(effectiveMonthlyValue || 0);
+    chips.push(chip('이번달', v ? won(v) : '미사용', v > 0));
+  }
   if (benefit.annualCap) {
     chips.push(chip('연한도', `${compactWon(annualValue)}/${compactWon(benefit.annualCap)}`, annualValue >= benefit.annualCap));
   }
@@ -739,12 +745,33 @@ function benefitStatusChips(benefit, usage, cap, annualCount, annualValue, effec
 }
 
 function renderBenefitControls(benefit, usage, cap, annualValue = 0, effectiveMonthlyValue = Number(usage.benefitValue || 0)) {
+  const context = findBenefitContext(benefit.id);
+  const displayAmount = context ? getBenefitAmountInput(state, context.card, benefit, monthKey()) : Number(usage.usedAmount || 0);
+  const displayBenefitValue = Number(effectiveMonthlyValue || 0);
+
+  if (isCapContainerBenefit(benefit)) {
+    return `
+      <div class="auto-benefit-value">
+        <span>이번달 적용 합계</span>
+        <strong>${won(displayBenefitValue)}</strong>
+      </div>`;
+  }
+
+  if (benefit.type === 'reward') {
+    return `
+      <div class="benefit-controls">
+        <label>${benefit.deriveFromMonthlySpend ? '자동 반영 사용금액' : '이번달 사용금액'} <input type="text" inputmode="numeric" data-money-input value="${formatNumberInput(displayAmount)}" data-usage-field="usedAmount" data-benefit-id="${benefit.id}"></label>
+        <label>이번달 혜택 사용액/적립액 <input type="text" inputmode="numeric" data-money-input value="${formatNumberInput(displayBenefitValue)}" data-usage-field="benefitValue" data-benefit-id="${benefit.id}"></label>
+        ${benefit.bonusOverBase ? '<span class="remaining">기본 적립 대비 추가분만 반영</span>' : ''}
+      </div>`;
+  }
+
   if (benefit.type === 'amount_cap' || benefit.type === 'amount_cap_pool' || benefit.type === 'reward_cap_pool') {
     return `
       <div class="benefit-controls">
-        <label>이번달 사용금액 <input type="text" inputmode="numeric" data-money-input value="${formatNumberInput(usage.usedAmount)}" data-usage-field="usedAmount" data-benefit-id="${benefit.id}"></label>
-        <label>이번달 혜택 사용액/적립액 <input type="text" inputmode="numeric" data-money-input value="${formatNumberInput(usage.benefitValue)}" data-usage-field="benefitValue" data-benefit-id="${benefit.id}"></label>
-        ${cap ? `<span class="remaining">남은 한도 ${won(Math.max(0, cap - Number(effectiveMonthlyValue || 0)))}</span>` : ''}
+        <label>${benefit.deriveFromMonthlySpend ? '자동 반영 사용금액' : '이번달 사용금액'} <input type="text" inputmode="numeric" data-money-input value="${formatNumberInput(displayAmount)}" data-usage-field="usedAmount" data-benefit-id="${benefit.id}"></label>
+        <label>이번달 혜택 사용액/적립액 <input type="text" inputmode="numeric" data-money-input value="${formatNumberInput(displayBenefitValue)}" data-usage-field="benefitValue" data-benefit-id="${benefit.id}"></label>
+        ${cap ? `<span class="remaining">남은 한도 ${won(Math.max(0, cap - displayBenefitValue))}</span>` : ''}
         ${benefit.annualCap ? `<span class="remaining">남은 연한도 ${won(Math.max(0, benefit.annualCap - annualValue))}</span>` : ''}
       </div>`;
   }
@@ -756,7 +783,7 @@ function renderBenefitControls(benefit, usage, cap, annualValue = 0, effectiveMo
     const showCounter = !isCheckOnlyFixed || monthlyLimitCount > 1;
     const countLimitReached = monthlyLimitCount > 0 && usedCount >= monthlyLimitCount;
     const fixedPreviewCount = Math.max(1, monthlyLimitCount ? Math.min(monthlyLimitCount, usedCount || Number(nextChecked)) : usedCount || Number(nextChecked));
-    const displayBenefitValue = isCheckOnlyFixed
+    const countBenefitValue = isCheckOnlyFixed
       ? Number(benefit.fixedBenefit || 0) * fixedPreviewCount
       : effectiveMonthlyValue;
     return `
@@ -777,7 +804,7 @@ function renderBenefitControls(benefit, usage, cap, annualValue = 0, effectiveMo
         ${benefit.type === 'count_amount' ? `
           <div class="auto-benefit-value">
             <span>${isCheckOnlyFixed ? '조건 충족 시 혜택' : '예상 혜택'}</span>
-            <strong>${won(displayBenefitValue)}</strong>
+            <strong>${won(countBenefitValue)}</strong>
           </div>
         ` : ''}
         <label class="toggle-check ${nextChecked ? 'checked' : ''}">
@@ -978,8 +1005,10 @@ function bindDetailMainEvents(root) {
 
   root.querySelectorAll('[data-usage-field]').forEach((input) => {
     const isMemo = input.dataset.usageField === 'memo';
+    const initialRawValue = isMemo ? input.value : String(Number(String(input.value).replace(/[^\d]/g, '') || 0));
     const saveUsageField = () => {
       const value = isMemo ? input.value : Number(String(input.value).replace(/[^\d]/g, '') || 0);
+      if (!isMemo && String(value) === initialRawValue) return;
       updateUsage(input.dataset.benefitId, { [input.dataset.usageField]: value });
     };
     if (isMemo) {
@@ -1191,6 +1220,9 @@ function withAutoBenefitValue(benefitId, patch) {
     const count = clampUsageCount(context.benefit, Number(patch.count || 0));
     normalizedPatch = { ...patch, count, checked: count > 0 };
   }
+  if (hasUsedAmount && !Object.prototype.hasOwnProperty.call(normalizedPatch, 'manualAmountOverride')) {
+    normalizedPatch = { ...normalizedPatch, manualAmountOverride: true };
+  }
   if ((!hasUsedAmount && !hasCount) || Object.prototype.hasOwnProperty.call(normalizedPatch, 'benefitValue')) return normalizedPatch;
   if (!canAutoCalculateBenefitValue(context.benefit)) return normalizedPatch;
   const usage = getBenefitUsage(state, benefitId, monthKey());
@@ -1213,6 +1245,9 @@ function canAutoCalculateBenefitValue(benefit) {
   return (
     ['amount_cap', 'amount_cap_pool', 'reward_cap_pool'].includes(benefit.type)
     && (benefit.rate || benefit.rateBySpend || benefit.monthlyCap || benefit.monthlyCapBySpend || benefit.capPoolId)
+  ) || (
+    benefit.type === 'reward'
+    && (benefit.rate || benefit.pointsPer1000)
   ) || (
     benefit.type === 'count_amount'
     && (benefit.fixedBenefit || benefit.fixedBenefitByAmount || benefit.rate || benefit.monthlyCap)
@@ -1238,6 +1273,16 @@ function calculateAutoBenefitValue(card, benefit, usedAmount, count = 1) {
   if (benefit.type !== 'count_amount' && benefit.minAmount && usedAmount < benefit.minAmount) return 0;
   const override = getCardOverride(state, card.id);
   const prevSpend = inferPrevSpend(card, override);
+  if (benefit.type === 'reward') {
+    const pointValue = state.settings?.pointValues?.[benefit.pointCurrency] || 1;
+    if (benefit.pointsPer1000) {
+      const base = benefit.bonusOverBase ? getBaseRewardPointsPer1000(card, benefit) : 0;
+      const grossPoints = Math.min((usedAmount / 1000) * Number(benefit.pointsPer1000 || 0), benefit.monthlyPointCap || Infinity);
+      const basePoints = benefit.bonusOverBase ? (usedAmount / 1000) * base : 0;
+      return Math.round(Math.max(0, grossPoints - basePoints) * pointValue);
+    }
+    return Math.round(usedAmount * calculateRate(benefit, prevSpend) * pointValue);
+  }
   if (benefit.type === 'count_amount') {
     const checkOnlyFixed = isCheckOnlyFixedAmountBenefit(benefit);
     const effectiveAmount = checkOnlyFixed ? Number(benefit.minAmount || 0) : usedAmount;
@@ -1264,6 +1309,19 @@ function calculateAutoBenefitValue(card, benefit, usedAmount, count = 1) {
     : 0;
   const annualRemaining = benefit.annualCap ? Math.max(0, benefit.annualCap - annualUsedBeforeThisMonth) : Infinity;
   return Math.round(Math.max(0, Math.min(raw, monthlyRemaining, annualRemaining)));
+}
+
+function getBaseRewardPointsPer1000(card, benefit) {
+  if (!card || !benefit.pointCurrency) return 0;
+  const base = card.benefits.find((item) => (
+    item.id !== benefit.id
+    && item.type === 'reward'
+    && item.pointCurrency === benefit.pointCurrency
+    && item.categories?.includes('other')
+    && item.deriveFromMonthlySpend
+    && Number(item.pointsPer1000 || 0) > 0
+  ));
+  return Number(base?.pointsPer1000 || 0);
 }
 
 function calculateFixedBenefitForAmount(benefit, amount = 0) {

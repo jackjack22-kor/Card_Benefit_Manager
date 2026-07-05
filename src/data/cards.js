@@ -122,30 +122,19 @@ export const CARDS = [
       },
       {
         id: 'ace-reward-mile',
-        name: '항공 마일리지 적립',
+        name: '스카이패스 마일리지 적립',
         type: 'reward',
         priority: 'normal',
         categories: ['other'],
         rewardType: 'airline_selectable',
         pointCurrency: 'koreanAir',
         pointsPer1000: 0.6667,
-        summary: '스카이패스 1,500원당 1마일 또는 아시아나 1,000원당 1마일',
+        deriveFromMonthlySpend: true,
+        summary: '스카이패스 1,500원당 1마일',
         targets: '일시불·할부 이용금액',
         exclusions: '무이자할부, 할인 적용 금액, 카드대출, 연회비, 세금, 수도요금, 오토리스 등 제외',
-        conditions: '선택한 항공사 마일리지 적립. 가족카드 합산.',
-        homeLabel: '마일'
-      },
-      {
-        id: 'ace-shinhan-point',
-        name: '마이신한포인트 적립',
-        type: 'reward',
-        priority: 'normal',
-        categories: ['hotel', 'overseas', 'dutyfree', 'golf', 'fuel'],
-        summary: '국내 특급호텔/해외/면세점/골프 1%, GS칼텍스 3%, 분기 1천만원 이상 25,000P',
-        targets: '국내 특급호텔, 해외, 면세점, 골프, GS칼텍스',
-        exclusions: '특별적립 온라인 이용금액 제외. 무이자할부/할인적용금액/세금 등 제외',
-        conditions: 'GS칼텍스는 월 이용금액 30만원까지. 분기 보너스는 본인+가족 합산.',
-        homeLabel: '포인트'
+        conditions: '선택형 리워드 중 스카이패스 선택 기준. 가족카드 합산.',
+        homeLabel: '스카이패스'
       }
     ]
   },
@@ -186,6 +175,7 @@ export const CARDS = [
         categories: ['marriott', 'hotel'],
         pointCurrency: 'marriott',
         pointsPer1000: 5,
+        bonusOverBase: true,
         summary: '전세계 메리어트 참여 호텔 1천원당 5P',
         targets: '메리어트 공식 채널 예약/결제 또는 호텔 현장 결제',
         exclusions: '호텔 내 임대매장, OTA/여행사 결제는 기본적립 가능성',
@@ -200,6 +190,7 @@ export const CARDS = [
         categories: ['overseas', 'airline', 'taxi', 'coffee'],
         pointCurrency: 'marriott',
         pointsPer1000: 3,
+        bonusOverBase: true,
         summary: '해외, 항공, 택시, 카페 1천원당 3P',
         targets: '해외, 대한항공/아시아나/제주항공/진에어 공식 채널, 택시 업종, 스타벅스/커피빈/폴바셋/투썸',
         exclusions: '간편결제/여행사 항공권, 카페 입점매장/상품권/배달앱 등 제외 가능',
@@ -214,6 +205,7 @@ export const CARDS = [
         categories: ['other'],
         pointCurrency: 'marriott',
         pointsPer1000: 1,
+        deriveFromMonthlySpend: true,
         summary: '전 가맹점 1천원당 1P',
         targets: '특별적립 외 국내외 모든 가맹점',
         exclusions: '무이자할부, 세금, 4대보험, 관리비, 상품권 등 제외',
@@ -310,6 +302,21 @@ export const CARDS = [
         homeLabel: '15,000P'
       },
       {
+        id: 'mb-classic-point-basic',
+        name: '기본 1P/천원 적립',
+        type: 'reward',
+        priority: 'core',
+        categories: ['other'],
+        pointCurrency: 'marriott',
+        pointsPer1000: 1,
+        deriveFromMonthlySpend: true,
+        summary: '전 가맹점 1천원당 1P',
+        targets: '특별적립 외 국내외 모든 가맹점',
+        exclusions: '무이자할부, 세금, 4대보험, 관리비, 상품권 등 제외',
+        conditions: '기본적립은 일반 결제 기준',
+        homeLabel: '1P'
+      },
+      {
         id: 'mb-classic-point-marriott',
         name: '메리어트 4P/천원 적립',
         type: 'reward',
@@ -317,6 +324,7 @@ export const CARDS = [
         categories: ['marriott', 'hotel'],
         pointCurrency: 'marriott',
         pointsPer1000: 4,
+        bonusOverBase: true,
         summary: '전세계 메리어트 참여 호텔 1천원당 4P',
         targets: '공식 웹/앱 예약 결제 또는 호텔 현장 결제',
         exclusions: 'OTA/여행사/임대매장 이용 시 기본적립 가능성',
@@ -415,9 +423,9 @@ export const CARDS = [
       { id: 'hy-amex-baekmidang', name: '백미당 커피·아이스크림 무료', type: 'count_amount', priority: 'core', categories: ['coffee'], fixedBenefit: 5000, monthlyLimitCount: 1, annualLimitCount: 2, cycleType: 'calendar', summary: '백미당 아메리카노/라떼 또는 소프트 아이스크림 중 택 1 제공', targets: '백미당 전국 매장', exclusions: '부산역사점, 서울아산병원점, 서종점, 교대점, 잠실야구장, 갤러리아 광교/대전/천안센터시티점 제외', conditions: '연 2회, 월 1회. 본인 및 가족 회원 합산. 실물카드 제시 후 대상카드 결제.', homeLabel: '백미당' },
       { id: 'hy-amex-be-my-guest-restaurant', name: 'Be My Guest 레스토랑 3만원 할인', type: 'count_amount', priority: 'core', categories: ['restaurant', 'hotel'], fixedBenefit: 30000, minAmount: 60000, monthlyLimitCount: 1, annualLimitCount: 3, cycleType: 'calendar', summary: '호텔 레스토랑 및 패밀리 레스토랑 대상점에서 6만원 이상 결제 시 3만원 할인', targets: '아웃백스테이크하우스 전국 80여 개 매장, Chai 797, 포시즌스 서울, JW 메리어트 동대문, 반얀트리 서울, 그랜드 인터컨티넨탈 서울 파르나스, 콘래드 서울 등 지정 호텔 레스토랑', exclusions: '아웃백 딜리버리 제외. 조식, 음료, 주류, 콜키지, 리테일, 연회, 스페셜/세트/프로모션 메뉴, 테이크아웃 등 일부 제외 가능', conditions: '전월 50만원 이상. 본인 회원 연 3회, 월 1회. 신규 발급월 포함 3개월은 실적 관계없이 제공. Be My Guest 적용 요청 필요.', homeLabel: 'BMG' },
       { id: 'hy-amex-be-my-guest-deli', name: 'Be My Guest 호텔 델리 2만원 할인', type: 'count_amount', priority: 'core', categories: ['restaurant', 'hotel'], fixedBenefit: 20000, minAmount: 40000, monthlyLimitCount: 1, annualLimitCount: 3, cycleType: 'calendar', summary: '호텔 델리 대상점에서 4만원 이상 결제 시 2만원 할인', targets: '포시즌스 서울 Confections by Four Seasons, 콘래드 서울 플레임즈, 앰배서더 서울 풀만 1955 그로세리아, 호텔 나루 서울 엠갤러리 마포 에이트, 노보텔 앰배서더 서울 동대문 The Deli', exclusions: '대상점별 일부 상품 및 프로모션 제외 가능', conditions: '전월 50만원 이상. Be My Guest 통합 본인 회원 연 3회, 월 1회. 신규 발급월 포함 3개월은 실적 관계없이 제공.', homeLabel: '델리' },
-      { id: 'hy-amex-mr-base', name: '기본 1.5MR/천원', type: 'reward', priority: 'core', categories: ['other'], pointCurrency: 'hyundaiMR', pointsPer1000: 1.5, summary: '국내외 가맹점 1천원당 1.5MR', targets: '국내외 모든 물품/서비스 이용대금', exclusions: '공과금, 전기/가스/관리비, 학교/대학 등록금, 보험, 상품권, 고속도로 통행료, 할인/무이자 등 제외', conditions: '전월실적 관계없이 적립, 한도 없음', homeLabel: '1.5MR' },
-      { id: 'hy-amex-mr-2x', name: '해외/국내 특급호텔 3MR/천원', type: 'reward', priority: 'core', categories: ['overseas', 'hotel'], pointCurrency: 'hyundaiMR', pointsPer1000: 3, summary: '해외 가맹점·국내 특급호텔 2X 특별적립', targets: '해외 가맹점, 국내 특급호텔', exclusions: '해외 원화결제 시 특별적립 불가. 간편결제명 승인 시 기본적립 가능성', conditions: '전월 50만원 이상 시 한도 없이 적립', homeLabel: '2X' },
-      { id: 'hy-amex-mr-3x', name: '골프/면세점 4.5MR/천원', type: 'reward', priority: 'core', categories: ['golf', 'dutyfree'], pointCurrency: 'hyundaiMR', pointsPer1000: 4.5, summary: '골프·골프연습장, 면세점 3X 특별적립', targets: '골프, 골프연습장, 면세점', exclusions: '현대카드 업종 등록 기준', conditions: '전월 50만원 이상 시 한도 없이 적립', homeLabel: '3X' },
+      { id: 'hy-amex-mr-base', name: '기본 1.5MR/천원', type: 'reward', priority: 'core', categories: ['other'], pointCurrency: 'hyundaiMR', pointsPer1000: 1.5, deriveFromMonthlySpend: true, summary: '국내외 가맹점 1천원당 1.5MR', targets: '국내외 모든 물품/서비스 이용대금', exclusions: '공과금, 전기/가스/관리비, 학교/대학 등록금, 보험, 상품권, 고속도로 통행료, 할인/무이자 등 제외', conditions: '전월실적 관계없이 적립, 한도 없음', homeLabel: '1.5MR' },
+      { id: 'hy-amex-mr-2x', name: '해외/국내 특급호텔 3MR/천원', type: 'reward', priority: 'core', categories: ['overseas', 'hotel'], pointCurrency: 'hyundaiMR', pointsPer1000: 3, bonusOverBase: true, summary: '해외 가맹점·국내 특급호텔 2X 특별적립', targets: '해외 가맹점, 국내 특급호텔', exclusions: '해외 원화결제 시 특별적립 불가. 간편결제명 승인 시 기본적립 가능성', conditions: '전월 50만원 이상 시 한도 없이 적립', homeLabel: '2X' },
+      { id: 'hy-amex-mr-3x', name: '골프/면세점 4.5MR/천원', type: 'reward', priority: 'core', categories: ['golf', 'dutyfree'], pointCurrency: 'hyundaiMR', pointsPer1000: 4.5, bonusOverBase: true, summary: '골프·골프연습장, 면세점 3X 특별적립', targets: '골프, 골프연습장, 면세점', exclusions: '현대카드 업종 등록 기준', conditions: '전월 50만원 이상 시 한도 없이 적립', homeLabel: '3X' },
       { id: 'hy-amex-annual-mr', name: '연간 10만 MR 스페셜 적립', type: 'check', priority: 'core', categories: ['premiumgift'], annualLimitCount: 1, cycleType: 'anniversary', fixedBenefit: 1000000, summary: '연간 10만 MR 적립', targets: '멤버십 리워즈 계정', exclusions: '카드 해지/정지/연체 시 제외 가능', conditions: '1차년도 100만원 이상, 2차년도부터 전년도 3,600만원 이상+연회비 납부', homeLabel: '10만MR' },
       { id: 'hy-amex-domestic-hotel-discount', name: '국내 특급호텔·고택 호텔 할인', type: 'info_check', priority: 'normal', categories: ['hotel'], summary: '국내 특급호텔 객실, F&B 및 부대시설 5~10% 할인과 고택 호텔 할인/우대 혜택', targets: '호텔 오노마, 르메르디앙 서울 명동, 그랜드 워커힐 서울, 비스타 워커힐 서울, 콘래드 서울, 반얀트리 서울, 그랜드 조선 제주/부산, JW 메리어트 호텔 서울 등 지정 호텔 및 구름에·조선 왕가 호텔·락고재', exclusions: '호텔별 할인 제외 기간 및 대상 객실/업장 제한 가능. 룸 차지 시 F&B 할인 제외.', conditions: 'Amex 카드 할인 적용 요청 및 호텔/리조트 예약실 확인 필요. 다른 프로모션과 중복 불가.', homeLabel: '호텔할인' },
       { id: 'hy-amex-hotel-valet', name: '국내 특급호텔 발레파킹', type: 'count', priority: 'normal', categories: ['parking', 'hotel'], monthlyLimitCount: 5, cycleType: 'calendar', summary: '국내 특급호텔 발레파킹 서비스 제공', targets: 'JW 메리어트 동대문/서울, 그랜드 인터컨티넨탈 서울 파르나스, 그랜드 워커힐 서울, 그랜드 조선 부산/제주, 그랜드 하얏트 서울/인천, 포시즌스 서울, 콘래드 서울 등 지정 호텔', exclusions: '객실 및 식음료업장 이용 시 제공. 무료 주차 1일 3시간 초과분은 별도 정산.', conditions: '전월 50만원 이상. 본인 및 가족 회원 합산 공항/국내 호텔 통합 월 5회. 신규 발급월 포함 3개월은 실적 관계없이 제공.', homeLabel: '호텔발렛' },
@@ -442,7 +450,7 @@ export const CARDS = [
     tags: ['프리미엄', '아시아나', '다이닝', '호텔', '골프'],
     sourceNote: '업로드 PDF: 삼성 THE O 아시아나.',
     benefits: [
-      { id: 'the-o-reward-asiana', name: '아시아나 기본 마일리지', type: 'reward', priority: 'core', categories: ['other'], pointCurrency: 'asiana', pointsPer1000: 1, summary: '아시아나 1,000원당 1마일 기본 적립', targets: '개인회원 및 개인사업자/국가/지자체/소기업 법인회원 기준', exclusions: '무이자할부, 세금, 공과금, 대학등록금, 대중교통, 선불충전, 카드대출, 연회비 등 제외', conditions: '개인카드는 적립한도 없음', homeLabel: '아시아나' },
+      { id: 'the-o-reward-asiana', name: '아시아나 기본 마일리지', type: 'reward', priority: 'core', categories: ['other'], pointCurrency: 'asiana', pointsPer1000: 1, deriveFromMonthlySpend: true, summary: '아시아나 1,000원당 1마일 기본 적립', targets: '개인회원 및 개인사업자/국가/지자체/소기업 법인회원 기준', exclusions: '무이자할부, 세금, 공과금, 대학등록금, 대중교통, 선불충전, 카드대출, 연회비 등 제외', conditions: '개인카드는 적립한도 없음', homeLabel: '아시아나' },
       { id: 'the-o-additional-reward', name: '연간 이용금액 1천만원당 추가 리워드', type: 'milestone', priority: 'core', categories: ['premiumgift'], cycleType: 'anniversary', milestones: [{ spend: 10000000, label: '3,500마일' }, { spend: 20000000, label: '7,000마일' }, { spend: 30000000, label: '10,500마일' }], summary: '아시아나형 연간 이용금액 1천만원당 3,500마일 추가', targets: '본인+가족 일시불·할부 합산', exclusions: '정상카드 미보유 시 미적립', conditions: '2차년도부터 매년 카드 발급월 5영업일 적립', homeLabel: '추가마일' },
       { id: 'the-o-gift', name: 'THE O 연간 기프트', type: 'check', priority: 'core', categories: ['premiumgift', 'hotel', 'airline', 'shopping', 'golf'], annualLimitCount: 1, cycleType: 'anniversary', summary: '호텔/항공/쇼핑/골프 중 연 1가지 선택', targets: '국내 특급호텔 서비스, 국내선 왕복항공권/마일리지, 상품권/면세점 선불카드, 골프 라운딩', exclusions: '신청기간 내 미이용 시 자동 소멸, 이월 불가', conditions: '발급 첫 해 직전 3개월 50만원, 2차년도 이후 전년도 600만원 이상', homeLabel: '기프트' },
       { id: 'the-o-outback', name: '아웃백 3만원 할인', type: 'count_amount', priority: 'core', categories: ['restaurant'], fixedBenefit: 30000, minAmount: 60000, monthlyLimitCount: 1, annualLimitCount: 6, cycleType: 'calendar', summary: '아웃백 6만원 이상 결제 시 3만원 현장할인', targets: '아웃백스테이크하우스', exclusions: '중복 할인 제한 가능', conditions: '직전 3개월 일시불·할부 합산 1원 이상', homeLabel: '아웃백' },
@@ -469,8 +477,8 @@ export const CARDS = [
     tags: ['대한항공', '기프트', '스타벅스', '공항', '메가박스', '아웃백', 'AMEX'],
     sourceNote: '업로드 PDF: 삼성 THE 1 스카이패스, 삼성카드 앱 혜택 캡처, 2604_AMEX_E_002 American Express PLATINUM ELITE 서비스.',
     benefits: [
-      { id: 'the1-basic-mile', name: '기본 스카이패스 1마일/천원', type: 'reward', priority: 'core', categories: ['other'], pointCurrency: 'koreanAir', pointsPer1000: 1, summary: '모든 가맹점 1,000원당 스카이패스 1마일', targets: '모든 가맹점', exclusions: '할인 적용, 무이자, 세금, 대중교통, 택시, 고속버스, 통행료, 선불충전 등 제외', conditions: '전월실적 관계없이 한도 없음', homeLabel: '1마일' },
-      { id: 'the1-special-mile', name: '특별 스카이패스 2마일/천원', type: 'reward', priority: 'core', categories: ['department', 'travel', 'hotel', 'golf', 'airline'], pointCurrency: 'koreanAir', pointsPer1000: 2, monthlyPointCap: 2000, summary: '백화점, 여행, 호텔, 골프 1,000원당 2마일', targets: '신세계·롯데·현대·갤러리아 등 백화점, 호텔/항공/철도/렌터카/관광여행사, 골프장/연습장', exclusions: '백화점 일부 임대매장/식품매장 제외. 월 2,000마일 초과 시 기본적립', conditions: '특별 리워드 통합 월 2,000마일 한도', homeLabel: '2마일' },
+      { id: 'the1-basic-mile', name: '기본 스카이패스 1마일/천원', type: 'reward', priority: 'core', categories: ['other'], pointCurrency: 'koreanAir', pointsPer1000: 1, deriveFromMonthlySpend: true, summary: '모든 가맹점 1,000원당 스카이패스 1마일', targets: '모든 가맹점', exclusions: '할인 적용, 무이자, 세금, 대중교통, 택시, 고속버스, 통행료, 선불충전 등 제외', conditions: '전월실적 관계없이 한도 없음', homeLabel: '1마일' },
+      { id: 'the1-special-mile', name: '특별 스카이패스 2마일/천원', type: 'reward', priority: 'core', categories: ['department', 'travel', 'hotel', 'golf', 'airline'], pointCurrency: 'koreanAir', pointsPer1000: 2, bonusOverBase: true, monthlyPointCap: 2000, summary: '백화점, 여행, 호텔, 골프 1,000원당 2마일', targets: '신세계·롯데·현대·갤러리아 등 백화점, 호텔/항공/철도/렌터카/관광여행사, 골프장/연습장', exclusions: '백화점 일부 임대매장/식품매장 제외. 월 2,000마일 초과 시 기본적립', conditions: '특별 리워드 통합 월 2,000마일 한도', homeLabel: '2마일' },
       { id: 'the1-gift', name: '연간 기프트', type: 'check', priority: 'core', categories: ['premiumgift', 'shopping', 'airline', 'hotel'], annualLimitCount: 1, cycleType: 'anniversary', summary: '연 1회 4가지 중 택 1', targets: '15만원 신세계상품권, 대한항공 국내선 왕복항공권, 호텔 식사권, 삼성카드 여행 15만원 할인', exclusions: '항공권 이용 시 마일리지 미적립 등 기프트별 조건', conditions: '첫 해 직전 이용 50만원, 2차년도 이후 전년도 600만원+직전 3개월 실적 필요', homeLabel: '기프트' },
       { id: 'the1-taxi', name: '택시 2천원 할인', type: 'count_amount', priority: 'core', categories: ['taxi'], fixedBenefit: 2000, minAmount: 10000, monthlyLimitCount: 1, annualLimitCount: 6, cycleType: 'calendar', summary: '택시요금 1만원 이상 결제 시 2천원 청구할인', targets: '택시', exclusions: '할인 적용 금액 마일리지 미적립', conditions: '전월 30만원 이상. 월 1회, 연 6회.', homeLabel: '택시' },
       { id: 'the1-starbucks', name: '스타벅스 2천원 할인', type: 'count_amount', priority: 'core', categories: ['coffee'], fixedBenefit: 2000, minAmount: 10000, monthlyLimitCount: 2, annualLimitCount: 12, cycleType: 'calendar', summary: '스타벅스 1만원 이상 결제 시 2천원 청구할인', targets: '스타벅스', exclusions: '상품권 구매 및 충전식 선불카드 충전 제외', conditions: '전월 30만원 이상. 월 2회, 연 12회.', homeLabel: '스벅' },
@@ -507,8 +515,8 @@ export const CARDS = [
     benefits: [
       { id: 'woori-special-3', name: '특별 3% 적립', type: 'reward_cap_pool', priority: 'core', categories: ['telecom', 'transit', 'evcharge', 'coffee', 'movie'], rate: 0.03, capPoolId: 'woori-monthly-points', summary: '이동통신, 대중교통, 전기차충전, 커피, 영화 3% 모아포인트', targets: 'SKT/KT/LGU+/알뜰폰 일부, 버스/지하철, 환경부/한전/KT 등 전기차 급속충전, 스타벅스/엔제리너스/이디야, CGV/롯데시네마', exclusions: '통신 결합상품, 커피 입점매장/상품권, 영화 예매대행, 전기차 상세 대상 확인 필요', conditions: '전월 국내 30만원 이상. 통합 월 적립한도 적용.', homeLabel: '3%' },
       { id: 'woori-special-1', name: '특별 1% 적립', type: 'reward_cap_pool', priority: 'core', categories: ['department', 'shopping', 'fuel', 'overseas'], rate: 0.01, capPoolId: 'woori-monthly-points', summary: '백화점, 할인점, 온라인쇼핑, 주유, 해외 1% 적립', targets: '신세계/현대/롯데백화점, 이마트/홈플러스/롯데마트/VIC/트레이더스, 11번가/G마켓/옥션/롯데ON/쿠팡/티몬/위메프/우리WON마켓, 4대 주유소, 해외', exclusions: '백화점/할인점 온라인 결제 제외, LPG 제외', conditions: '전월 국내 30만원 이상. 통합 월 적립한도 적용.', homeLabel: '1%' },
-      { id: 'woori-basic', name: '기본 0.8% 적립', type: 'reward_cap_pool', priority: 'normal', categories: ['other'], rate: 0.008, capPoolId: 'woori-monthly-points', summary: '상기 외 국내 적립 대상 가맹점 0.8%', targets: '기타 국내 가맹점', exclusions: '무이자할부, 건당 1만원 미만, 세금/공과금, 등록금, 상품권/선불, 고속버스, 정부지원금, 아파트관리비, 취소 등 제외', conditions: '전월 국내 30만원 이상. 통합 월 적립한도 적용.', homeLabel: '0.8%' },
-      { id: 'woori-pay-plus', name: '간편결제 3% 추가적립', type: 'reward_cap_pool', priority: 'core', categories: ['simplepay'], rate: 0.03, capPoolId: 'woori-monthly-points', summary: '네이버페이/카카오페이/PAYCO/SSGPAY 3% 추가적립', targets: '주요 간편결제에 본 카드 등록 후 온라인/오프라인 사용', exclusions: 'Two-in-One 체크매출 추가적립 미적용', conditions: '전월 국내 30만원 이상. 통합 월 적립한도 적용.', homeLabel: '간편+3%' },
+      { id: 'woori-basic', name: '기본 0.8% 적립', type: 'reward_cap_pool', priority: 'normal', categories: ['other'], rate: 0.008, capPoolId: 'woori-monthly-points', deriveFromMonthlySpend: true, summary: '상기 외 국내 적립 대상 가맹점 0.8%', targets: '기타 국내 가맹점', exclusions: '무이자할부, 건당 1만원 미만, 세금/공과금, 등록금, 상품권/선불, 고속버스, 정부지원금, 아파트관리비, 취소 등 제외', conditions: '전월 국내 30만원 이상. 통합 월 적립한도 적용.', homeLabel: '0.8%' },
+      { id: 'woori-pay-plus', name: '간편결제 3% 추가적립', type: 'reward_cap_pool', priority: 'core', categories: ['simplepay'], rate: 0.03, capPoolId: 'woori-monthly-points', deriveFromMonthlySpend: true, summary: '네이버페이/카카오페이/PAYCO/SSGPAY 3% 추가적립', targets: '주요 간편결제에 본 카드 등록 후 온라인/오프라인 사용', exclusions: 'Two-in-One 체크매출 추가적립 미적용', conditions: '전월 국내 30만원 이상. 통합 월 적립한도 적용.', homeLabel: '간편+3%' },
       { id: 'woori-monthly-points', name: '통합 월 적립한도', type: 'amount_cap', priority: 'core', categories: ['other'], monthlyCapBySpend: [{ min: 300000, cap: 10000 }, { min: 600000, cap: 20000 }, { min: 1200000, cap: 50000 }], cycleType: 'calendar', summary: '기본/특별/추가 통합 월 적립한도', targets: '전월 30/60/120만원 이상에 따라 1만/2만/5만점', exclusions: '한도 이월 없음', conditions: '서비스는 거래 승인 순서대로 적용', homeLabel: '월한도' },
       { id: 'woori-themepark', name: '롯데아쿠아리움/놀이공원 50% 할인', type: 'count', priority: 'normal', categories: ['themepark'], monthlyLimitCount: 1, annualLimitCount: 3, cycleType: 'calendar', summary: '롯데월드 아쿠아리움 및 주요 놀이공원 50% 현장할인', targets: '롯데월드 아쿠아리움, 롯데월드, 에버랜드, 이월드, 경주월드, 통도환타지아', exclusions: '본인회원 한정', conditions: '전월 30만원 이상. 통합 월 1회, 연 3회.', homeLabel: '놀이'
       }
@@ -529,7 +537,7 @@ export const CARDS = [
     tags: ['SKT', '통신비', 'T라이트할부', '영화', '커피'],
     sourceNote: '첨부 PDF: SKT 우리카드 카드발급/이용안내. 2022년 12월 기준.',
     benefits: [
-      { id: 'skt-woori-telecom-tlight', name: 'SKT 통신요금 자동납부 할인', type: 'amount_cap', priority: 'core', categories: ['telecom'], rate: 1, monthlyCapBySpend: [{ min: 300000, cap: 11000 }, { min: 700000, cap: 17000 }, { min: 1000000, cap: 23000 }], monthlyLimitCount: 1, cycleType: 'calendar', summary: 'SKT 통신료 자동납부 시 전월실적 구간별 청구할인', targets: 'SKT 통신요금 자동납부. T라이트할부 이용 시 1.1만/1.7만/2.3만원', exclusions: '자동납부가 아닌 일반 결제 제외. T라이트할부 서비스와 SKT 할인서비스 중복 적용 불가', conditions: '통신료 자동납부 필수. 전월 30/70/100만원 이상. T라이트할부 미이용 또는 상환 종료 시 1만/1.5만/2만원 할인.', homeLabel: 'SKT' },
+      { id: 'skt-woori-telecom-tlight', name: 'SKT 통신요금 자동납부 할인', type: 'amount_cap', priority: 'core', categories: ['telecom'], rate: 1, deriveFromMonthlySpend: true, monthlyCapBySpend: [{ min: 300000, cap: 10000 }, { min: 700000, cap: 15000 }, { min: 1000000, cap: 20000 }], monthlyLimitCount: 1, cycleType: 'calendar', summary: 'SKT 통신료 자동납부 시 전월실적 구간별 청구할인', targets: 'SKT 통신요금 자동납부. T라이트할부 미이용/상환 종료 기준 1만/1.5만/2만원', exclusions: '자동납부가 아닌 일반 결제 제외. T라이트할부 서비스와 SKT 할인서비스 중복 적용 불가', conditions: '통신료 자동납부 필수. 전월 30/70/100만원 이상. T라이트할부 미이용 또는 상환 종료 시 1만/1.5만/2만원 할인.', homeLabel: 'SKT' },
       { id: 'skt-woori-tlight-installment', name: 'T라이트할부', type: 'info', priority: 'normal', categories: ['telecom'], summary: 'SKT 통신기기 및 통신서비스 구매 시 T라이트할부 제공', targets: 'SKT 통신기기 및 통신서비스 10만원 이상 구매', exclusions: 'SKT 할인서비스와 중복 적용 불가', conditions: '24개월 또는 36개월, 할부수수료율 연 5.9%, 원금균등상환', homeLabel: 'T라이트' },
       { id: 'skt-woori-themepark', name: '놀이공원 자유이용권 50% 할인', type: 'count_amount', priority: 'normal', categories: ['themepark'], rate: 0.5, monthlyLimitCount: 1, annualLimitCount: 10, cycleType: 'calendar', summary: '주요 놀이공원 자유이용권 50% 현장할인', targets: '롯데월드, 에버랜드, 서울랜드, 이월드, 경주월드, 통도환타지아', exclusions: '본인회원 한정', conditions: '전월 30만원 이상. 통합 월 1회, 연 10회.', homeLabel: '놀이공원' },
       { id: 'skt-woori-movie', name: '영화관 3천원 할인', type: 'count_amount', priority: 'core', categories: ['movie'], fixedBenefit: 3000, minAmount: 12000, monthlyLimitCount: 1, annualLimitCount: 10, cycleType: 'calendar', summary: '모든 영화관 1만2천원 이상 결제 시 3천원 청구할인', targets: '모든 영화관', exclusions: '예매 대행사이트 제외', conditions: '전월 30만원 이상. 통합 월 1회, 연 10회.', homeLabel: '영화' },
@@ -552,7 +560,7 @@ export const CARDS = [
     tags: ['MASTER', '대한항공', '스카이패스', '호텔뷔페', '플래티늄'],
     sourceNote: 'KB국민카드 공식 홈페이지: 스카이패스 KB국민 플래티늄카드(MASTER) 기준.',
     benefits: [
-      { id: 'kb-skypass-mile', name: '대한항공 마일리지 적립', type: 'reward', priority: 'core', categories: ['other', 'airline'], pointCurrency: 'koreanAir', pointsPer1000: 0.6667, summary: 'KB국민카드 가맹점 이용 시 신판입금액 1,500원당 대한항공 1마일 적립', targets: '국내외 일시불·할부 이용금액. 대한항공 탑승/제휴 호텔 등은 대한항공 기준에 따라 별도 적립 가능', exclusions: '단기카드대출, 장기카드대출, 각종 수수료·이자, 선불카드 구입/충전, 세금, 대학등록금, 연회비, 무이자할부, 아파트관리비, 상품권 이용금액 등 제외', conditions: '마일리지는 결제일로부터 15일 경과 후 확인 가능. MASTER 플래티늄 기준으로 관리.', homeLabel: '1,500원=1M' },
+      { id: 'kb-skypass-mile', name: '대한항공 마일리지 적립', type: 'reward', priority: 'core', categories: ['other', 'airline'], pointCurrency: 'koreanAir', pointsPer1000: 0.6667, deriveFromMonthlySpend: true, summary: 'KB국민카드 가맹점 이용 시 신판입금액 1,500원당 대한항공 1마일 적립', targets: '국내외 일시불·할부 이용금액. 대한항공 탑승/제휴 호텔 등은 대한항공 기준에 따라 별도 적립 가능', exclusions: '단기카드대출, 장기카드대출, 각종 수수료·이자, 선불카드 구입/충전, 세금, 대학등록금, 연회비, 무이자할부, 아파트관리비, 상품권 이용금액 등 제외', conditions: '마일리지는 결제일로부터 15일 경과 후 확인 가능. MASTER 플래티늄 기준으로 관리.', homeLabel: '1,500원=1M' },
       { id: 'kb-skypass-hotel-buffet', name: '호텔 뷔페 무료 식사 이용권', type: 'check', priority: 'core', categories: ['premiumgift', 'hotel', 'restaurant'], annualLimitCount: 1, cycleType: 'anniversary', summary: '연 1회 쿠폰서비스 중 택1. 국내 지정 호텔뷔페 2인 무료식사 또는 지정 레스토랑 현장할인', targets: '국내 지정 호텔뷔페 2인 무료식사 및 지정 레스토랑 현장할인 대상점', exclusions: '호텔 사정에 따라 이용 제한 또는 당일 이용 불가 가능. 다른 이용권, 패키지, 시즌특별가 등 행사와 중복 적용 불가', conditions: '쿠폰형 플래티늄카드 회원대상 서비스. 반드시 사전예약 후 이용 당일 플래티늄 카드 제시. 초과금액은 해당 카드로 결제.', homeLabel: '호텔뷔페' }
     ]
   },
@@ -571,8 +579,8 @@ export const CARDS = [
     tags: ['KB Pay', '무실적', '포인트리'],
     sourceNote: '업로드 PDF: KB 톡톡 my point카드.',
     benefits: [
-      { id: 'kb-base', name: '모든 가맹점 0.5% 적립', type: 'reward', priority: 'core', categories: ['other'], pointCurrency: 'kbPointree', rate: 0.005, summary: '국내외 모든 가맹점 0.5% 포인트리', targets: '국내외 모든 가맹점', exclusions: '무이자할부, 취소, 카드대출, 상품권/선불, 관리비, 학교납입금, 세금/공과금, 4대보험, 연회비 등 제외', conditions: '전월실적 및 적립한도 없음', homeLabel: '0.5%' },
-      { id: 'kb-pay-5', name: 'KB Pay 5% 적립', type: 'amount_cap', priority: 'core', categories: ['simplepay'], rate: 0.05, monthlyCap: 10000, cycleType: 'calendar', summary: '국내 온/오프라인 가맹점 KB Pay 결제 5% 적립', targets: 'KB Pay 국내 온/오프라인 결제', exclusions: '해외이용 전체, 타 간편결제, 제외 업종', conditions: '전월실적 없음. 월 최대 1만점.', homeLabel: 'KB Pay' },
+      { id: 'kb-base', name: '모든 가맹점 0.5% 적립', type: 'reward', priority: 'core', categories: ['other'], pointCurrency: 'kbPointree', rate: 0.005, deriveFromMonthlySpend: true, summary: '국내외 모든 가맹점 0.5% 포인트리', targets: '국내외 모든 가맹점', exclusions: '무이자할부, 취소, 카드대출, 상품권/선불, 관리비, 학교납입금, 세금/공과금, 4대보험, 연회비 등 제외', conditions: '전월실적 및 적립한도 없음', homeLabel: '0.5%' },
+      { id: 'kb-pay-5', name: 'KB Pay 5% 적립', type: 'amount_cap', priority: 'core', categories: ['simplepay'], rate: 0.05, deriveFromMonthlySpend: true, monthlyCap: 10000, cycleType: 'calendar', summary: '국내 온/오프라인 가맹점 KB Pay 결제 5% 적립', targets: 'KB Pay 국내 온/오프라인 결제', exclusions: '해외이용 전체, 타 간편결제, 제외 업종', conditions: '전월실적 없음. 월 최대 1만점.', homeLabel: 'KB Pay' },
       { id: 'kb-annual-reward', name: 'KB Pay 연간 리워드 12,000점', type: 'milestone', priority: 'core', categories: ['simplepay'], cycleType: 'issueMonth', milestones: [{ spend: 3000000, label: '12,000점' }], summary: 'KB Pay 연간 결제납부 실적 300만원 이상 시 12,000점', targets: '발급월 다음달~다음해 동 발급월 기간 내 KB Pay 결제납부', exclusions: 'KB Pay 외 결제, 해외, 취소, 상품권/선불, 관리비, 세금, 공과금, 4대보험 등 제외', conditions: '매년 발급월 기준 다음달 25일 적립. 해지 시 미제공.', homeLabel: '연간리워드' }
     ]
   },
@@ -595,7 +603,7 @@ export const CARDS = [
       { id: 'lotte-green-mobility', name: '공유 모빌리티 10%', type: 'amount_cap', priority: 'core', categories: ['transit'], rate: 0.10, monthlyCap: 5000, cycleType: 'calendar', summary: '공유 모빌리티 10% 에코머니', targets: '공유 모빌리티 대상처', exclusions: '대상처 및 업종 기준 확인 필요', conditions: '전월 30만원 이상. 월 최대 5천P.', homeLabel: '모빌리티' },
       { id: 'lotte-green-transit', name: '대중교통/고속버스 10%', type: 'amount_cap', priority: 'core', categories: ['transit'], rate: 0.10, monthlyCap: 5000, cycleType: 'calendar', summary: '대중교통/고속버스 10% 에코머니', targets: '대중교통, 고속버스', exclusions: '무승인/후불 교통 매입 시점 유의', conditions: '전월 30만원 이상. 월 최대 5천P.', homeLabel: '대중교통' },
       { id: 'lotte-green-coffee', name: '커피 10%', type: 'amount_cap', priority: 'normal', categories: ['coffee'], rate: 0.10, monthlyCap: 5000, cycleType: 'calendar', summary: '커피 10% 에코머니', targets: '공식 페이지 대상 커피 업종/브랜드', exclusions: '입점매장/상품권/선불충전 등 제외 가능', conditions: '전월 30만원 이상. 월 최대 5천P.', homeLabel: '커피' },
-      { id: 'lotte-green-domestic', name: '국내 가맹점 0.2%', type: 'reward', priority: 'normal', categories: ['other'], pointCurrency: 'ecoMoney', rate: 0.002, summary: '국내 가맹점 0.2% 에코머니', targets: '국내 가맹점', exclusions: '롯데카드 적립 제외 기준 확인 필요', conditions: '기본 적립 성격', homeLabel: '0.2%' }
+      { id: 'lotte-green-domestic', name: '국내 가맹점 0.2%', type: 'reward', priority: 'normal', categories: ['other'], pointCurrency: 'ecoMoney', rate: 0.002, deriveFromMonthlySpend: true, summary: '국내 가맹점 0.2% 에코머니', targets: '국내 가맹점', exclusions: '롯데카드 적립 제외 기준 확인 필요', conditions: '기본 적립 성격', homeLabel: '0.2%' }
     ]
   },
   {
@@ -613,7 +621,7 @@ export const CARDS = [
     tags: ['간편결제', 'OTT', '멤버십'],
     sourceNote: '업로드 PDF: MG+ S 하나카드.',
     benefits: [
-      { id: 'mg-simplepay', name: '간편결제 10% 할인', type: 'amount_cap_pool', priority: 'core', categories: ['simplepay'], rate: 0.10, capPoolId: 'mg-monthly-discount', minAmount: 10000, summary: '간편결제 건당 1만원 이상 10% 청구할인', targets: '네이버페이, 카카오페이, 토스페이, SSG페이, 11pay, 스마일페이', exclusions: '가맹점정보가 간편결제 전용 가맹점인 경우 간편결제로 분류. 중복 시 높은 할인 우선.', conditions: '전월 30/60/100만원 이상 월 통합한도 1.5만/3만/6만원', homeLabel: '간편결제' },
+      { id: 'mg-simplepay', name: '간편결제 10% 할인', type: 'amount_cap_pool', priority: 'core', categories: ['simplepay'], rate: 0.10, deriveFromMonthlySpend: true, capPoolId: 'mg-monthly-discount', minAmount: 10000, summary: '간편결제 건당 1만원 이상 10% 청구할인', targets: '네이버페이, 카카오페이, 토스페이, SSG페이, 11pay, 스마일페이', exclusions: '가맹점정보가 간편결제 전용 가맹점인 경우 간편결제로 분류. 중복 시 높은 할인 우선.', conditions: '전월 30/60/100만원 이상 월 통합한도 1.5만/3만/6만원', homeLabel: '간편결제' },
       { id: 'mg-ott', name: '영상 스트리밍 50% 할인', type: 'amount_cap_pool', priority: 'core', categories: ['ott'], rate: 0.50, capPoolId: 'mg-monthly-discount', summary: '영상 스트리밍 월 정기결제 50% 청구할인', targets: '유튜브, 디즈니플러스, Wavve, 넷플릭스, 티빙', exclusions: '포인트/캐시/머니 충전, 콘텐츠 개별결제, 간편결제 및 인앱결제 제외. 유튜브는 프리미엄 한정.', conditions: '전월 실적별 통합 월 한도 내 제공', homeLabel: 'OTT' },
       { id: 'mg-membership', name: '디지털 멤버십 50% 할인', type: 'amount_cap_pool', priority: 'core', categories: ['shopping', 'ott'], rate: 0.50, capPoolId: 'mg-monthly-discount', summary: '디지털 멤버십 50% 청구할인', targets: '네이버플러스멤버십, 컬리멤버스, 쿠팡와우멤버십', exclusions: '월 정기결제 외 결제와 연 정기결제는 할인 한도에 따라 1회만 제공', conditions: '전월 실적별 통합 월 한도 내 제공', homeLabel: '멤버십' },
       { id: 'mg-monthly-discount', name: 'MG+ S 월 통합 할인한도', type: 'amount_cap', priority: 'core', categories: ['other'], monthlyCapBySpend: [{ min: 300000, cap: 15000 }, { min: 600000, cap: 30000 }, { min: 1000000, cap: 60000 }], cycleType: 'calendar', summary: '지난달 실적에 따른 월 통합 할인한도', targets: '간편결제/영상 스트리밍/디지털 멤버십 통합', exclusions: '세금, 공과금, 4대보험, 아파트관리비, 학교납입금, 상품권/선불, 부동산임대료, 무이자/부분무이자 등 제외', conditions: '새마을금고 계좌 결제계좌 조건', homeLabel: '월한도' }
@@ -634,8 +642,8 @@ export const CARDS = [
     tags: ['대한항공', '해외', '롯데'],
     sourceNote: '업로드 PDF: 롯데 아멕스 스카이패스.',
     benefits: [
-      { id: 'lotte-amex-domestic-mile', name: '국내 1마일/천원', type: 'reward', priority: 'core', categories: ['other'], pointCurrency: 'koreanAir', pointsPer1000: 1, summary: '국내 일시불/할부 1,000원당 1마일', targets: '국내 신판 이용금액', exclusions: '1,000원 미만, 지방세, 고용보험, 카드대출, 연회비, 할부이자, 관리비, 도시가스, 캐시백, 무이자할부 제외', conditions: '결제일 완납 시 적립. 1회 적립한도 65,000점.', homeLabel: '국내1M' },
-      { id: 'lotte-amex-overseas-mile', name: '해외 2마일/천원', type: 'reward', priority: 'core', categories: ['overseas'], pointCurrency: 'koreanAir', pointsPer1000: 2, summary: '해외 일시불/할부 1,000원당 2마일', targets: '해외 이용금액', exclusions: '해외구매대행은 1마일 적립', conditions: '결제일 완납 시 적립. 1회 적립한도 65,000점.', homeLabel: '해외2M' },
+      { id: 'lotte-amex-domestic-mile', name: '국내 1마일/천원', type: 'reward', priority: 'core', categories: ['other'], pointCurrency: 'koreanAir', pointsPer1000: 1, deriveFromMonthlySpend: true, summary: '국내 일시불/할부 1,000원당 1마일', targets: '국내 신판 이용금액', exclusions: '1,000원 미만, 지방세, 고용보험, 카드대출, 연회비, 할부이자, 관리비, 도시가스, 캐시백, 무이자할부 제외', conditions: '결제일 완납 시 적립. 1회 적립한도 65,000점.', homeLabel: '국내1M' },
+      { id: 'lotte-amex-overseas-mile', name: '해외 2마일/천원', type: 'reward', priority: 'core', categories: ['overseas'], pointCurrency: 'koreanAir', pointsPer1000: 2, bonusOverBase: true, summary: '해외 일시불/할부 1,000원당 2마일', targets: '해외 이용금액', exclusions: '해외구매대행은 1마일 적립', conditions: '결제일 완납 시 적립. 1회 적립한도 65,000점.', homeLabel: '해외2M' },
       { id: 'lotte-amex-lotteworld', name: '롯데월드 50% 할인', type: 'count', priority: 'normal', categories: ['themepark'], monthlyLimitCount: 1, annualLimitCount: 6, cycleType: 'calendar', summary: '롯데월드 본인 종합이용권 50% 할인', targets: '롯데월드', exclusions: '본인 기준', conditions: '지난달 롯데카드 이용금액 20만원 이상. 월 1회, 연 6회.', homeLabel: '롯데월드' },
       { id: 'lotte-amex-cinema', name: '롯데시네마 1,500원 할인', type: 'count_amount', priority: 'normal', categories: ['movie'], fixedBenefit: 1500, monthlyLimitCount: 5, annualLimitCount: 12, cycleType: 'calendar', summary: '롯데시네마 영화 관람료 1,500원 할인', targets: '롯데시네마', exclusions: '카드사 조건 확인 필요', conditions: '지난달 롯데카드 이용금액 20만원 이상. 일 1회, 월 5회, 연 12회.', homeLabel: '영화' },
       { id: 'lotte-amex-pizza', name: '미스터피자 15% 할인', type: 'amount_cap', priority: 'normal', categories: ['restaurant'], rate: 0.15, monthlyLimitCount: 3, annualLimitCount: 12, cycleType: 'calendar', summary: '미스터피자 15% 현장할인', targets: '미스터피자', exclusions: '세트메뉴/할인쿠폰/통신사/타카드 중복 불가, 리조트/야구장 입점매장 제외', conditions: '지난달 20만원 이상. 월 3회, 연 12회, 일 결제금액 20만원까지 할인.', homeLabel: '피자' }
@@ -656,7 +664,7 @@ export const CARDS = [
     tags: ['소액결제', '마이신한포인트'],
     sourceNote: '신한카드 공식 홈페이지. 2018.05.02부터 순신규 발급 중단 상품.',
     benefits: [
-      { id: 'always-on-2tx', name: '1만원 이상 2건 월 2,000P', type: 'two_transactions', priority: 'core', categories: ['small', 'other'], fixedBenefit: 2000, minAmount: 10000, monthlyLimitCount: 1, cycleType: 'calendar', summary: '월 1만원 이상 결제 2건 운영용. 마이신한포인트 최대 2,000P', targets: '1만원 내외 소액 결제 2건. 신한 SOL페이 거래 포함 시 특별적립 조건 충족.', exclusions: '카드대출, 연회비, 수수료, 이자, 기프트카드 구매, 선불카드 충전, 취소금액 제외', conditions: '공식 기준: 월 1만원 이상 이용 시 기본 1,000P, SOL페이 실적 또는 일반+SOL페이 조합/2건 이상 조건 충족 시 추가 1,000P.', homeLabel: '2건' },
+      { id: 'always-on-2tx', name: '1만원 이상 2건 월 2,000P', type: 'two_transactions', priority: 'core', categories: ['small', 'other'], fixedBenefit: 2000, minAmount: 10000, deriveFromMonthlySpend: true, monthlyLimitCount: 1, cycleType: 'calendar', summary: '월 1만원 이상 결제 2건 운영용. 마이신한포인트 최대 2,000P', targets: '1만원 내외 소액 결제 2건. 신한 SOL페이 거래 포함 시 특별적립 조건 충족.', exclusions: '카드대출, 연회비, 수수료, 이자, 기프트카드 구매, 선불카드 충전, 취소금액 제외', conditions: '공식 기준: 월 1만원 이상 이용 시 기본 1,000P, SOL페이 실적 또는 일반+SOL페이 조합/2건 이상 조건 충족 시 추가 1,000P.', homeLabel: '2건' },
       { id: 'always-on-movie', name: 'CGV/메가박스 온라인 영화 할인', type: 'count_amount', priority: 'normal', categories: ['movie'], fixedBenefitByAmount: [{ min: 9000, value: 1500 }, { min: 18000, value: 3000 }], monthlyLimitCount: 4, annualLimitCount: 12, cycleType: 'calendar', summary: 'CGV/메가박스 온라인 영화 예매 1,500~3,000원 할인', targets: 'CGV, 메가박스 공식 홈페이지 및 APP', exclusions: '온라인 영화예매 서비스 기준', conditions: '전월 30만원 이상. 통합 일 2회, 월 4회, 연 12회.', homeLabel: '영화' }
     ]
   },

@@ -5,13 +5,16 @@ import { CATEGORIES } from '../src/data/categories.js';
 import {
   getAnnualUsageCount,
   getAllOrderedCards,
+  getBenefitAmountInput,
   getCardOverride,
   getMonthlyBenefitValue,
+  getMonthlyBenefitValueForBenefit,
   getMonthlyShortfall,
   getOrderedCards,
   getTotalMonthlyBenefitValue,
   hasPrevMonthRequirement,
   isCheckOnlyFixedAmountBenefit,
+  isCapContainerBenefit,
   recommendCards
 } from '../src/lib/recommend.js';
 import { importState } from '../src/lib/storage.js';
@@ -118,7 +121,83 @@ assertEqual(monthlyValue('kb-talktalk-my-point', 200000), 11000, 'KB TalkTalk KB
 assertEqual(monthlyValue('mg-s-hana', 300000), 15000, 'MG+S simplepay 300k cap');
 assertEqual(monthlyValue('shinhan-always-on', 10000), 2000, 'Shinhan Always On two transactions pattern');
 assertEqual(monthlyValue('coupang-wow-card', 100000), 4000, 'Coupang WOW 4 percent reference benefit');
-assertEqual(monthlyValue('marriott-classic-shinhan', 300000), 0, 'Marriott Classic conditional bonus is not auto-counted from monthly spend');
+assertEqual(monthlyValue('marriott-classic-shinhan', 300000), 3000, 'Marriott Classic base 1P auto-counts monthly spend');
+
+function benefit(cardId, benefitId) {
+  const found = card(cardId).benefits.find((item) => item.id === benefitId);
+  assert.ok(found, `Missing benefit: ${cardId}:${benefitId}`);
+  return found;
+}
+
+function assertBenefitValue(state, cardId, benefitId, expected, label) {
+  assertEqual(getMonthlyBenefitValueForBenefit(state, card(cardId), benefit(cardId, benefitId), MONTH), expected, label);
+}
+
+assertBenefitValue(withSpend('marriott-classic-shinhan', 300000), 'marriott-classic-shinhan', 'mb-classic-point-basic', 3000, 'Marriott Classic base row reflects monthly spend');
+assertBenefitValue(withSpend('marriott-best-shinhan', 300000), 'marriott-best-shinhan', 'mb-best-point-basic', 3000, 'Marriott Best base row reflects monthly spend');
+assertBenefitValue(withSpend('hyundai-amex-platinum', 1000000), 'hyundai-amex-platinum', 'hy-amex-mr-base', 15000, 'Hyundai Amex base MR row reflects monthly spend');
+const hyundaiAmexSpecialState = withSpend('hyundai-amex-platinum', 1000000, {
+  usage: { 'hy-amex-mr-2x': { [MONTH]: { usedAmount: 500000 } } }
+});
+assertEqual(getMonthlyBenefitValue(hyundaiAmexSpecialState, card('hyundai-amex-platinum'), MONTH), 22500, 'Hyundai Amex base plus special incremental MR');
+assertBenefitValue(hyundaiAmexSpecialState, 'hyundai-amex-platinum', 'hy-amex-mr-2x', 7500, 'Hyundai Amex special row counts only extra over base');
+assertEqual(getBenefitAmountInput(hyundaiAmexSpecialState, card('hyundai-amex-platinum'), benefit('hyundai-amex-platinum', 'hy-amex-mr-base'), MONTH), 1000000, 'base reward amount input falls back to monthly spend');
+assertEqual(getBenefitAmountInput(hyundaiAmexSpecialState, card('hyundai-amex-platinum'), benefit('hyundai-amex-platinum', 'hy-amex-mr-2x'), MONTH), 500000, 'special reward amount input uses explicit category spend');
+const hyundaiAmexSpecialOnlyState = withSpend('hyundai-amex-platinum', 0, {
+  usage: { 'hy-amex-mr-2x': { [MONTH]: { usedAmount: 100000 } } }
+});
+assertBenefitValue(hyundaiAmexSpecialOnlyState, 'hyundai-amex-platinum', 'hy-amex-mr-2x', 1500, 'explicit special reward amount works even without card monthly spend');
+
+const the1SpecialState = withSpend('samsung-the1-skypass', 1000000, {
+  usage: { 'the1-special-mile': { [MONTH]: { usedAmount: 500000 } } }
+});
+assertEqual(getMonthlyBenefitValue(the1SpecialState, card('samsung-the1-skypass'), MONTH), 22500, 'THE 1 base plus special incremental Skypass miles');
+assertBenefitValue(the1SpecialState, 'samsung-the1-skypass', 'the1-basic-mile', 15000, 'THE 1 base row reflects monthly spend');
+assertBenefitValue(the1SpecialState, 'samsung-the1-skypass', 'the1-special-mile', 7500, 'THE 1 special row counts only extra over base');
+const the1SpecialCapState = withSpend('samsung-the1-skypass', 2000000, {
+  usage: { 'the1-special-mile': { [MONTH]: { usedAmount: 2000000 } } }
+});
+assertEqual(getMonthlyBenefitValue(the1SpecialCapState, card('samsung-the1-skypass'), MONTH), 30000, 'THE 1 special cap is applied before base-difference math');
+assertBenefitValue(the1SpecialCapState, 'samsung-the1-skypass', 'the1-special-mile', 0, 'THE 1 capped special row does not double-count base miles');
+
+assertBenefitValue(withSpend('samsung-the-o-asiana', 300000), 'samsung-the-o-asiana', 'the-o-reward-asiana', 3000, 'THE O basic mileage row reflects monthly spend');
+assertBenefitValue(withSpend('skt-woori-card', 700000), 'skt-woori-card', 'skt-woori-telecom-tlight', 15000, 'SKT Woori telecom row reflects tiered current-month spend');
+assertBenefitValue(withSpend('woori-point-main', 300000), 'woori-point-main', 'woori-basic', 2400, 'Woori Point basic row reflects monthly spend');
+assertBenefitValue(withSpend('woori-point-main', 300000), 'woori-point-main', 'woori-pay-plus', 7600, 'Woori Point simplepay row fills remaining monthly cap');
+assertBenefitValue(withSpend('woori-point-main', 300000), 'woori-point-main', 'woori-monthly-points', 10000, 'Woori Point cap container displays applied total');
+const wooriManualBasicState = withSpend('woori-point-main', 1200000, {
+  usage: { 'woori-basic': { [MONTH]: { benefitValue: 5000 } } }
+});
+assertBenefitValue(wooriManualBasicState, 'woori-point-main', 'woori-pay-plus', 36000, 'Woori Point pay-plus subtracts manually applied basic only once');
+assertBenefitValue(withSpend('kb-talktalk-my-point', 200000), 'kb-talktalk-my-point', 'kb-base', 1000, 'KB TalkTalk base row reflects monthly spend');
+assertBenefitValue(withSpend('kb-talktalk-my-point', 200000), 'kb-talktalk-my-point', 'kb-pay-5', 10000, 'KB TalkTalk KB Pay row reflects monthly spend');
+const kbManualPayAmountState = withSpend('kb-talktalk-my-point', 200000, {
+  usage: { 'kb-pay-5': { [MONTH]: { usedAmount: 100000, manualAmountOverride: true } } }
+});
+assertBenefitValue(kbManualPayAmountState, 'kb-talktalk-my-point', 'kb-pay-5', 5000, 'KB TalkTalk manual amount override recalculates auto-derived pay row');
+const kbManualBaseZeroState = withSpend('kb-talktalk-my-point', 200000, {
+  usage: { 'kb-base': { [MONTH]: { usedAmount: 0, manualAmountOverride: true } } }
+});
+assertBenefitValue(kbManualBaseZeroState, 'kb-talktalk-my-point', 'kb-base', 0, 'KB TalkTalk manual zero amount suppresses derived base row');
+
+const mgCapState = withSpend('mg-s-hana', 1000000, {
+  usage: { 'mg-ott': { [MONTH]: { benefitValue: 10000 } } }
+});
+assertEqual(getMonthlyBenefitValue(mgCapState, card('mg-s-hana'), MONTH), 60000, 'MG+S simplepay plus explicit OTT stays within unified cap');
+assertBenefitValue(mgCapState, 'mg-s-hana', 'mg-simplepay', 50000, 'MG+S simplepay row fills remaining unified cap');
+assertBenefitValue(mgCapState, 'mg-s-hana', 'mg-monthly-discount', 60000, 'MG+S cap container displays applied total');
+assertEqual(isCapContainerBenefit(benefit('mg-s-hana', 'mg-monthly-discount')), true, 'MG+S monthly cap is treated as read-only cap container');
+
+assertBenefitValue(withSpend('lotte-green-card', 300000), 'lotte-green-card', 'lotte-green-domestic', 600, 'Lotte Green domestic row reflects monthly spend');
+assertBenefitValue(withSpend('kb-skypass-platinum', 300000), 'kb-skypass-platinum', 'kb-skypass-mile', 3000, 'KB Skypass mileage row reflects monthly spend');
+assertBenefitValue(withSpend('coupang-wow-card', 100000), 'coupang-wow-card', 'coupang-wow-cashback', 4000, 'Coupang WOW detail row reflects 4 percent Coupang spend');
+
+const lotteAmexOverseasState = withSpend('lotte-amex-skypass', 1000000, {
+  usage: { 'lotte-amex-overseas-mile': { [MONTH]: { usedAmount: 500000 } } }
+});
+assertEqual(getMonthlyBenefitValue(lotteAmexOverseasState, card('lotte-amex-skypass'), MONTH), 22500, 'Lotte Amex base plus overseas incremental miles');
+assertBenefitValue(lotteAmexOverseasState, 'lotte-amex-skypass', 'lotte-amex-domestic-mile', 15000, 'Lotte Amex base row reflects monthly spend');
+assertBenefitValue(lotteAmexOverseasState, 'lotte-amex-skypass', 'lotte-amex-overseas-mile', 7500, 'Lotte Amex overseas row counts only extra over base');
 
 const zeroManualState = withSpend('kb-talktalk-my-point', 200000, {
   usage: {
@@ -265,6 +344,9 @@ assert.ok(mainSource.includes('isCheckOnlyFixedAmountBenefit(benefit)'), 'fixed 
 assert.ok(mainSource.includes("!isCheckOnlyFixed ? `"), 'amount input is skipped for check-only fixed count benefits');
 assert.ok(mainSource.includes('조건 충족 시 혜택'), 'check-only fixed count benefits explain deterministic benefit value');
 console.log('ok - check-only fixed amount benefit UI policy is preserved');
+assert.ok(mainSource.includes('initialRawValue'), 'auto-rendered usage fields skip no-op blur saves');
+assert.ok(mainSource.includes('isCapContainerBenefit(benefit)'), 'cap container benefits render as read-only summaries');
+console.log('ok - auto-derived usage UI avoids sticky no-op overrides and read-only cap containers');
 assert.ok(mainSource.includes('sticky-month-bar'), 'dashboard/card detail month bar stays in a dedicated sticky region');
 assert.ok(stylesSource.includes('.sticky-month-bar { position: sticky;'), 'sticky month bar CSS is preserved');
 assert.ok(mainSource.includes('getConfiguredMonthlyTarget(card, override)'), 'card detail monthly metric uses configured monthly target');
