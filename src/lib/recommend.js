@@ -70,8 +70,14 @@ export function getAnnualUsageCount(state, card, benefit, date = selectedDate(st
   const monthKeys = monthsInCycle(cycle);
   return monthKeys.reduce((sum, monthKey) => {
     const usage = getBenefitUsage(state, benefit.id, monthKey);
-    return sum + Number(usage.count || 0) + (usage.checked ? 1 : 0) + (usage.tx1 ? 1 : 0) + (usage.tx2 ? 1 : 0);
+    return sum + getMonthlyUsageCount(benefit, usage);
   }, 0);
+}
+
+export function getMonthlyUsageCount(benefit, usage = {}) {
+  if (benefit.type === 'two_transactions') return Number(Boolean(usage.tx1)) + Number(Boolean(usage.tx2));
+  const count = Number(usage.count || 0);
+  return count > 0 ? count : (usage.checked ? 1 : 0);
 }
 
 export function getAnnualBenefitValue(state, card, benefit, date = selectedDate(state), options = {}) {
@@ -126,6 +132,11 @@ function getAutoMonthlyBenefitValue(state, card, benefit, monthKey) {
     ...(state.monthlyCardUsage?.[monthKey]?.[card.id] || {})
   };
   const monthlySpend = Number(override.currentMonthSpend || 0);
+
+  if (benefit.type === 'count_amount') {
+    return Math.round(calculateCountAmountUsageValue(state, card, benefit, monthKey));
+  }
+
   if (monthlySpend <= 0) return 0;
 
   const patternValue = getPatternMonthlyBenefitValue(state, card, benefit, monthlySpend, monthKey, override);
@@ -208,6 +219,25 @@ function calculateRewardValue(state, benefit, amount) {
   return 0;
 }
 
+function calculateCountAmountUsageValue(state, card, benefit, monthKey) {
+  const usage = getBenefitUsage(state, benefit.id, monthKey);
+  const count = getMonthlyUsageCount(benefit, usage);
+  if (count <= 0) return 0;
+  const usedAmount = Number(usage.usedAmount || 0);
+  if (benefit.minAmount && usedAmount > 0 && usedAmount < benefit.minAmount) return 0;
+  const override = getCardOverride(state, card.id);
+  const prevSpend = inferPrevSpend(card, override);
+  const fixed = calculateFixedBenefit(benefit, usedAmount);
+  const rate = calculateRate(benefit, prevSpend);
+  const raw = fixed || (usedAmount ? usedAmount * rate : 0) || Number(benefit.fixedBenefit || 0);
+  const monthlyCap = effectiveMonthlyCap(card, benefit, prevSpend) || Infinity;
+  const annualUsedBeforeThisMonth = benefit.annualCap
+    ? getAnnualBenefitValue(state, card, benefit, selectedDate(state), { excludeMonthKey: monthKey })
+    : 0;
+  const annualRemaining = benefit.annualCap ? Math.max(0, benefit.annualCap - annualUsedBeforeThisMonth) : Infinity;
+  return Math.max(0, Math.min(raw * Math.max(1, count), monthlyCap, annualRemaining));
+}
+
 function explicitBenefitValue(usage = {}) {
   if (Object.prototype.hasOwnProperty.call(usage, 'benefitValue')) return Number(usage.benefitValue || 0);
   if (Object.prototype.hasOwnProperty.call(usage, 'usedBenefit')) return Number(usage.usedBenefit || 0);
@@ -262,7 +292,7 @@ export function getBenefitHomeStatus(state, card, benefit, date = selectedDate(s
   const monthSpend = Number(state.monthlyCardUsage?.[monthKey]?.[card.id]?.currentMonthSpend || override.currentMonthSpend || 0);
   const capBasis = Math.max(prevSpend, monthSpend);
   const annualCount = getAnnualUsageCount(state, card, benefit, date);
-  const monthlyCount = Number(usage.count || 0) + (usage.checked ? 1 : 0) + (usage.tx1 ? 1 : 0) + (usage.tx2 ? 1 : 0);
+  const monthlyCount = getMonthlyUsageCount(benefit, usage);
 
   if (benefit.type === 'amount_cap' || benefit.type === 'amount_cap_pool' || benefit.type === 'reward_cap_pool') {
     const cap = calculateMonthlyCap(benefit, capBasis);
@@ -459,7 +489,7 @@ function estimateBenefitValue(state, card, benefit, categoryId, amount, prevSpen
   }
 
   if (benefit.type === 'count_amount') {
-    const current = Number(usage.count || 0);
+    const current = getMonthlyUsageCount(benefit, usage);
     if (benefit.monthlyLimitCount && current >= benefit.monthlyLimitCount) return { value: 0, rate: 0, reason: `${benefit.name}: 월 사용 횟수 소진` };
     const annual = getAnnualUsageCount(state, card, benefit);
     if (benefit.annualLimitCount && annual >= benefit.annualLimitCount) return { value: 0, rate: 0, reason: `${benefit.name}: 연간 사용 횟수 소진` };

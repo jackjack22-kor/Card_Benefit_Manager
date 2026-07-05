@@ -270,12 +270,22 @@ p { color: var(--muted); line-height: 1.55; }
 .benefit-meta span, .remaining, .milestone-list span { color: var(--muted); background: var(--surface-2); border: 1px solid var(--line); border-radius: var(--r-pill); padding: 6px 11px; font-size: 12px; }
 .benefit-controls, .counter-controls, .two-tx, .milestone-list { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; margin: 12px 0; }
 .benefit-controls label { min-width: 200px; flex: 1; }
+.counter-controls.structured { display: grid; grid-template-columns: 1fr; align-items: stretch; }
+.counter-stepper { display: grid; grid-template-columns: 1fr 44px minmax(72px, 96px) 44px; gap: 8px; align-items: center; width: 100%; }
+.counter-stepper span, .counter-money, .auto-benefit-value span { color: var(--muted); font-size: 12px; font-weight: 900; }
 .counter-controls button { width: 42px; height: 42px; border-radius: var(--r-md); background: var(--surface-2); border: 1px solid var(--line-strong); color: var(--text); font-size: 22px; transition: background .15s; }
 .counter-controls button:hover { background: var(--surface-3); }
+.counter-controls button:disabled { opacity: .42; cursor: default; }
 .counter-controls input { width: 92px; text-align: center; }
-.counter-controls .money-input { width: 132px; }
-.inline-check, .wide-check, .two-tx label { display: flex; align-items: center; gap: 8px; color: var(--text); background: var(--surface-2); border: 1px solid var(--line); border-radius: var(--r-md); padding: 10px 12px; }
-.inline-check input, .wide-check input, .two-tx input { width: auto; }
+.counter-money { display: grid; grid-template-columns: 82px minmax(0, 1fr); align-items: center; gap: 8px; }
+.counter-controls .money-input { width: 100%; }
+.auto-benefit-value { display: flex; justify-content: space-between; align-items: center; min-height: 44px; padding: 10px 12px; border: 1px solid var(--line); border-radius: var(--r-md); background: var(--surface-2); }
+.auto-benefit-value strong { color: var(--accent); font-size: 15px; }
+.inline-check, .wide-check, .toggle-check, .two-tx label { display: flex; align-items: center; gap: 8px; color: var(--text); background: var(--surface-2); border: 1px solid var(--line); border-radius: var(--r-md); padding: 10px 12px; }
+.inline-check input, .wide-check input, .toggle-check input, .two-tx input { width: auto; }
+.toggle-check { min-height: 46px; justify-content: center; font-weight: 900; cursor: pointer; }
+.toggle-check.checked, .inline-check:has(input:checked), .wide-check:has(input:checked), .two-tx label:has(input:checked) { color: var(--good); background: color-mix(in srgb, var(--good) 14%, var(--surface)); border-color: color-mix(in srgb, var(--good) 42%, var(--line)); box-shadow: 0 0 0 1px color-mix(in srgb, var(--good) 16%, transparent); }
+.toggle-check input { accent-color: var(--good); }
 .benefit-detail { display: grid; grid-template-columns: 112px 1fr; gap: 9px 12px; background: var(--surface-2); border: 1px solid var(--line); border-radius: var(--r-md); padding: 14px; }
 .benefit-detail dt { color: var(--muted); font-weight: 900; }
 .benefit-detail dd { margin: 0; line-height: 1.5; }

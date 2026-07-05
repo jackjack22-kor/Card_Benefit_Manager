@@ -3,6 +3,7 @@ import { readFileSync } from 'node:fs';
 import { CARDS, POINT_DEFAULTS } from '../src/data/cards.js';
 import { CATEGORIES } from '../src/data/categories.js';
 import {
+  getAnnualUsageCount,
   getMonthlyBenefitValue,
   getMonthlyShortfall,
   getOrderedCards,
@@ -133,6 +134,52 @@ const manualOverrideState = withSpend('kb-talktalk-my-point', 200000, {
   }
 });
 assertEqual(getMonthlyBenefitValue(manualOverrideState, card('kb-talktalk-my-point'), MONTH), 10500, 'positive manual benefit overrides one auto line');
+
+const theOStarbucksChecked = baseState({
+  usage: {
+    'the-o-starbucks': {
+      [MONTH]: { checked: true }
+    }
+  }
+});
+assertEqual(getMonthlyBenefitValue(theOStarbucksChecked, card('samsung-the-o-asiana'), MONTH), 3000, 'THE O Starbucks checked applies fixed benefit');
+assertEqual(getAnnualUsageCount(theOStarbucksChecked, card('samsung-the-o-asiana'), card('samsung-the-o-asiana').benefits.find((benefit) => benefit.id === 'the-o-starbucks'), new Date(`${MONTH}-01T00:00:00`)), 1, 'THE O checked count is not doubled');
+
+const theOStarbucksCountAndChecked = baseState({
+  usage: {
+    'the-o-starbucks': {
+      [MONTH]: { count: 1, checked: true }
+    }
+  }
+});
+assertEqual(getAnnualUsageCount(theOStarbucksCountAndChecked, card('samsung-the-o-asiana'), card('samsung-the-o-asiana').benefits.find((benefit) => benefit.id === 'the-o-starbucks'), new Date(`${MONTH}-01T00:00:00`)), 1, 'THE O count plus checked remains one use');
+
+const theOOutbackBelowMin = baseState({
+  usage: {
+    'the-o-outback': {
+      [MONTH]: { count: 1, usedAmount: 50000 }
+    }
+  }
+});
+assertEqual(getMonthlyBenefitValue(theOOutbackBelowMin, card('samsung-the-o-asiana'), MONTH), 0, 'THE O Outback below min amount is zero');
+
+const theOOutbackMet = baseState({
+  usage: {
+    'the-o-outback': {
+      [MONTH]: { count: 1, usedAmount: 60000 }
+    }
+  }
+});
+assertEqual(getMonthlyBenefitValue(theOOutbackMet, card('samsung-the-o-asiana'), MONTH), 30000, 'THE O Outback met amount applies fixed benefit');
+
+const theOMovieRate = baseState({
+  usage: {
+    'the-o-movie': {
+      [MONTH]: { count: 1, usedAmount: 12000 }
+    }
+  }
+});
+assertEqual(getMonthlyBenefitValue(theOMovieRate, card('samsung-the-o-asiana'), MONTH), 6000, 'THE O CGV rate benefit reflects used amount');
 
 const the1LargeDepartment = baseState({
   selectedCategory: 'department',

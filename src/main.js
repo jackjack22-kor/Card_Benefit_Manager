@@ -17,6 +17,7 @@ import {
   getFillSpendRecommendations,
   getMonthlyBenefitValue,
   getMonthlyBenefitValueForBenefit,
+  getMonthlyUsageCount,
   getMonthlyShortfall,
   getOrderedCards,
   getShortfallCards,
@@ -669,7 +670,7 @@ function renderBenefitEditor(card, benefit) {
   const cap = calculateMonthlyCap(benefit, capBasis);
   const rate = calculateRate(benefit, capBasis);
   const benefitCycle = getCycle(card, override, benefit, selectedDate());
-  const monthlyCount = Number(usage.count || 0) + (usage.checked ? 1 : 0) + (usage.tx1 ? 1 : 0) + (usage.tx2 ? 1 : 0);
+  const monthlyCount = getMonthlyUsageCount(benefit, usage);
   const monthlyValue = getMonthlyBenefitValueForBenefit(state, card, benefit, monthKey());
 
   return `
@@ -726,7 +727,7 @@ function benefitStatusChips(benefit, usage, cap, annualCount, annualValue, effec
     chips.push(chip('이번달', `${n}/2건`, n >= 2));
   }
   if (benefit.monthlyLimitCount && benefit.type !== 'two_transactions') {
-    const c = Number(usage.count || 0);
+    const c = getMonthlyUsageCount(benefit, usage);
     chips.push(chip('월', `${c}/${benefit.monthlyLimitCount}회`, c >= benefit.monthlyLimitCount));
   }
   if (benefit.annualLimitCount) {
@@ -756,13 +757,29 @@ function renderBenefitControls(benefit, usage, cap, annualValue = 0, effectiveMo
       </div>`;
   }
   if (benefit.type === 'count' || benefit.type === 'count_amount' || benefit.type === 'info_check') {
+    const usedCount = Number(usage.count || 0);
+    const nextChecked = usage.checked || usedCount > 0;
     return `
-      <div class="counter-controls">
-        <button data-count-minus="${benefit.id}">−</button>
-        <input type="number" min="0" value="${Number(usage.count || 0)}" data-usage-field="count" data-benefit-id="${benefit.id}">
-        <button data-count-plus="${benefit.id}">+</button>
-        ${benefit.type === 'count_amount' ? `<input class="money-input" type="text" inputmode="numeric" data-money-input placeholder="혜택금액" value="${formatNumberInput(usage.benefitValue)}" data-usage-field="benefitValue" data-benefit-id="${benefit.id}">` : ''}
-        <label class="inline-check"><input type="checkbox" ${usage.checked ? 'checked' : ''} data-usage-check="checked" data-benefit-id="${benefit.id}"> 이번달 사용함</label>
+      <div class="counter-controls structured">
+        <div class="counter-stepper" aria-label="사용 횟수">
+          <span>사용 횟수</span>
+          <button type="button" data-count-minus="${benefit.id}" aria-label="사용 횟수 줄이기" ${usedCount <= 0 ? 'disabled' : ''}>−</button>
+          <input type="number" min="0" value="${usedCount}" data-usage-field="count" data-benefit-id="${benefit.id}" aria-label="이번달 사용 횟수">
+          <button type="button" data-count-plus="${benefit.id}" aria-label="사용 횟수 늘리기">+</button>
+        </div>
+        ${benefit.type === 'count_amount' ? `
+          <label class="counter-money">결제금액
+            <input class="money-input" type="text" inputmode="numeric" data-money-input placeholder="필요 시 입력" value="${formatNumberInput(usage.usedAmount)}" data-usage-field="usedAmount" data-benefit-id="${benefit.id}">
+          </label>
+          <div class="auto-benefit-value">
+            <span>예상 혜택</span>
+            <strong>${won(effectiveMonthlyValue)}</strong>
+          </div>
+        ` : ''}
+        <label class="toggle-check ${nextChecked ? 'checked' : ''}">
+          <input type="checkbox" ${nextChecked ? 'checked' : ''} data-usage-check="checked" data-benefit-id="${benefit.id}">
+          <span>이번달 사용함</span>
+        </label>
       </div>`;
   }
   if (benefit.type === 'check') {
@@ -947,7 +964,7 @@ function bindDetailMainEvents(root) {
       input.addEventListener('blur', saveUsageField);
     }
   });
-  root.querySelectorAll('[data-usage-check]').forEach((input) => input.addEventListener('change', () => updateUsage(input.dataset.benefitId, { [input.dataset.usageCheck]: input.checked })));
+  root.querySelectorAll('[data-usage-check]').forEach((input) => input.addEventListener('change', () => updateUsageCheck(input.dataset.benefitId, input.dataset.usageCheck, input.checked)));
   root.querySelectorAll('[data-count-plus]').forEach((button) => button.addEventListener('click', () => bumpCount(button.dataset.countPlus, 1)));
   root.querySelectorAll('[data-count-minus]').forEach((button) => button.addEventListener('click', () => bumpCount(button.dataset.countMinus, -1)));
 }
@@ -1114,14 +1131,44 @@ function updateUsage(benefitId, patch) {
   render();
 }
 
+function updateUsageCheck(benefitId, field, checked) {
+  if (field !== 'checked') {
+    updateUsage(benefitId, { [field]: checked });
+    return;
+  }
+  const context = findBenefitContext(benefitId);
+  if (!context || !['count', 'count_amount', 'info_check'].includes(context.benefit.type)) {
+    updateUsage(benefitId, { checked });
+    return;
+  }
+  if (!checked) {
+    updateUsage(benefitId, { checked: false, count: 0, benefitValue: 0, manualBenefitOverride: false });
+    return;
+  }
+  const usage = getBenefitUsage(state, benefitId, monthKey());
+  const nextCount = Math.max(1, Number(usage.count || 0));
+  const patch = { checked: true, count: nextCount };
+  if (context.benefit.type === 'count_amount') {
+    patch.manualBenefitOverride = false;
+    patch.benefitValue = calculateAutoBenefitValue(context.card, context.benefit, Number(usage.usedAmount || 0), nextCount);
+  }
+  updateUsage(benefitId, patch);
+}
+
 function withAutoBenefitValue(benefitId, patch) {
-  if (!Object.prototype.hasOwnProperty.call(patch, 'usedAmount') || Object.prototype.hasOwnProperty.call(patch, 'benefitValue')) return patch;
+  const hasUsedAmount = Object.prototype.hasOwnProperty.call(patch, 'usedAmount');
+  const hasCount = Object.prototype.hasOwnProperty.call(patch, 'count');
+  if ((!hasUsedAmount && !hasCount) || Object.prototype.hasOwnProperty.call(patch, 'benefitValue')) return patch;
   const context = findBenefitContext(benefitId);
   if (!context || !canAutoCalculateBenefitValue(context.benefit)) return patch;
+  const usage = getBenefitUsage(state, benefitId, monthKey());
+  const count = hasCount ? Number(patch.count || 0) : Math.max(Number(usage.count || 0), Number(usage.checked || 0));
+  const usedAmount = hasUsedAmount ? Number(patch.usedAmount || 0) : Number(usage.usedAmount || 0);
+  const normalizedPatch = hasCount ? { ...patch, checked: count > 0 } : patch;
   return {
-    ...patch,
+    ...normalizedPatch,
     manualBenefitOverride: false,
-    benefitValue: calculateAutoBenefitValue(context.card, context.benefit, Number(patch.usedAmount || 0))
+    benefitValue: calculateAutoBenefitValue(context.card, context.benefit, usedAmount, count)
   };
 }
 
@@ -1132,7 +1179,13 @@ function withManualBenefitOverride(patch) {
 }
 
 function canAutoCalculateBenefitValue(benefit) {
-  return ['amount_cap', 'amount_cap_pool', 'reward_cap_pool'].includes(benefit.type) && (benefit.rate || benefit.rateBySpend || benefit.monthlyCap || benefit.monthlyCapBySpend || benefit.capPoolId);
+  return (
+    ['amount_cap', 'amount_cap_pool', 'reward_cap_pool'].includes(benefit.type)
+    && (benefit.rate || benefit.rateBySpend || benefit.monthlyCap || benefit.monthlyCapBySpend || benefit.capPoolId)
+  ) || (
+    benefit.type === 'count_amount'
+    && (benefit.fixedBenefit || benefit.fixedBenefitByAmount || benefit.rate || benefit.monthlyCap)
+  );
 }
 
 function findBenefitContext(benefitId) {
@@ -1143,11 +1196,24 @@ function findBenefitContext(benefitId) {
   return null;
 }
 
-function calculateAutoBenefitValue(card, benefit, usedAmount) {
-  if (!usedAmount) return 0;
-  if (benefit.minAmount && usedAmount < benefit.minAmount) return 0;
+function calculateAutoBenefitValue(card, benefit, usedAmount, count = 1) {
+  if (!usedAmount && benefit.type !== 'count_amount') return 0;
+  if (benefit.type !== 'count_amount' && benefit.minAmount && usedAmount < benefit.minAmount) return 0;
   const override = getCardOverride(state, card.id);
   const prevSpend = inferPrevSpend(card, override);
+  if (benefit.type === 'count_amount') {
+    if (benefit.minAmount && usedAmount > 0 && usedAmount < benefit.minAmount) return 0;
+    const fixed = calculateFixedBenefitForAmount(benefit, usedAmount);
+    const rate = calculateRate(benefit, prevSpend);
+    const raw = fixed || (usedAmount ? usedAmount * rate : 0);
+    const fallback = raw || Number(benefit.fixedBenefit || 0);
+    const monthlyCap = effectiveMonthlyCap(card, benefit, prevSpend) || Infinity;
+    const annualUsedBeforeThisMonth = benefit.annualCap
+      ? getAnnualBenefitValue(state, card, benefit, selectedDate(), { excludeMonthKey: monthKey() })
+      : 0;
+    const annualRemaining = benefit.annualCap ? Math.max(0, benefit.annualCap - annualUsedBeforeThisMonth) : Infinity;
+    return Math.round(Math.max(0, Math.min(fallback * Math.max(1, Number(count || 1)), monthlyCap, annualRemaining)));
+  }
   const rate = calculateRate(benefit, prevSpend);
   const raw = usedAmount * rate;
   const currentMonthKey = monthKey();
@@ -1159,6 +1225,15 @@ function calculateAutoBenefitValue(card, benefit, usedAmount) {
     : 0;
   const annualRemaining = benefit.annualCap ? Math.max(0, benefit.annualCap - annualUsedBeforeThisMonth) : Infinity;
   return Math.round(Math.max(0, Math.min(raw, monthlyRemaining, annualRemaining)));
+}
+
+function calculateFixedBenefitForAmount(benefit, amount = 0) {
+  if (Array.isArray(benefit.fixedBenefitByAmount)) {
+    return [...benefit.fixedBenefitByAmount]
+      .sort((a, b) => a.min - b.min)
+      .reduce((value, row) => (amount >= row.min ? row.value : value), 0);
+  }
+  return Number(benefit.fixedBenefit || 0);
 }
 
 function effectiveMonthlyCap(card, benefit, prevSpend) {
@@ -1177,8 +1252,17 @@ function getMonthlyPoolBenefitValue(card, benefit, currentMonthKey) {
 }
 
 function bumpCount(benefitId, delta) {
-  const current = Number(getBenefitUsage(state, benefitId, monthKey()).count || 0);
-  updateUsage(benefitId, { count: Math.max(0, current + delta) });
+  const context = findBenefitContext(benefitId);
+  const usage = getBenefitUsage(state, benefitId, monthKey());
+  const nextCount = Math.max(0, Number(usage.count || 0) + delta);
+  const patch = { count: nextCount, checked: nextCount > 0 };
+  if (context?.benefit?.type === 'count_amount') {
+    patch.manualBenefitOverride = false;
+    patch.benefitValue = nextCount > 0
+      ? calculateAutoBenefitValue(context.card, context.benefit, Number(usage.usedAmount || 0), nextCount)
+      : 0;
+  }
+  updateUsage(benefitId, patch);
 }
 
 function moveMonth(delta) {
@@ -1328,7 +1412,7 @@ function remainingText(benefit, cap, usage, annualCount, annualValue, effectiveM
   }
   const parts = [];
   if (cap) parts.push(`월 ${won(Math.max(0, cap - Number(effectiveMonthlyValue || 0)))}`);
-  if (benefit.monthlyLimitCount) parts.push(`월 ${Math.max(0, benefit.monthlyLimitCount - Number(usage.count || 0))}회`);
+  if (benefit.monthlyLimitCount) parts.push(`월 ${Math.max(0, benefit.monthlyLimitCount - getMonthlyUsageCount(benefit, usage))}회`);
   if (benefit.annualLimitCount) parts.push(`연 ${Math.max(0, benefit.annualLimitCount - annualCount)}회`);
   if (benefit.annualCap) parts.push(`연 ${won(Math.max(0, benefit.annualCap - annualValue))}`);
   return parts.join(' · ') || '-';
