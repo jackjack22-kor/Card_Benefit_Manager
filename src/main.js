@@ -105,6 +105,9 @@ function updateCard(cardId, patch) {
 
 function updateMonthlyCard(cardId, patch, options = {}) {
   const key = selectedMonthKey();
+  const normalizedPatch = Object.prototype.hasOwnProperty.call(patch, 'prevMonthStatus')
+    ? { ...patch, prevMonthStatusOverride: true }
+    : patch;
   state = {
     ...state,
     monthlyCardUsage: {
@@ -113,7 +116,7 @@ function updateMonthlyCard(cardId, patch, options = {}) {
         ...(state.monthlyCardUsage?.[key] || {}),
         [cardId]: {
           ...(state.monthlyCardUsage?.[key]?.[cardId] || {}),
-          ...patch
+          ...normalizedPatch
         }
       }
     }

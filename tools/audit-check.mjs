@@ -4,6 +4,7 @@ import { CARDS, POINT_DEFAULTS } from '../src/data/cards.js';
 import { CATEGORIES } from '../src/data/categories.js';
 import {
   getAnnualUsageCount,
+  getCardOverride,
   getMonthlyBenefitValue,
   getMonthlyShortfall,
   getOrderedCards,
@@ -180,6 +181,37 @@ const theOMovieRate = baseState({
   }
 });
 assertEqual(getMonthlyBenefitValue(theOMovieRate, card('samsung-the-o-asiana'), MONTH), 6000, 'THE O CGV rate benefit reflects used amount');
+
+const prevMonthAutoMet = baseState();
+prevMonthAutoMet.selectedMonth = '2026-06';
+prevMonthAutoMet.monthlyCardUsage['2026-06'] = {
+  'shinhan-ace-blue': { prevMonthStatus: 'manual' }
+};
+prevMonthAutoMet.monthlyCardUsage['2026-05'] = {
+  'shinhan-ace-blue': { currentMonthSpend: 780000 }
+};
+assertEqual(getCardOverride(prevMonthAutoMet, 'shinhan-ace-blue').prevMonthStatus, 'met', 'prev-month spend auto marks selected month as met');
+assertEqual(getCardOverride(prevMonthAutoMet, 'shinhan-ace-blue').prevMonthSpend, 780000, 'prev-month spend is exposed for tier calculations');
+
+const prevMonthAutoUnmet = baseState();
+prevMonthAutoUnmet.selectedMonth = '2026-06';
+prevMonthAutoUnmet.monthlyCardUsage['2026-06'] = {
+  'shinhan-ace-blue': { prevMonthStatus: 'manual' }
+};
+prevMonthAutoUnmet.monthlyCardUsage['2026-05'] = {
+  'shinhan-ace-blue': { currentMonthSpend: 200000 }
+};
+assertEqual(getCardOverride(prevMonthAutoUnmet, 'shinhan-ace-blue').prevMonthStatus, 'unmet', 'prev-month spend auto marks selected month as unmet');
+
+const explicitPrevStatusOverride = baseState();
+explicitPrevStatusOverride.selectedMonth = '2026-06';
+explicitPrevStatusOverride.monthlyCardUsage['2026-06'] = {
+  'shinhan-ace-blue': { prevMonthStatus: 'manual', prevMonthStatusOverride: true }
+};
+explicitPrevStatusOverride.monthlyCardUsage['2026-05'] = {
+  'shinhan-ace-blue': { currentMonthSpend: 780000 }
+};
+assertEqual(getCardOverride(explicitPrevStatusOverride, 'shinhan-ace-blue').prevMonthStatus, 'manual', 'explicit prev-month manual override is preserved');
 
 const the1LargeDepartment = baseState({
   selectedCategory: 'department',

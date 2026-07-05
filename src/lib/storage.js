@@ -229,6 +229,7 @@ function sanitizeMonthlyCardUsage(monthlyCardUsage = {}, knownCards = new Set())
       .map(([cardId, value]) => [cardId, {
         ...value,
         prevMonthStatus: normalizePrevMonthStatus(value?.prevMonthStatus),
+        prevMonthStatusOverride: value?.prevMonthStatusOverride === true,
         currentMonthSpend: Number(value?.currentMonthSpend || 0)
       }]))
   ]));

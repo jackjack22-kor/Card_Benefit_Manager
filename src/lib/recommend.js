@@ -8,14 +8,52 @@ export function getOrderedCards(state) {
 }
 
 export function getCardOverride(state, cardId) {
+  const card = CARDS.find((item) => item.id === cardId);
   const override = state.cardOverrides?.[cardId] || {};
   const monthKey = selectedMonthKey(state);
   const monthly = state.monthlyCardUsage?.[monthKey]?.[cardId] || {};
+  const prevMonthSpend = getPreviousMonthSpend(state, cardId, monthKey);
   return {
     ...override,
     ...monthly,
+    prevMonthStatus: card ? getEffectivePrevMonthStatus(state, card, monthKey) : normalizePrevMonthStatus(monthly.prevMonthStatus || override.prevMonthStatus),
+    prevMonthSpend: prevMonthSpend ?? Number(monthly.prevMonthSpend || override.prevMonthSpend || 0),
     cycle: { ...(override.cycle || {}) }
   };
+}
+
+export function getEffectivePrevMonthStatus(state, card, monthKey = selectedMonthKey(state)) {
+  const override = state.cardOverrides?.[card.id] || {};
+  const monthly = state.monthlyCardUsage?.[monthKey]?.[card.id] || {};
+  const stored = normalizePrevMonthStatus(monthly.prevMonthStatus);
+  if (monthly.prevMonthStatusOverride === true) return stored;
+
+  const target = Number(monthly.monthlyTarget || override.monthlyTarget || card.defaultMonthlyTarget || 0);
+  if (target <= 0) return normalizePrevMonthStatus(monthly.prevMonthStatus || override.prevMonthStatus || 'met');
+
+  const prevSpend = getPreviousMonthSpend(state, card.id, monthKey);
+  if (prevSpend !== null) return prevSpend >= target ? 'met' : 'unmet';
+
+  return normalizePrevMonthStatus(monthly.prevMonthStatus || override.prevMonthStatus);
+}
+
+function normalizePrevMonthStatus(value) {
+  return ['met', 'unmet', 'manual'].includes(value) ? value : 'manual';
+}
+
+function getPreviousMonthSpend(state, cardId, monthKey = selectedMonthKey(state)) {
+  const previous = previousMonthKey(monthKey);
+  const value = state.monthlyCardUsage?.[previous]?.[cardId]?.currentMonthSpend;
+  if (value === undefined || value === null || value === '') return null;
+  const numeric = Number(value || 0);
+  return Number.isFinite(numeric) ? numeric : null;
+}
+
+function previousMonthKey(monthKey) {
+  const date = new Date(`${monthKey}-01T00:00:00`);
+  if (Number.isNaN(date.getTime())) return monthKey;
+  date.setMonth(date.getMonth() - 1);
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
 }
 
 export function getBenefitUsage(state, benefitId, monthKey = selectedMonthKey(state)) {
@@ -326,8 +364,8 @@ export function nextMilestone(benefit, spend) {
 }
 
 export function inferPrevSpend(card, override) {
-  if (override.prevMonthStatus === 'met') return Math.max(Number(override.monthlyTarget || 0), card.defaultMonthlyTarget || 0);
-  if (override.prevMonthStatus === 'unmet') return 0;
+  if (override.prevMonthStatus === 'met') return Math.max(Number(override.prevMonthSpend || 0), Number(override.monthlyTarget || 0), card.defaultMonthlyTarget || 0);
+  if (override.prevMonthStatus === 'unmet') return Number(override.prevMonthSpend || 0);
   return Number(override.prevMonthSpend || override.monthlyTarget || 0);
 }
 
