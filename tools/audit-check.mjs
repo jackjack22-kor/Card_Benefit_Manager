@@ -142,6 +142,11 @@ assert.ok(
   'Marriott Best base 1P benefit appears before Marriott 5P benefit'
 );
 assertBenefitValue(withSpend('hyundai-amex-platinum', 1000000), 'hyundai-amex-platinum', 'hy-amex-mr-base', 15000, 'Hyundai Amex base MR row reflects monthly spend');
+assert.deepEqual(
+  card('hyundai-amex-platinum').benefits.slice(0, 4).map((item) => item.id),
+  ['hy-amex-mr-base', 'hy-amex-mr-2x', 'hy-amex-mr-3x', 'hy-amex-artisee'],
+  'Hyundai Amex MR benefits appear first and Artisee is fourth'
+);
 const hyundaiAmexSpecialState = withSpend('hyundai-amex-platinum', 1000000, {
   usage: { 'hy-amex-mr-2x': { [MONTH]: { usedAmount: 500000 } } }
 });
