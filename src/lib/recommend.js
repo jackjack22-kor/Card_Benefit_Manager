@@ -109,6 +109,14 @@ export function calculateFixedBenefit(benefit, amount = 0) {
   return Number(benefit.fixedBenefit || 0);
 }
 
+export function isCheckOnlyFixedAmountBenefit(benefit) {
+  return benefit.type === 'count_amount'
+    && Number(benefit.fixedBenefit || 0) > 0
+    && !Array.isArray(benefit.fixedBenefitByAmount)
+    && !benefit.rate
+    && !benefit.rateBySpend;
+}
+
 export function getAnnualUsageCount(state, card, benefit, date = selectedDate(state)) {
   const cycle = getCycle(card, getCardOverride(state, card.id), benefit, date);
   const monthKeys = monthsInCycle(cycle);
@@ -276,11 +284,12 @@ function calculateCountAmountUsageValue(state, card, benefit, monthKey) {
   const usage = getBenefitUsage(state, benefit.id, monthKey);
   const count = getMonthlyUsageCount(benefit, usage);
   if (count <= 0) return 0;
-  const usedAmount = Number(usage.usedAmount || 0);
-  if (benefit.minAmount && usedAmount > 0 && usedAmount < benefit.minAmount) return 0;
+  const checkOnlyFixed = isCheckOnlyFixedAmountBenefit(benefit);
+  const usedAmount = checkOnlyFixed ? Number(benefit.minAmount || 0) : Number(usage.usedAmount || 0);
+  if (!checkOnlyFixed && benefit.minAmount && usedAmount > 0 && usedAmount < benefit.minAmount) return 0;
   const override = getCardOverride(state, card.id);
   const prevSpend = inferPrevSpend(card, override);
-  const fixed = calculateFixedBenefit(benefit, usedAmount);
+  const fixed = checkOnlyFixed ? Number(benefit.fixedBenefit || 0) : calculateFixedBenefit(benefit, usedAmount);
   const rate = calculateRate(benefit, prevSpend);
   const raw = fixed || (usedAmount ? usedAmount * rate : 0) || Number(benefit.fixedBenefit || 0);
   const monthlyCap = effectiveMonthlyCap(card, benefit, prevSpend) || Infinity;

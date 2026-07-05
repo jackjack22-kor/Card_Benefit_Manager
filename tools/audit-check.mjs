@@ -11,6 +11,7 @@ import {
   getOrderedCards,
   getTotalMonthlyBenefitValue,
   hasPrevMonthRequirement,
+  isCheckOnlyFixedAmountBenefit,
   recommendCards
 } from '../src/lib/recommend.js';
 import { importState } from '../src/lib/storage.js';
@@ -155,6 +156,18 @@ const theOStarbucksChecked = baseState({
 });
 assertEqual(getMonthlyBenefitValue(theOStarbucksChecked, card('samsung-the-o-asiana'), MONTH), 3000, 'THE O Starbucks checked applies fixed benefit');
 assertEqual(getAnnualUsageCount(theOStarbucksChecked, card('samsung-the-o-asiana'), card('samsung-the-o-asiana').benefits.find((benefit) => benefit.id === 'the-o-starbucks'), new Date(`${MONTH}-01T00:00:00`)), 1, 'THE O checked count is not doubled');
+assertEqual(isCheckOnlyFixedAmountBenefit(card('samsung-the-o-asiana').benefits.find((benefit) => benefit.id === 'the-o-starbucks')), true, 'THE O Starbucks is check-only fixed amount');
+assertEqual(isCheckOnlyFixedAmountBenefit(card('samsung-the-o-asiana').benefits.find((benefit) => benefit.id === 'the-o-movie')), false, 'THE O CGV keeps amount input because it is rate-based');
+assertEqual(isCheckOnlyFixedAmountBenefit(card('samsung-the1-skypass').benefits.find((benefit) => benefit.id === 'the1-megabox')), false, 'tiered fixed amount benefit keeps amount input');
+
+const theOStarbucksStaleBelowMin = baseState({
+  usage: {
+    'the-o-starbucks': {
+      [MONTH]: { checked: true, count: 1, usedAmount: 5000 }
+    }
+  }
+});
+assertEqual(getMonthlyBenefitValue(theOStarbucksStaleBelowMin, card('samsung-the-o-asiana'), MONTH), 3000, 'check-only fixed benefit ignores stale below-min used amount');
 
 const theOStarbucksCountAndChecked = baseState({
   usage: {
@@ -172,7 +185,7 @@ const theOOutbackBelowMin = baseState({
     }
   }
 });
-assertEqual(getMonthlyBenefitValue(theOOutbackBelowMin, card('samsung-the-o-asiana'), MONTH), 0, 'THE O Outback below min amount is zero');
+assertEqual(getMonthlyBenefitValue(theOOutbackBelowMin, card('samsung-the-o-asiana'), MONTH), 30000, 'THE O Outback check-only fixed benefit ignores stale below-min amount');
 
 const theOOutbackMet = baseState({
   usage: {
@@ -191,6 +204,14 @@ const theOMovieRate = baseState({
   }
 });
 assertEqual(getMonthlyBenefitValue(theOMovieRate, card('samsung-the-o-asiana'), MONTH), 6000, 'THE O CGV rate benefit reflects used amount');
+const theOMovieBelowMin = baseState({
+  usage: {
+    'the-o-movie': {
+      [MONTH]: { count: 1, usedAmount: 10000 }
+    }
+  }
+});
+assertEqual(getMonthlyBenefitValue(theOMovieBelowMin, card('samsung-the-o-asiana'), MONTH), 0, 'rate-based count amount benefit still respects minimum amount');
 
 const prevMonthAutoMet = baseState();
 prevMonthAutoMet.selectedMonth = '2026-06';
@@ -237,8 +258,13 @@ assert.ok(!mainSource.includes('data-monthly-card-field="prevMonthStatus"'), 'ma
 assert.ok(!mainSource.includes('data-cycle-field="issueMonth"'), 'issue month setting is removed');
 console.log('ok - redundant card detail inputs are removed');
 assert.ok(stylesSource.includes('appearance: none'), 'native checkbox rendering is removed from benefit check controls');
-assert.ok(stylesSource.includes('input:checked::after'), 'custom check mark is rendered for selected benefit check controls');
+assert.ok(stylesSource.includes('border-width: 0 2px 2px 0'), 'custom check mark is drawn with centered CSS shape');
+assert.ok(stylesSource.includes('rotate(45deg) scale(1)'), 'custom check mark selected state stays centered');
 console.log('ok - benefit checkbox controls use custom theme-safe rendering');
+assert.ok(mainSource.includes('isCheckOnlyFixedAmountBenefit(benefit)'), 'fixed amount count benefits use check-only UI policy');
+assert.ok(mainSource.includes("!isCheckOnlyFixed ? `"), 'amount input is skipped for check-only fixed count benefits');
+assert.ok(mainSource.includes('조건 충족 시 혜택'), 'check-only fixed count benefits explain deterministic benefit value');
+console.log('ok - check-only fixed amount benefit UI policy is preserved');
 assert.ok(mainSource.includes('sticky-month-bar'), 'dashboard/card detail month bar stays in a dedicated sticky region');
 assert.ok(stylesSource.includes('.sticky-month-bar { position: sticky;'), 'sticky month bar CSS is preserved');
 assert.ok(mainSource.includes('getConfiguredMonthlyTarget(card, override)'), 'card detail monthly metric uses configured monthly target');
