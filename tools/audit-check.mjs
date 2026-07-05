@@ -189,6 +189,17 @@ const the1SpecialCapState = withSpend('samsung-the1-skypass', 2000000, {
 });
 assertEqual(getMonthlyBenefitValue(the1SpecialCapState, card('samsung-the1-skypass'), MONTH), 30000, 'THE 1 special cap is applied before base-difference math');
 assertBenefitValue(the1SpecialCapState, 'samsung-the1-skypass', 'the1-special-mile', 0, 'THE 1 capped special row does not double-count base miles');
+assert.deepEqual(
+  card('samsung-the1-skypass').benefits.slice(4, 7).map((item) => item.id),
+  ['the1-starbucks', 'the1-amex-artisee', 'the1-amex-baekmidang'],
+  'THE 1 AMEX cafe benefits appear with core coffee benefits'
+);
+assertEqual(benefit('samsung-the1-skypass', 'the1-amex-airport-dining').type, 'info_check', 'THE 1 variable airport dining discount is tracked as info check');
+assert.deepEqual(
+  benefit('samsung-the1-skypass', 'the1-amex-airport-dining').categories,
+  ['restaurant', 'coffee', 'travel'],
+  'THE 1 airport dining discount is discoverable in dining, coffee, and travel contexts'
+);
 
 assertBenefitValue(withSpend('samsung-the-o-asiana', 300000), 'samsung-the-o-asiana', 'the-o-reward-asiana', 3000, 'THE O basic mileage row reflects monthly spend');
 assertBenefitValue(withSpend('skt-woori-card', 700000), 'skt-woori-card', 'skt-woori-telecom-tlight', 15000, 'SKT Woori telecom row reflects tiered current-month spend');
@@ -288,6 +299,21 @@ assertEqual(getAnnualUsageCount(theOStarbucksChecked, card('samsung-the-o-asiana
 assertEqual(isCheckOnlyFixedAmountBenefit(card('samsung-the-o-asiana').benefits.find((benefit) => benefit.id === 'the-o-starbucks')), true, 'THE O Starbucks is check-only fixed amount');
 assertEqual(isCheckOnlyFixedAmountBenefit(card('samsung-the-o-asiana').benefits.find((benefit) => benefit.id === 'the-o-movie')), false, 'THE O CGV keeps amount input because it is rate-based');
 assertEqual(isCheckOnlyFixedAmountBenefit(card('samsung-the1-skypass').benefits.find((benefit) => benefit.id === 'the1-megabox')), false, 'tiered fixed amount benefit keeps amount input');
+assertEqual(isCheckOnlyFixedAmountBenefit(card('samsung-the1-skypass').benefits.find((benefit) => benefit.id === 'the1-amex-artisee')), true, 'THE 1 AMEX Artisee is check-only fixed amount');
+assertEqual(isCheckOnlyFixedAmountBenefit(card('samsung-the1-skypass').benefits.find((benefit) => benefit.id === 'the1-amex-baekmidang')), true, 'THE 1 AMEX Baekmidang is check-only fixed amount');
+
+const the1AmexCafeChecked = baseState({
+  usage: {
+    'the1-amex-artisee': {
+      [MONTH]: { checked: true }
+    },
+    'the1-amex-baekmidang': {
+      [MONTH]: { checked: true }
+    }
+  }
+});
+assertBenefitValue(the1AmexCafeChecked, 'samsung-the1-skypass', 'the1-amex-artisee', 4500, 'THE 1 AMEX Artisee checked applies fixed benefit');
+assertBenefitValue(the1AmexCafeChecked, 'samsung-the1-skypass', 'the1-amex-baekmidang', 5000, 'THE 1 AMEX Baekmidang checked applies fixed benefit');
 
 const theOStarbucksStaleBelowMin = baseState({
   usage: {
