@@ -24,6 +24,7 @@ import {
   getOrderedCards,
   getShortfallCards,
   getTotalMonthlyBenefitValue,
+  getConfiguredMonthlyTarget,
   hasPrevMonthRequirement,
   inferPrevSpend,
   recommendCards,
@@ -257,11 +258,13 @@ function renderDashboard() {
   const totalBenefitRate = getEffectiveBenefitRate(totalSpend, totalBenefit);
 
   return `
-    <section class="page-head compact-head">
+    <section class="sticky-month-bar">
       <div class="head-top">
         ${renderMonthStepper()}
         ${renderOverflowMenu(`<button data-action="toggle-sort">${state.isSortingCards ? '정렬 완료' : '카드 순서 정렬'}</button>`)}
       </div>
+    </section>
+    <section class="page-head compact-head">
       <div>
         <h2>카드 현황</h2>
         <p>전월실적 충족과 이번달 실적 달성 현황을 한눈에 확인합니다.</p>
@@ -510,8 +513,10 @@ function renderCardDetail() {
   if (!selected) {
     return `
       <section class="detail-view">
-        <section class="page-head compact-head">
+        <section class="sticky-month-bar">
           <div class="head-top">${renderMonthStepper()}</div>
+        </section>
+        <section class="page-head compact-head">
           <div>
             <h2>카드 상세</h2>
             <p>표시 중인 카드가 없습니다. 설정의 카드 설정에서 카드를 다시 표시해 주세요.</p>
@@ -523,10 +528,12 @@ function renderCardDetail() {
   }
   return `
     <section class="detail-view">
-      <section class="page-head compact-head">
+      <section class="sticky-month-bar">
         <div class="head-top">
           ${renderMonthStepper()}
         </div>
+      </section>
+      <section class="page-head compact-head">
         <div>
           <h2>카드 상세</h2>
           <p>카드를 선택해 월·연 실적과 혜택 사용 현황을 관리합니다.</p>
@@ -1453,10 +1460,16 @@ function prevMonthDisplay(card, override) {
       badgeClass: 'neutral'
     };
   }
+  const target = getConfiguredMonthlyTarget(card, override);
+  const prevSpend = Number(override.prevMonthSpend || 0);
+  const metricWithAmount = (label) => {
+    const amount = prevSpend || (label === '충족' ? target : 0);
+    return amount ? `${won(amount)} (${label})` : label;
+  };
   if (override.prevMonthStatus === 'met') {
     return {
       dashboardLabel: '전월실적 충족',
-      metricLabel: '충족',
+      metricLabel: metricWithAmount('충족'),
       tone: 'good',
       badgeClass: 'met'
     };
@@ -1464,7 +1477,7 @@ function prevMonthDisplay(card, override) {
   if (override.prevMonthStatus === 'unmet') {
     return {
       dashboardLabel: '전월실적 미달',
-      metricLabel: '미달',
+      metricLabel: metricWithAmount('미달'),
       tone: 'bad',
       badgeClass: 'unmet'
     };
@@ -1478,10 +1491,12 @@ function prevMonthDisplay(card, override) {
 }
 
 function monthlyMetricText(card, override) {
-  const target = Number(override.monthlyTarget || 0);
-  if (!target) return '관리 안 함';
+  const target = getConfiguredMonthlyTarget(card, override);
+  const spend = Number(override.currentMonthSpend || 0);
+  if (!target) return `${won(spend)} (관리 안 함)`;
   const shortfall = getMonthlyShortfall(card, override);
-  return shortfall ? `${won(shortfall)} 부족` : '달성';
+  const status = shortfall ? `${won(shortfall)} 부족` : '달성';
+  return `${won(spend)} / ${won(target)} (${status})`;
 }
 
 function annualMetricText(override, annualSpend, annualShortfall) {

@@ -239,6 +239,11 @@ console.log('ok - redundant card detail inputs are removed');
 assert.ok(stylesSource.includes('appearance: none'), 'native checkbox rendering is removed from benefit check controls');
 assert.ok(stylesSource.includes('input:checked::after'), 'custom check mark is rendered for selected benefit check controls');
 console.log('ok - benefit checkbox controls use custom theme-safe rendering');
+assert.ok(mainSource.includes('sticky-month-bar'), 'dashboard/card detail month bar stays in a dedicated sticky region');
+assert.ok(stylesSource.includes('.sticky-month-bar { position: sticky;'), 'sticky month bar CSS is preserved');
+assert.ok(mainSource.includes('getConfiguredMonthlyTarget(card, override)'), 'card detail monthly metric uses configured monthly target');
+assert.ok(mainSource.includes('/ ${won(target)} (${status})'), 'card detail monthly metric shows spend, target, and status together');
+console.log('ok - sticky month bar and amount-bearing card detail metrics are preserved');
 
 const the1LargeDepartment = baseState({
   selectedCategory: 'department',

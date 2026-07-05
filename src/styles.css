@@ -389,6 +389,8 @@ code { color: var(--accent); background: var(--surface-2); padding: 2px 6px; bor
 .toast-host { position: fixed; right: 18px; bottom: calc(96px + env(safe-area-inset-bottom)); }
 
 /* compact page head (dashboard/settings) + overflow menu */
+.sticky-month-bar { position: sticky; top: calc(74px + env(safe-area-inset-top)); z-index: 19; margin: 8px 0 10px; padding: 8px 0; background: color-mix(in srgb, var(--bg) 90%, transparent); backdrop-filter: blur(18px); -webkit-backdrop-filter: blur(18px); border-bottom: 1px solid var(--line); }
+.sticky-month-bar .head-top { min-height: 44px; }
 .page-head.compact-head { flex-direction: column; align-items: stretch; gap: 12px; }
 .page-head.compact-head p { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; min-height: 40px; margin-bottom: 0; }
 .head-top { display: flex; align-items: center; justify-content: space-between; gap: 10px; min-height: 44px; }
