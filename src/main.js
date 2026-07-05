@@ -716,6 +716,10 @@ function renderBenefitEditor(card, benefit) {
 function benefitStatusChips(benefit, usage, cap, annualCount, annualValue, effectiveMonthlyValue = Number(usage.benefitValue || 0)) {
   const chip = (label, value, done) => `<span class="status-chip ${done ? 'done' : ''}"><em>${label}</em>${escapeHtml(value)}</span>`;
   const chips = [];
+  const v = Number(effectiveMonthlyValue || 0);
+  if (isMonetaryBenefit(benefit)) {
+    chips.push(chip('이번달', v ? won(v) : '미사용', v > 0));
+  }
   if (benefit.type === 'two_transactions') {
     const n = effectiveMonthlyValue >= Number(benefit.fixedBenefit || 0) ? 2 : Number(Boolean(usage.tx1)) + Number(Boolean(usage.tx2));
     chips.push(chip('이번달', `${n}/2건`, n >= 2));
@@ -728,11 +732,9 @@ function benefitStatusChips(benefit, usage, cap, annualCount, annualValue, effec
     chips.push(chip('연', `${annualCount}/${benefit.annualLimitCount}회`, annualCount >= benefit.annualLimitCount));
   }
   if (cap) {
-    const v = Number(effectiveMonthlyValue || 0);
     chips.push(chip('월한도', `${compactWon(v)}/${compactWon(cap)}`, v >= cap));
   }
   if (benefit.type === 'reward') {
-    const v = Number(effectiveMonthlyValue || 0);
     chips.push(chip('이번달', v ? won(v) : '미사용', v > 0));
   }
   if (benefit.annualCap) {
@@ -742,6 +744,10 @@ function benefitStatusChips(benefit, usage, cap, annualCount, annualValue, effec
     chips.push(chip('이번달', usage.checked ? '사용함' : '미사용', !!usage.checked));
   }
   return `<div class="status-chips">${chips.slice(0, 2).join('')}</div>`;
+}
+
+function isMonetaryBenefit(benefit) {
+  return ['amount_cap', 'amount_cap_pool', 'reward_cap_pool'].includes(benefit.type);
 }
 
 function renderBenefitControls(benefit, usage, cap, annualValue = 0, effectiveMonthlyValue = Number(usage.benefitValue || 0)) {

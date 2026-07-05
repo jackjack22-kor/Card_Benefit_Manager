@@ -6,6 +6,7 @@ import {
   getAnnualUsageCount,
   getAllOrderedCards,
   getBenefitAmountInput,
+  getBenefitHomeStatus,
   getCardOverride,
   getMonthlyBenefitValue,
   getMonthlyBenefitValueForBenefit,
@@ -187,6 +188,7 @@ assertEqual(getMonthlyBenefitValue(mgCapState, card('mg-s-hana'), MONTH), 60000,
 assertBenefitValue(mgCapState, 'mg-s-hana', 'mg-simplepay', 50000, 'MG+S simplepay row fills remaining unified cap');
 assertBenefitValue(mgCapState, 'mg-s-hana', 'mg-monthly-discount', 60000, 'MG+S cap container displays applied total');
 assertEqual(isCapContainerBenefit(benefit('mg-s-hana', 'mg-monthly-discount')), true, 'MG+S monthly cap is treated as read-only cap container');
+assert.ok(getBenefitHomeStatus(mgCapState, card('mg-s-hana'), benefit('mg-s-hana', 'mg-simplepay')).includes('50,000'), 'MG+S simplepay home status shows applied benefit instead of zero');
 
 assertBenefitValue(withSpend('lotte-green-card', 300000), 'lotte-green-card', 'lotte-green-domestic', 600, 'Lotte Green domestic row reflects monthly spend');
 assertBenefitValue(withSpend('kb-skypass-platinum', 300000), 'kb-skypass-platinum', 'kb-skypass-mile', 3000, 'KB Skypass mileage row reflects monthly spend');
@@ -346,6 +348,7 @@ assert.ok(mainSource.includes('조건 충족 시 혜택'), 'check-only fixed cou
 console.log('ok - check-only fixed amount benefit UI policy is preserved');
 assert.ok(mainSource.includes('initialRawValue'), 'auto-rendered usage fields skip no-op blur saves');
 assert.ok(mainSource.includes('isCapContainerBenefit(benefit)'), 'cap container benefits render as read-only summaries');
+assert.ok(mainSource.includes('isMonetaryBenefit(benefit)'), 'monetary benefits show calculated monthly value in status chips');
 console.log('ok - auto-derived usage UI avoids sticky no-op overrides and read-only cap containers');
 assert.ok(mainSource.includes('sticky-month-bar'), 'dashboard/card detail month bar stays in a dedicated sticky region');
 assert.ok(stylesSource.includes('.sticky-month-bar { position: sticky;'), 'sticky month bar CSS is preserved');

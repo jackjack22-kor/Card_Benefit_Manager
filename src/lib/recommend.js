@@ -410,7 +410,8 @@ export function getBenefitHomeStatus(state, card, benefit, date = selectedDate(s
   if (benefit.type === 'amount_cap' || benefit.type === 'amount_cap_pool' || benefit.type === 'reward_cap_pool') {
     const cap = calculateMonthlyCap(benefit, capBasis);
     const used = getMonthlyBenefitValueForBenefit(state, card, benefit, monthKey);
-    return `${benefit.homeLabel || benefit.name} ${Math.min(used, cap).toLocaleString()}${cap ? `/${cap.toLocaleString()}` : ''}`;
+    const displayed = cap ? Math.min(used, cap) : used;
+    return `${benefit.homeLabel || benefit.name} ${displayed.toLocaleString()}${cap ? `/${cap.toLocaleString()}` : ''}`;
   }
   if (benefit.type === 'count' || benefit.type === 'count_amount' || benefit.type === 'info_check') {
     if (benefit.annualLimitCount) return `${benefit.homeLabel || benefit.name} ${annualCount}/${benefit.annualLimitCount}`;
