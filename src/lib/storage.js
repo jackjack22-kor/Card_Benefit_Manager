@@ -35,6 +35,7 @@ export function createInitialState() {
     isSortingCards: false,
     cardSettingsOpen: false,
     cardOrder: CARDS.map((card) => card.id),
+    hiddenCardIds: [],
     cardOverrides: Object.fromEntries(CARDS.map((card) => [card.id, {
       prevMonthStatus: 'met',
       currentMonthSpend: 0,
@@ -121,6 +122,7 @@ export function migrateState(state) {
   merged.selectedMonth = state.selectedMonth || base.selectedMonth;
   merged.selectedSubcategory = state.selectedSubcategory || '';
   merged.cardOrder = [...new Set([...(state.cardOrder || []), ...base.cardOrder])].filter((id) => known.has(id));
+  merged.hiddenCardIds = sanitizeCardIdList(state.hiddenCardIds || [], known);
   for (const card of CARDS) {
     merged.cardOverrides[card.id] = {
       ...base.cardOverrides[card.id],
@@ -171,6 +173,7 @@ export function exportState(state) {
     exportedAt,
     pointValues: state.settings?.pointValues || {},
     cardOrder: state.cardOrder || [],
+    hiddenCardIds: state.hiddenCardIds || [],
     cardSettings,
     selectedMonth: state.selectedMonth || getMonthKey(),
     selectedCategory: state.selectedCategory || '',
@@ -237,6 +240,10 @@ function sanitizeMonthlyCardUsage(monthlyCardUsage = {}, knownCards = new Set())
   ]));
 }
 
+function sanitizeCardIdList(ids = [], knownCards = new Set()) {
+  return [...new Set(Array.isArray(ids) ? ids : [])].filter((id) => knownCards.has(id));
+}
+
 function normalizePrevMonthStatus(value) {
   return ['met', 'unmet', 'manual'].includes(value) ? value : 'manual';
 }
@@ -251,6 +258,7 @@ function hasImportPayloadData(parsed) {
     parsed.benefitUsage,
     parsed.notes,
     parsed.cardOrder,
+    parsed.hiddenCardIds,
     parsed.settings,
     parsed.pointValues
   ].some((value) => {

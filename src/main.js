@@ -12,9 +12,11 @@ import {
   getAnnualUsageCount,
   getBenefitHomeStatus,
   getBenefitUsage,
+  getAllOrderedCards,
   getCardOverride,
   getEffectiveBenefitRate,
   getFillSpendRecommendations,
+  getHiddenCardIds,
   getMonthlyBenefitValue,
   getMonthlyBenefitValueForBenefit,
   getMonthlyUsageCount,
@@ -503,7 +505,22 @@ function renderRankItem(result, index, mode = 'value') {
 }
 
 function renderCardDetail() {
-  const selected = CARD_MAP[state.selectedCardId] || getOrderedCards(state)[0] || CARDS[0];
+  const cards = getOrderedCards(state);
+  const selected = cards.find((card) => card.id === state.selectedCardId) || cards[0];
+  if (!selected) {
+    return `
+      <section class="detail-view">
+        <section class="page-head compact-head">
+          <div class="head-top">${renderMonthStepper()}</div>
+          <div>
+            <h2>카드 상세</h2>
+            <p>표시 중인 카드가 없습니다. 설정의 카드 설정에서 카드를 다시 표시해 주세요.</p>
+          </div>
+        </section>
+        <div class="empty-note">표시 중인 카드가 없습니다.</div>
+      </section>
+    `;
+  }
   return `
     <section class="detail-view">
       <section class="page-head compact-head">
@@ -516,7 +533,7 @@ function renderCardDetail() {
         </div>
       </section>
       <div class="card-picker">
-        ${getOrderedCards(state).map((card) => `
+        ${cards.map((card) => `
           <button class="card-picker-item ${selected.id === card.id ? 'active' : ''}" data-select-card="${card.id}" title="${escapeHtml(card.shortName)}" aria-label="${escapeHtml(card.shortName)}">
             ${card.image ? `<img src="${escapeHtml(card.image)}" alt="" loading="lazy">` : `<span class="card-picker-fallback">${escapeHtml(card.shortName)}</span>`}
           </button>
@@ -777,15 +794,10 @@ function renderSettings() {
     <div class="settings-list">
       ${renderCloudSyncCard()}
       ${renderSyncConflicts()}
+      ${renderSettingsSection('cards', '카드 설정', renderCardSettingsBody())}
       ${renderSettingsSection('points', '포인트 가치', `
         <p>추천 탭의 예상 혜택 계산에 사용합니다.</p>
         ${Object.entries(state.settings.pointValues).map(([key, value]) => `<label>${escapeHtml(pointLabel(key))}<input type="number" step="0.1" value="${value}" data-point-value="${key}"></label>`).join('')}
-      `)}
-      ${renderSettingsSection('order', '카드 순서 편집', `
-        <p>카드현황 화면 표시 순서입니다.</p>
-        <div class="order-list">
-          ${getOrderedCards(state).map((card) => `<div><span>${escapeHtml(card.shortName)}</span><button data-move-up="${card.id}">위</button><button data-move-down="${card.id}">아래</button></div>`).join('')}
-        </div>
       `)}
       ${renderSettingsSection('backup', '백업 / 복원', `
         <p>JSON 백업으로 데이터를 다른 기기로 옮기거나 복원합니다.</p>
@@ -806,6 +818,32 @@ function renderSettings() {
         <p>GitHub Pages 주소를 브라우저에서 열어 사용합니다. 비로그인 데이터는 이 브라우저의 localStorage에만 저장되고, Google 로그인 시 Firebase Firestore와 동기화됩니다.</p>
         <p class="sync-meta">데이터는 실적·혜택 사용내역 등 값을 입력·변경할 때만 클라우드에 저장됩니다. 화면 이동은 기기별로 따로 동작합니다.</p>
       </div>
+    </div>
+  `;
+}
+
+function renderCardSettingsBody() {
+  const hidden = getHiddenCardIds(state);
+  const cards = getAllOrderedCards(state);
+  return `
+    <p>카드 표시 여부와 카드현황 표시 순서를 관리합니다. 숨김 카드는 카드현황, 카드상세, 결제추천, 합산 계산에서 제외되지만 입력 기록은 보존됩니다.</p>
+    <div class="order-list card-settings-list">
+      ${cards.map((card) => {
+        const isHidden = hidden.has(card.id);
+        return `
+          <div class="${isHidden ? 'hidden-card' : ''}">
+            <label class="card-visibility-toggle">
+              <input type="checkbox" ${isHidden ? '' : 'checked'} data-card-visible="${card.id}">
+              <span>
+                <strong>${escapeHtml(card.shortName)}</strong>
+                <em>${isHidden ? '숨김' : '표시 중'}</em>
+              </span>
+            </label>
+            <button data-move-up="${card.id}">위</button>
+            <button data-move-down="${card.id}">아래</button>
+          </div>
+        `;
+      }).join('')}
     </div>
   `;
 }
@@ -983,6 +1021,7 @@ function bindEvents() {
   });
   document.querySelectorAll('[data-move-up]').forEach((el) => el.addEventListener('click', (event) => { event.stopPropagation(); moveCard(el.dataset.moveUp, -1); }));
   document.querySelectorAll('[data-move-down]').forEach((el) => el.addEventListener('click', (event) => { event.stopPropagation(); moveCard(el.dataset.moveDown, 1); }));
+  document.querySelectorAll('[data-card-visible]').forEach((input) => input.addEventListener('change', () => setCardVisible(input.dataset.cardVisible, input.checked)));
 
   bindDetailMainEvents(document);
 
@@ -1245,6 +1284,20 @@ function moveCard(cardId, direction) {
   if (idx < 0 || nextIdx < 0 || nextIdx >= order.length) return;
   [order[idx], order[nextIdx]] = [order[nextIdx], order[idx]];
   state = { ...state, cardOrder: order };
+  persistState(state);
+  render();
+}
+
+function setCardVisible(cardId, visible) {
+  const hidden = new Set(state.hiddenCardIds || []);
+  if (visible) hidden.delete(cardId);
+  else hidden.add(cardId);
+  const nextHidden = [...hidden].filter((id) => CARD_MAP[id]);
+  const visibleCards = getAllOrderedCards({ ...state, hiddenCardIds: nextHidden }).filter((card) => !nextHidden.includes(card.id));
+  const selectedCardId = nextHidden.includes(state.selectedCardId)
+    ? (visibleCards[0]?.id || state.selectedCardId)
+    : state.selectedCardId;
+  state = { ...state, hiddenCardIds: nextHidden, selectedCardId };
   persistState(state);
   render();
 }

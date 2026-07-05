@@ -3,8 +3,17 @@ import { SUBCATEGORY_MAP } from '../data/categories.js';
 import { getMonthKey, getCycle, monthsInCycle } from './cycles.js';
 
 export function getOrderedCards(state) {
+  const hidden = getHiddenCardIds(state);
+  return getAllOrderedCards(state).filter((card) => !hidden.has(card.id));
+}
+
+export function getAllOrderedCards(state) {
   const map = new Map(CARDS.map((card) => [card.id, card]));
   return (state.cardOrder || CARDS.map((card) => card.id)).map((id) => map.get(id)).filter(Boolean);
+}
+
+export function getHiddenCardIds(state) {
+  return new Set((state.hiddenCardIds || []).filter(Boolean));
 }
 
 export function getCardOverride(state, cardId) {

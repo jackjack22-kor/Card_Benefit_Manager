@@ -4,10 +4,12 @@ import { CARDS, POINT_DEFAULTS } from '../src/data/cards.js';
 import { CATEGORIES } from '../src/data/categories.js';
 import {
   getAnnualUsageCount,
+  getAllOrderedCards,
   getCardOverride,
   getMonthlyBenefitValue,
   getMonthlyShortfall,
   getOrderedCards,
+  getTotalMonthlyBenefitValue,
   hasPrevMonthRequirement,
   recommendCards
 } from '../src/lib/recommend.js';
@@ -25,13 +27,14 @@ function card(id) {
   return item;
 }
 
-function baseState({ selectedCategory = 'coffee', amount = 10000, monthly = {}, overrides = {}, usage = {} } = {}) {
+function baseState({ selectedCategory = 'coffee', amount = 10000, monthly = {}, overrides = {}, usage = {}, hiddenCardIds = [] } = {}) {
   return {
     selectedMonth: MONTH,
     selectedCategory,
     selectedSubcategory: '',
     recommendationAmount: amount,
     cardOrder: CARDS.map((item) => item.id),
+    hiddenCardIds,
     settings: { pointValues: { ...POINT_DEFAULTS }, darkMode: true },
     cardOverrides: Object.fromEntries(CARDS.map((item) => [
       item.id,
@@ -95,6 +98,11 @@ if (unknownCategories.length) {
 }
 
 assertEqual(getOrderedCards(baseState()).length, CARDS.length, 'all cards are orderable');
+const hiddenCardState = withSpend('kb-talktalk-my-point', 200000, { hiddenCardIds: ['kb-talktalk-my-point'] });
+assertEqual(getAllOrderedCards(hiddenCardState).length, CARDS.length, 'all ordered cards still include hidden cards for settings');
+assertEqual(getOrderedCards(hiddenCardState).some((item) => item.id === 'kb-talktalk-my-point'), false, 'hidden card is excluded from visible ordered cards');
+assertEqual(recommendCards({ ...hiddenCardState, selectedCategory: 'simplepay', recommendationAmount: 10000 }, 'simplepay', 10000).some((item) => item.card.id === 'kb-talktalk-my-point'), false, 'hidden card is excluded from recommendations');
+assertEqual(getTotalMonthlyBenefitValue(hiddenCardState, getOrderedCards(hiddenCardState), MONTH), 0, 'hidden card is excluded from visible benefit totals');
 assertEqual(getMonthlyShortfall(card('kb-talktalk-my-point'), { monthlyTarget: 200000, currentMonthSpend: 100000 }), 100000, 'monthly shortfall');
 assert.ok(!mainSource.includes('./lib/sync/syncManager.js'), 'main entry must not statically import Firebase sync runtime');
 assert.ok(lazySyncSource.includes("import('./syncManager.js')"), 'sync runtime must stay dynamically imported');
@@ -253,6 +261,7 @@ const imported = importState(JSON.stringify({
   schemaVersion: '2.0.1',
   selectedTab: 'dashboard hacked',
   selectedCategory: 'travel',
+  hiddenCardIds: ['kb-talktalk-my-point', 'unknown-card'],
   pointValues: { koreanAir: 17, evil: '<img>' },
   monthlyCardUsage: {
     [MONTH]: {
@@ -262,6 +271,7 @@ const imported = importState(JSON.stringify({
   }
 }));
 assertEqual(imported.selectedTab, 'dashboard', 'import sanitizes selected tab');
+assert.deepEqual(imported.hiddenCardIds, ['kb-talktalk-my-point'], 'import sanitizes hidden card ids');
 assertEqual(imported.settings.pointValues.koreanAir, 17, 'import keeps known point values');
 assert.equal(imported.settings.pointValues.evil, undefined, 'import drops unknown point value keys');
 assertEqual(imported.monthlyCardUsage[MONTH]['kb-talktalk-my-point'].prevMonthStatus, 'manual', 'import sanitizes monthly status');

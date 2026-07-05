@@ -375,6 +375,12 @@ summary { color: var(--accent); cursor: pointer; font-weight: 800; }
 .order-list { display: grid; gap: 8px; }
 .order-list div { display: grid; grid-template-columns: 1fr auto auto; gap: 8px; align-items: center; border: 1px solid var(--line); background: var(--surface-2); border-radius: var(--r-md); padding: 10px 12px; }
 .order-list button { border: 1px solid var(--line-strong); background: var(--surface); color: var(--text); border-radius: var(--r-sm); padding: 6px 12px; font-weight: 700; }
+.card-settings-list div.hidden-card { opacity: .68; }
+.card-visibility-toggle { display: flex; align-items: center; gap: 10px; color: var(--text); font-size: 13px; min-width: 0; }
+.card-visibility-toggle input { width: 20px; height: 20px; flex: 0 0 auto; accent-color: var(--good); }
+.card-visibility-toggle span { display: grid; gap: 2px; min-width: 0; }
+.card-visibility-toggle strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.card-visibility-toggle em { color: var(--muted); font-style: normal; font-size: 11px; font-weight: 800; }
 .backup-actions { display: flex; flex-wrap: wrap; gap: 8px; margin: 12px 0; }
 .file-button { position: relative; overflow: hidden; display: inline-flex; }
 .file-button input { position: absolute; inset: 0; opacity: 0; cursor: pointer; }

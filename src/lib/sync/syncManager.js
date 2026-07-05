@@ -7,7 +7,7 @@ const DEVICE_KEY = 'cardBenefitManager.deviceId';
 const PENDING_SAVE_KEY = 'cardBenefitManager.pendingCloudSave';
 const SYNC_DEBOUNCE_MS = 1200;
 const CLOUD_DOC_ID = 'cardfit';
-const CONFLICT_ROOTS = ['cardOverrides', 'monthlyCardUsage', 'usage', 'notes', 'settings.pointValues', 'cardOrder'];
+const CONFLICT_ROOTS = ['cardOverrides', 'monthlyCardUsage', 'usage', 'notes', 'settings.pointValues', 'cardOrder', 'hiddenCardIds'];
 const MAX_CONFLICTS = 20;
 
 let callbacks = {
@@ -309,6 +309,7 @@ function mergeStates(localState, cloudState) {
       }
     },
     cardOrder: mergeOrder(primary.cardOrder, secondary.cardOrder),
+    hiddenCardIds: Array.isArray(primary.hiddenCardIds) ? primary.hiddenCardIds : (secondary.hiddenCardIds || []),
     cardOverrides: deepMerge(secondary.cardOverrides || {}, primary.cardOverrides || {}),
     monthlyCardUsage: deepMerge(secondary.monthlyCardUsage || {}, primary.monthlyCardUsage || {}),
     usage: deepMerge(secondary.usage || {}, primary.usage || {}),
@@ -387,13 +388,15 @@ function conflictLabel(path) {
     .replace(/^cardOverrides\./, '카드 설정 / ')
     .replace(/^notes\./, '메모 / ')
     .replace(/^settings\.pointValues\./, '포인트 가치 / ')
-    .replace(/^cardOrder$/, '카드 순서');
+    .replace(/^cardOrder$/, '카드 순서')
+    .replace(/^hiddenCardIds$/, '숨김 카드');
 }
 
 function hasMeaningfulData(state) {
   if (!state) return false;
   if (Object.keys(state.usage || {}).length) return true;
   if (Object.keys(state.notes || {}).length) return true;
+  if (Array.isArray(state.hiddenCardIds) && state.hiddenCardIds.length > 0) return true;
   if (Object.values(state.monthlyCardUsage || {}).some((month) => Object.values(month || {}).some((item) => Number(item.currentMonthSpend || 0) > 0 || item.prevMonthStatus === 'unmet' || item.prevMonthStatus === 'manual'))) return true;
   return Object.values(state.cardOverrides || {}).some((card) => Number(card.currentMonthSpend || 0) > 0 || Number(card.annualSpend || 0) > 0 || Boolean(card.memo));
 }
