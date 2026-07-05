@@ -212,10 +212,21 @@ explicitPrevStatusOverride.monthlyCardUsage['2026-06'] = {
 explicitPrevStatusOverride.monthlyCardUsage['2026-05'] = {
   'shinhan-ace-blue': { currentMonthSpend: 780000 }
 };
-assertEqual(getCardOverride(explicitPrevStatusOverride, 'shinhan-ace-blue').prevMonthStatus, 'manual', 'explicit prev-month manual override is preserved');
+assertEqual(getCardOverride(explicitPrevStatusOverride, 'shinhan-ace-blue').prevMonthStatus, 'met', 'legacy explicit prev-month override is ignored when spend proves met');
+const marriottBestUnmanaged = baseState({
+  overrides: {
+    'marriott-best-shinhan': { monthlyTarget: 0 }
+  }
+});
+assertEqual(getCardOverride(marriottBestUnmanaged, 'marriott-best-shinhan').monthlyTarget, 0, 'explicit zero monthly target is preserved');
+assertEqual(hasPrevMonthRequirement(card('marriott-best-shinhan'), getCardOverride(marriottBestUnmanaged, 'marriott-best-shinhan')), false, 'explicit zero monthly target disables prev-month requirement');
 assertEqual(hasPrevMonthRequirement(card('kb-skypass-platinum'), getCardOverride(baseState(), 'kb-skypass-platinum')), false, 'zero-target card is not treated as prev-month achievement managed');
 assert.ok(mainSource.includes('전월실적 무관'), 'dashboard has neutral prev-month label for unmanaged cards');
 console.log('ok - dashboard has neutral prev-month label for unmanaged cards');
+assert.ok(!mainSource.includes('function renderMonthlyCardInputs'), 'card detail monthly input section is removed');
+assert.ok(!mainSource.includes('data-monthly-card-field="prevMonthStatus"'), 'manual prev-month status selector is removed');
+assert.ok(!mainSource.includes('data-cycle-field="issueMonth"'), 'issue month setting is removed');
+console.log('ok - redundant card detail inputs are removed');
 
 const the1LargeDepartment = baseState({
   selectedCategory: 'department',

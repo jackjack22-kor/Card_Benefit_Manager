@@ -25,10 +25,7 @@ export function getCardOverride(state, cardId) {
 export function getEffectivePrevMonthStatus(state, card, monthKey = selectedMonthKey(state)) {
   const override = state.cardOverrides?.[card.id] || {};
   const monthly = state.monthlyCardUsage?.[monthKey]?.[card.id] || {};
-  const stored = normalizePrevMonthStatus(monthly.prevMonthStatus);
-  if (monthly.prevMonthStatusOverride === true) return stored;
-
-  const target = Number(monthly.monthlyTarget || override.monthlyTarget || card.defaultMonthlyTarget || 0);
+  const target = getConfiguredMonthlyTarget(card, { ...override, ...monthly });
   if (target <= 0) return normalizePrevMonthStatus(monthly.prevMonthStatus || override.prevMonthStatus || 'met');
 
   const prevSpend = getPreviousMonthSpend(state, card.id, monthKey);
@@ -119,7 +116,12 @@ export function getMonthlyUsageCount(benefit, usage = {}) {
 }
 
 export function hasPrevMonthRequirement(card, override = {}) {
-  return Number(override.monthlyTarget || card.defaultMonthlyTarget || 0) > 0;
+  return getConfiguredMonthlyTarget(card, override) > 0;
+}
+
+export function getConfiguredMonthlyTarget(card, override = {}) {
+  if (Object.prototype.hasOwnProperty.call(override, 'monthlyTarget')) return Number(override.monthlyTarget || 0);
+  return Number(card.defaultMonthlyTarget || 0);
 }
 
 export function getAnnualBenefitValue(state, card, benefit, date = selectedDate(state), options = {}) {
@@ -368,7 +370,7 @@ export function nextMilestone(benefit, spend) {
 }
 
 export function inferPrevSpend(card, override) {
-  if (override.prevMonthStatus === 'met') return Math.max(Number(override.prevMonthSpend || 0), Number(override.monthlyTarget || 0), card.defaultMonthlyTarget || 0);
+  if (override.prevMonthStatus === 'met') return Math.max(Number(override.prevMonthSpend || 0), getConfiguredMonthlyTarget(card, override));
   if (override.prevMonthStatus === 'unmet') return Number(override.prevMonthSpend || 0);
   return Number(override.prevMonthSpend || override.monthlyTarget || 0);
 }

@@ -127,7 +127,9 @@ export function migrateState(state) {
       ...(merged.cardOverrides[card.id] || {}),
       prevMonthStatus: normalizePrevMonthStatus(merged.cardOverrides[card.id]?.prevMonthStatus),
       currentMonthSpend: Number(merged.cardOverrides[card.id]?.currentMonthSpend || 0),
-      monthlyTarget: Number(merged.cardOverrides[card.id]?.monthlyTarget || base.cardOverrides[card.id]?.monthlyTarget || 0),
+      monthlyTarget: Object.prototype.hasOwnProperty.call(merged.cardOverrides[card.id] || {}, 'monthlyTarget')
+        ? Number(merged.cardOverrides[card.id]?.monthlyTarget || 0)
+        : Number(base.cardOverrides[card.id]?.monthlyTarget || 0),
       annualSpend: Number(merged.cardOverrides[card.id]?.annualSpend || 0),
       annualTarget: Number(merged.cardOverrides[card.id]?.annualTarget || base.cardOverrides[card.id]?.annualTarget || 0),
       cycle: {

@@ -106,9 +106,6 @@ function updateCard(cardId, patch) {
 
 function updateMonthlyCard(cardId, patch, options = {}) {
   const key = selectedMonthKey();
-  const normalizedPatch = Object.prototype.hasOwnProperty.call(patch, 'prevMonthStatus')
-    ? { ...patch, prevMonthStatusOverride: true }
-    : patch;
   state = {
     ...state,
     monthlyCardUsage: {
@@ -117,7 +114,7 @@ function updateMonthlyCard(cardId, patch, options = {}) {
         ...(state.monthlyCardUsage?.[key] || {}),
         [cardId]: {
           ...(state.monthlyCardUsage?.[key]?.[cardId] || {}),
-          ...normalizedPatch
+          ...patch
         }
       }
     }
@@ -567,16 +564,6 @@ function renderCardDetailMain(selected) {
           </div>
         </section>
 
-        <section class="detail-card">
-          <div class="section-head small">
-            <div>
-              <h3>${formatMonthLabel(selectedMonthKey())} 실적 입력</h3>
-              <p>이 값은 선택한 월에만 저장됩니다. 월을 이동하면 해당 월 기록을 따로 입력할 수 있습니다.</p>
-            </div>
-          </div>
-          ${renderMonthlyCardInputs(selected, override)}
-        </section>
-
         <details class="detail-settings" ${state.cardSettingsOpen ? 'open' : ''}>
           <summary>상세설정</summary>
           ${renderCardControls(selected, override, cycle)}
@@ -599,26 +586,6 @@ function renderMetric(label, value, tone) {
     <div class="metric ${tone}">
       <span>${escapeHtml(label)}</span>
       <strong>${escapeHtml(value)}</strong>
-    </div>
-  `;
-}
-
-function renderMonthlyCardInputs(card, override) {
-  return `
-    <div class="control-grid monthly-grid">
-      <label>전월실적 상태
-        <select data-monthly-card-field="prevMonthStatus" data-card-id="${card.id}">
-          ${option('met', '충족', override.prevMonthStatus)}
-          ${option('unmet', '미달', override.prevMonthStatus)}
-          ${option('manual', '직접 확인', override.prevMonthStatus)}
-        </select>
-      </label>
-      <label>이번달 사용액
-        <input type="text" inputmode="numeric" data-money-input data-monthly-card-field="currentMonthSpend" data-card-id="${card.id}" value="${formatNumberInput(override.currentMonthSpend)}">
-      </label>
-      <label>이번달 목표
-        <input value="${Number(override.monthlyTarget || 0) ? won(override.monthlyTarget) : '관리 안 함'}" readonly>
-      </label>
     </div>
   `;
 }
@@ -648,11 +615,6 @@ function renderCardControls(card, override, cycle) {
         <label>연회비 시작월
           <select data-cycle-field="annualFeeStartMonth" data-card-id="${card.id}">
             ${Array.from({ length: 12 }, (_, i) => i + 1).map((m) => option(String(m), `${m}월`, String(override.cycle?.annualFeeStartMonth || override.cycle?.startMonth || card.defaultCycle?.startMonth || 1))).join('')}
-          </select>
-        </label>
-        <label>발급월
-          <select data-cycle-field="issueMonth" data-card-id="${card.id}">
-            ${Array.from({ length: 12 }, (_, i) => i + 1).map((m) => option(String(m), `${m}월`, String(override.cycle?.issueMonth || override.cycle?.startMonth || card.defaultCycle?.startMonth || 1))).join('')}
           </select>
         </label>
         <label>현재 주기
