@@ -27,6 +27,11 @@ const lazySyncSource = readFileSync(new URL('../src/lib/sync/lazySync.js', impor
 const syncManagerSource = readFileSync(new URL('../src/lib/sync/syncManager.js', import.meta.url), 'utf8');
 const firebaseClientSource = readFileSync(new URL('../src/lib/sync/firebaseClient.js', import.meta.url), 'utf8');
 const indexHtml = readFileSync(new URL('../index.html', import.meta.url), 'utf8');
+const packageJson = JSON.parse(readFileSync(new URL('../package.json', import.meta.url), 'utf8'));
+const firebaseJson = JSON.parse(readFileSync(new URL('../firebase.json', import.meta.url), 'utf8'));
+const firebaseRc = JSON.parse(readFileSync(new URL('../.firebaserc', import.meta.url), 'utf8'));
+const hostingBuildSource = readFileSync(new URL('../tools/prepare-hosting-build.mjs', import.meta.url), 'utf8');
+const firebaseHostingWorkflow = readFileSync(new URL('../.github/workflows/firebase-hosting.yml', import.meta.url), 'utf8');
 
 function card(id) {
   const item = CARDS.find((candidate) => candidate.id === id);
@@ -510,5 +515,28 @@ assertEqual(imported.settings.pointValues.koreanAir, 17, 'import keeps known poi
 assert.equal(imported.settings.pointValues.evil, undefined, 'import drops unknown point value keys');
 assertEqual(imported.monthlyCardUsage[MONTH]['kb-talktalk-my-point'].prevMonthStatus, 'manual', 'import sanitizes monthly status');
 assert.equal(imported.monthlyCardUsage[MONTH]['unknown-card'], undefined, 'import drops unknown monthly card ids');
+
+assertEqual(firebaseRc.projects.default, 'cardfit-ee4b5', 'Firebase default project is cardfit-ee4b5');
+assertEqual(firebaseJson.firestore.rules, 'firestore.rules', 'Firebase config includes Firestore rules path');
+assertEqual(firebaseJson.hosting.site, 'cardfit-ee4b5', 'Firebase Hosting site is explicit');
+assertEqual(firebaseJson.hosting.public, 'dist', 'Firebase Hosting serves dist');
+assert.ok(firebaseJson.hosting.rewrites.some((item) => item.source === '**' && item.destination === '/index.html'), 'Firebase Hosting rewrites SPA routes to index.html');
+assert.ok(
+  firebaseJson.hosting.headers.some((item) => item.source === '/sw.js' && item.headers.some((header) => header.key === 'Cache-Control' && header.value.includes('no-cache'))),
+  'Firebase Hosting keeps service worker uncached'
+);
+assert.ok(
+  firebaseJson.hosting.headers.some((item) => item.source === '/assets/**' && item.headers.some((header) => header.key === 'Cache-Control' && header.value.includes('immutable'))),
+  'Firebase Hosting caches hashed assets immutably'
+);
+assert.ok(packageJson.scripts['build:hosting']?.includes('tools/prepare-hosting-build.mjs'), 'build:hosting prepares copied card images');
+assert.ok(packageJson.scripts['deploy:hosting']?.includes('firebase deploy --only hosting'), 'deploy:hosting targets Firebase Hosting only');
+assert.ok(hostingBuildSource.includes("join(root, 'image', 'clean')"), 'hosting build copies normalized card images');
+assert.ok(firebaseHostingWorkflow.includes('FirebaseExtended/action-hosting-deploy@v0'), 'Firebase Hosting workflow uses official deploy action');
+assert.ok(firebaseHostingWorkflow.includes('FIREBASE_SERVICE_ACCOUNT_CARDFIT_EE4B5'), 'Firebase Hosting workflow expects scoped service account secret');
+assert.ok(firebaseHostingWorkflow.includes('npm run audit:check'), 'Firebase Hosting workflow runs audit before deploy');
+assert.ok(firebaseHostingWorkflow.includes('npm run build:hosting'), 'Firebase Hosting workflow builds hosting target');
+assert.ok(mainSource.includes('Firebase Hosting 주소를 브라우저에서 열어 사용합니다.'), 'settings storage guide references Firebase Hosting');
+console.log('ok - Firebase Hosting migration settings are preserved');
 
 console.log('audit-check passed');

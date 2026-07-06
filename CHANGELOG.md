@@ -5,6 +5,14 @@
 
 ## 2026-07-06
 
+### Firebase Hosting 전환 준비
+- **Hosting 설정 추가**: `.firebaserc`와 `firebase.json`을 추가해 기본 프로젝트를 `cardfit-ee4b5`로 고정하고, Firebase Hosting site/public 디렉터리, SPA rewrite, 서비스워커/HTML no-cache, hashed asset 장기 캐시 정책을 정의.
+- **Hosting 전용 빌드 추가**: `build:hosting` 스크립트와 `tools/prepare-hosting-build.mjs`를 추가해 일반 Vite 번들을 Firebase Hosting에 배포하되, 앱이 참조하는 `image/clean` 카드 이미지는 `dist`로 복사되도록 구성.
+- **GitHub Actions 배포 워크플로 추가**: `.github/workflows/firebase-hosting.yml`을 추가해 `main` push/수동 실행 시 audit과 Hosting 빌드를 수행하고, `FIREBASE_SERVICE_ACCOUNT_CARDFIT_EE4B5` secret이 준비된 경우 live Hosting 배포까지 진행. secret이 없으면 배포만 건너뛰도록 안전하게 구성.
+- **전환 계획 문서화**: `docs/FIREBASE_HOSTING_MIGRATION_PLAN.md`를 추가해 목표 URL, 사용자 콘솔 설정, GitHub secret, Firestore rules 별도 배포, GitHub Pages 병행 전략, origin 변경 리스크, 검증 체크리스트를 정리.
+- **README 갱신**: 권장 접속 주소를 Firebase Hosting 중심으로 갱신하되, GitHub Pages는 검증 기간 병행 운영으로 명시.
+- **감사 테스트 보강**: Firebase Hosting site ID, cache headers, SPA rewrite, Hosting build script, GitHub Actions secret/deploy action이 유지되는지 `npm run audit:check`에서 검증하도록 추가.
+
 ### Firebase 동기화 자동 시작 및 저장 대기 보강
 - **앱 시작 시 Auth 확인 자동화**: 설정 탭에 들어가야 Firebase 런타임이 켜지던 구조를 보강해, 앱 시작 직후 백그라운드에서 Google 로그인 상태를 확인하도록 변경.
 - **런타임 미로드 저장 유실 방지**: Firebase 모듈이 아직 로드되지 않은 상태에서 사용자가 실적/혜택 값을 입력해도 `pendingCloudSave` marker를 localStorage에 남기고 동기화 런타임을 즉시 깨우도록 보강.

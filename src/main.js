@@ -870,7 +870,7 @@ function renderSettings() {
       `)}
       <div class="settings-card">
         <h3>앱 / 저장 안내</h3>
-        <p>GitHub Pages 주소를 브라우저에서 열어 사용합니다. 비로그인 데이터는 이 브라우저의 localStorage에만 저장되고, Google 로그인 시 Firebase Firestore와 동기화됩니다.</p>
+        <p>Firebase Hosting 주소를 브라우저에서 열어 사용합니다. 비로그인 데이터는 이 브라우저의 localStorage에만 저장되고, Google 로그인 시 Firebase Firestore와 동기화됩니다.</p>
         <p class="sync-meta">데이터는 실적·혜택 사용내역 등 값을 입력·변경할 때만 클라우드에 저장됩니다. 화면 이동은 기기별로 따로 동작합니다.</p>
       </div>
     </div>

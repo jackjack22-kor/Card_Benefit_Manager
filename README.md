@@ -2,9 +2,16 @@
 
 개인 보유 신용카드의 실적, 월/연 혜택 한도, 사용 횟수, 사용처별 추천 카드를 관리하는 개인용 웹앱입니다. **CardFit**은 설치형 PWA로 동작하여, 스마트폰 홈 화면에 추가하면 브라우저 주소창 없이 독립 앱처럼 전체화면으로 실행되고 오프라인에서도 열립니다.
 
-권장 사용 방식은 **GitHub Pages 배포 URL을 스마트폰 브라우저에서 연 뒤 홈 화면에 설치**하는 것입니다. Android에서 단일 HTML 파일을 직접 여는 방식도 유지하지만, iPhone에서는 `file://` 로컬 파일보다 Safari에서 HTTPS Pages URL로 접속하는 방식이 안정적입니다.
+권장 사용 방식은 **Firebase Hosting 배포 URL을 스마트폰 브라우저에서 연 뒤 홈 화면에 설치**하는 것입니다. Android에서 단일 HTML 파일을 직접 여는 방식도 유지하지만, iPhone에서는 `file://` 로컬 파일보다 Safari에서 HTTPS 배포 URL로 접속하는 방식이 안정적입니다.
 
 ## 바로 쓰는 주소
+
+```text
+https://cardfit-ee4b5.web.app/
+https://cardfit-ee4b5.firebaseapp.com/
+```
+
+기존 GitHub Pages 주소는 Firebase Hosting 전환 검증 기간 동안 병행 운영합니다.
 
 ```text
 https://jackjack22-kor.github.io/Card_Benefit_Manager/
@@ -16,12 +23,12 @@ CardFit은 매니페스트와 서비스워커를 갖춘 설치형 PWA입니다. 
 
 ### iPhone (Safari)
 
-1. Safari에서 `https://jackjack22-kor.github.io/Card_Benefit_Manager/` 접속
+1. Safari에서 `https://cardfit-ee4b5.web.app/` 접속
 2. 하단 공유 버튼 선택
 3. `홈 화면에 추가` 선택
 4. 이름 확인 후 `추가`
 
-홈 화면 아이콘으로 진입하면 전체화면 독립 실행됩니다. 데이터는 Safari의 해당 GitHub Pages 주소 저장소(localStorage)에 보관됩니다.
+홈 화면 아이콘으로 진입하면 전체화면 독립 실행됩니다. 데이터는 Safari의 해당 Firebase Hosting 주소 저장소(localStorage)에 보관됩니다.
 
 ### Android (Chrome / Samsung Internet)
 
@@ -29,11 +36,24 @@ CardFit은 매니페스트와 서비스워커를 갖춘 설치형 PWA입니다. 
 2. 메뉴에서 `앱 설치` 또는 `홈 화면에 추가` 선택
 3. 홈 화면 아이콘으로 독립 실행
 
-로컬 `dist/card-benefit-manager.html` 파일을 직접 여는 보조 방식도 가능하지만, 이 경우 PWA 설치·오프라인 캐시는 동작하지 않고 브라우저별 `file://` 저장소 정책 차이가 있습니다. 여러 기기에서 계속 쓸 계획이라면 GitHub Pages 주소로 접속하는 편이 더 예측 가능합니다.
+로컬 `dist/card-benefit-manager.html` 파일을 직접 여는 보조 방식도 가능하지만, 이 경우 PWA 설치·오프라인 캐시는 동작하지 않고 브라우저별 `file://` 저장소 정책 차이가 있습니다. 여러 기기에서 계속 쓸 계획이라면 Firebase Hosting 주소로 접속하는 편이 더 예측 가능합니다.
+
+## Firebase Hosting 배포
+
+이 저장소는 Firebase Hosting 전환 설정을 포함합니다. 전환 계획과 콘솔 설정 절차는 `docs/FIREBASE_HOSTING_MIGRATION_PLAN.md`를 기준으로 관리합니다.
+
+로컬 Firebase CLI가 설치되어 있고 로그인되어 있다면 다음 명령으로 배포할 수 있습니다.
+
+```bash
+npm run build:hosting
+firebase deploy --only hosting
+```
+
+GitHub Actions 자동 배포를 사용하려면 저장소 secret `FIREBASE_SERVICE_ACCOUNT_CARDFIT_EE4B5`를 추가해야 합니다. secret이 없으면 Firebase Hosting 워크플로는 빌드까지만 실행하고 배포 단계는 건너뜁니다.
 
 ## GitHub Pages 배포
 
-이 저장소는 GitHub Actions로 Pages를 자동 배포합니다.
+기존 GitHub Pages 배포는 Firebase Hosting 검증 기간 동안 병행 운영합니다.
 
 1. GitHub 저장소에 `main` 브랜치를 push합니다.
 2. GitHub 저장소에서 `Settings` > `Pages`로 이동합니다.
@@ -72,13 +92,15 @@ npm run dev
 
 주의할 점:
 
-- GitHub Pages는 앱 파일만 호스팅하며, 개인 사용 데이터는 GitHub로 업로드되지 않습니다.
+- Firebase Hosting과 GitHub Pages는 앱 파일만 호스팅하며, 개인 사용 데이터는 GitHub로 업로드되지 않습니다.
 - Safari, Samsung Internet, Chrome은 저장소가 서로 다를 수 있습니다.
 - 같은 스마트폰이라도 다른 브라우저에서 열면 기존 데이터가 보이지 않을 수 있습니다.
 - 브라우저 캐시/사이트 데이터 삭제 시 localStorage 데이터도 사라질 수 있습니다.
 - 스마트폰 변경, 브라우저 변경, 데이터 삭제 전에는 반드시 JSON 백업을 내보내야 합니다.
 
 서비스워커는 앱 파일(HTML/CSS/JS/아이콘)만 오프라인 캐시하며, 개인 데이터는 캐시하지 않습니다. 캐시는 network-first 방식이라 온라인일 때는 항상 최신 버전을 불러오고, 오프라인일 때만 캐시된 버전을 사용합니다.
+
+GitHub Pages와 Firebase Hosting은 서로 다른 주소이므로 브라우저 저장소와 홈화면 PWA 설치 상태가 분리됩니다. Google 로그인 사용자는 클라우드 동기화로 데이터를 복구할 수 있고, 비로그인 사용자는 전환 전에 JSON 백업을 내보내야 합니다.
 
 ## JSON 백업/복원
 
@@ -89,13 +111,13 @@ npm run dev
 - 백업에는 카드 순서, 카드별 설정, 월/연 실적, 혜택 사용내역, 메모, 포인트 가치, 마지막 백업일이 포함됩니다.
 - Google 로그인 시 실적·혜택 사용내역 등 **값을 입력·변경할 때** 데이터가 클라우드(Firebase)에도 자동 동기화됩니다. 화면 이동 등 보기 상태는 기기별로 따로 동작합니다.
 
-iPhone Safari의 GitHub Pages 접속 환경에서는 JSON 내보내기/불러오기가 가능합니다. 내보낸 파일은 보통 `파일` 앱의 다운로드 위치에 저장되고, 복원할 때는 설정 화면의 불러오기 버튼으로 해당 JSON 파일을 선택하면 됩니다.
+iPhone Safari의 HTTPS 배포 주소 접속 환경에서는 JSON 내보내기/불러오기가 가능합니다. 내보낸 파일은 보통 `파일` 앱의 다운로드 위치에 저장되고, 복원할 때는 설정 화면의 불러오기 버튼으로 해당 JSON 파일을 선택하면 됩니다.
 
 데이터 이동 시나리오:
 
 1. 현재 스마트폰에서 JSON 내보내기
 2. 백업 JSON 파일을 새 스마트폰으로 이동
-3. 새 스마트폰에서 GitHub Pages 주소 접속
+3. 새 스마트폰에서 Firebase Hosting 주소 접속
 4. 설정 화면에서 JSON 불러오기 실행
 5. 기존 카드 설정과 혜택 사용내역 복원 확인
 
@@ -124,9 +146,11 @@ iPhone Safari의 GitHub Pages 접속 환경에서는 JSON 내보내기/불러오
 - 서비스워커: `public/sw.js`
 - 단일 HTML 생성: `tools/build-single.mjs`
 - GitHub Pages용 index 생성: `tools/build-pages.mjs`
+- Firebase Hosting용 이미지 복사: `tools/prepare-hosting-build.mjs`
 - 변경 이력(최신 기준 요약): `CHANGELOG.md`
 - 로드맵: `docs/ROADMAP.md`
 - Firebase 클라우드 동기화 적용 계획: `docs/FIREBASE_SYNC_PLAN.md`
+- Firebase Hosting 전환 계획: `docs/FIREBASE_HOSTING_MIGRATION_PLAN.md`
 
 > 이어서 개발할 때는 `CHANGELOG.md` 최상단에 최신 변경을 추가해 주세요. Codex/Claude가 최신 기준을 참고해 연속 작업할 수 있습니다.
 
@@ -174,7 +198,7 @@ iPhone Safari의 GitHub Pages 접속 환경에서는 JSON 내보내기/불러오
 설치형 PWA(매니페스트, 서비스워커, 오프라인 캐시)는 이번 버전에서 지원합니다. 아직 아래 기능은 구현하지 않습니다.
 
 - Android WebView/APK 패키징
-- NAS 동기화 또는 클라우드 동기화
+- NAS 동기화
 - 암호화 원격 백업
 - 추천 엔진 점수 가중치 사용자 설정
 
