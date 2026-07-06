@@ -32,6 +32,7 @@ const firebaseJson = JSON.parse(readFileSync(new URL('../firebase.json', import.
 const firebaseRc = JSON.parse(readFileSync(new URL('../.firebaserc', import.meta.url), 'utf8'));
 const hostingBuildSource = readFileSync(new URL('../tools/prepare-hosting-build.mjs', import.meta.url), 'utf8');
 const firebaseHostingWorkflow = readFileSync(new URL('../.github/workflows/firebase-hosting.yml', import.meta.url), 'utf8');
+const githubPagesWorkflow = readFileSync(new URL('../.github/workflows/pages.yml', import.meta.url), 'utf8');
 
 function card(id) {
   const item = CARDS.find((candidate) => candidate.id === id);
@@ -553,6 +554,8 @@ assert.ok(firebaseHostingWorkflow.includes('FIREBASE_SERVICE_ACCOUNT_CARDFIT_EE4
 assert.ok(firebaseHostingWorkflow.includes('npm run audit:check'), 'Firebase Hosting workflow runs audit before deploy');
 assert.ok(firebaseHostingWorkflow.includes('npm run build:hosting'), 'Firebase Hosting workflow builds hosting target');
 assert.ok(mainSource.includes('Firebase Hosting 주소를 브라우저에서 열어 사용합니다.'), 'settings storage guide references Firebase Hosting');
+assert.ok(githubPagesWorkflow.includes('workflow_dispatch:'), 'GitHub Pages workflow remains available manually');
+assert.ok(!githubPagesWorkflow.includes('push:'), 'GitHub Pages workflow does not auto-deploy on push');
 console.log('ok - Firebase Hosting migration settings are preserved');
 
 console.log('audit-check passed');

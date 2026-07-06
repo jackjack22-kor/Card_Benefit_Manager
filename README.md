@@ -11,7 +11,7 @@ https://cardfit-ee4b5.web.app/
 https://cardfit-ee4b5.firebaseapp.com/
 ```
 
-기존 GitHub Pages 주소는 Firebase Hosting 전환 검증 기간 동안 병행 운영합니다.
+기존 GitHub Pages 주소는 임시 fallback으로만 남겨두며, 자동 배포는 중단했습니다.
 
 ```text
 https://jackjack22-kor.github.io/Card_Benefit_Manager/
@@ -51,14 +51,14 @@ firebase deploy --only hosting
 
 GitHub Actions 자동 배포를 사용하려면 저장소 secret `FIREBASE_SERVICE_ACCOUNT_CARDFIT_EE4B5`를 추가해야 합니다. secret이 없으면 Firebase Hosting 워크플로는 빌드까지만 실행하고 배포 단계는 건너뜁니다.
 
-## GitHub Pages 배포
+## GitHub Pages 수동 배포
 
-기존 GitHub Pages 배포는 Firebase Hosting 검증 기간 동안 병행 운영합니다.
+기존 GitHub Pages 배포는 Firebase Hosting 전환 이후 자동 실행하지 않습니다. 필요할 때만 Actions에서 수동으로 실행하는 fallback입니다.
 
 1. GitHub 저장소에 `main` 브랜치를 push합니다.
 2. GitHub 저장소에서 `Settings` > `Pages`로 이동합니다.
 3. `Build and deployment`의 `Source`를 `GitHub Actions`로 선택합니다.
-4. `Actions` 탭에서 `Deploy GitHub Pages` 워크플로가 성공했는지 확인합니다.
+4. `Actions` 탭에서 `Manual Deploy GitHub Pages` 워크플로를 수동 실행하고 성공했는지 확인합니다.
 5. `https://jackjack22-kor.github.io/Card_Benefit_Manager/` 주소로 접속합니다.
 
 워크플로는 `npm ci` 후 `npm run build:pages`를 실행하고, `dist` 폴더 전체(단일 HTML, 아이콘, 매니페스트, 서비스워커)를 Pages에 올립니다. `dist/index.html`은 단일 HTML 빌드 결과인 `dist/card-benefit-manager.html`을 복사해 생성합니다.

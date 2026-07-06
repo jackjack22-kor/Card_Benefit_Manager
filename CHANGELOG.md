@@ -5,6 +5,11 @@
 
 ## 2026-07-06
 
+### GitHub Pages 자동 배포 중단
+- **Pages 자동 배포 비활성화**: Firebase Hosting 전환 이후 최신 운영 주소가 둘로 갈라지는 혼선을 막기 위해 `.github/workflows/pages.yml`의 `push main` 트리거를 제거하고, GitHub Pages 배포는 `workflow_dispatch` 수동 실행 전용 fallback으로 변경.
+- **문서 정리**: README와 Firebase Hosting 전환 계획서에서 GitHub Pages를 자동 병행 운영이 아닌 수동 fallback으로 설명하도록 갱신.
+- **감사 테스트 보강**: GitHub Pages workflow가 수동 실행만 남기고 `push` 자동 배포를 갖지 않는지 `npm run audit:check`에서 검증하도록 추가.
+
 ### 월 실적 목표 관리안함 동기화 원복 방지
 - **월 실적 목표 필드 타임스탬프 추가**: 카드 상세설정에서 월 실적 목표를 변경할 때 `monthlyTargetUpdatedAt`을 기록해, `관리 안 함(0원)`처럼 기본값과 다른 명시 설정이 클라우드 병합 중 예전 기본 목표로 되돌아가지 않도록 보강.
 - **클라우드 병합 보강**: `cardOverrides` 병합 시 전체 state의 `updatedAt`만 보지 않고 월 실적 목표는 필드 단위 변경 시각을 우선 비교하도록 변경. 메리어트 베스트처럼 기본 30만원이 있는 카드를 `관리 안 함`으로 바꾼 경우 원격의 오래된 30만원 값에 밀리지 않게 처리.

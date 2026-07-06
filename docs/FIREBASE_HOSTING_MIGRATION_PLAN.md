@@ -43,7 +43,7 @@ Auth 유지 문제가 계속 재현되면 별도 작업으로 `src/lib/sync/fire
 3. GitHub secret을 추가한 뒤 GitHub Actions로 Firebase Hosting 배포
 4. `web.app` / `firebaseapp.com` 주소에서 로그인, 동기화, PWA 설치, iOS/Android 동작 확인
 5. 문제가 없으면 README와 앱 안내에서 Firebase Hosting을 최종 기본 주소로 확정
-6. 기존 GitHub Pages는 안내용으로 잠시 유지하거나 수동 배포로 전환
+6. 기존 GitHub Pages는 자동 배포를 중단하고 필요할 때만 수동 fallback으로 유지
 
 ## 사용자가 해야 할 Firebase 설정
 
@@ -102,7 +102,7 @@ firebase deploy --only firestore:rules
 | PWA 재설치 필요 | 홈화면 아이콘이 기존 Pages URL을 계속 열 수 있음 | Firebase URL에서 새로 홈 화면 추가 |
 | Auth 허용 도메인 누락 | Google 로그인 실패 또는 리다이렉트 실패 | `web.app`, `firebaseapp.com`, 병행 기간의 GitHub Pages 도메인 등록 |
 | 서비스워커 캐시 | 구버전 앱이 남아 보일 수 있음 | `/`, `index.html`, `sw.js`를 no-cache로 설정 |
-| dual hosting drift | Pages와 Firebase 중 어느 URL이 최신인지 혼란 | Firebase 검증 후 README 권장 주소 전환, Pages는 수동/안내용으로 정리 |
+| dual hosting drift | Pages와 Firebase 중 어느 URL이 최신인지 혼란 | Firebase Hosting을 기본 주소로 쓰고, Pages 자동 배포는 끈 상태에서 수동 fallback으로만 유지 |
 | GitHub secret 누락 | Actions에서 배포가 실행되지 않음 | workflow가 빌드 성공 후 deploy skip 메시지를 출력하도록 구성 |
 | Firebase 무료 한도 | 개인 사용량에서는 문제 가능성이 낮음 | Hosting 전송량과 Firestore 읽기/쓰기 사용량을 Firebase Usage에서 주기 확인 |
 
@@ -128,4 +128,4 @@ firebase deploy --only firestore:rules
 - iOS/Android 홈화면 PWA 진입 성공
 - 주요 화면 카드 이미지와 서비스워커 캐시 정상
 - GitHub Actions Firebase Hosting 워크플로 성공
-- 기존 GitHub Pages와 Firebase Hosting 중 최신본 혼선이 없음
+- 기존 GitHub Pages 자동 배포가 중단되어 Firebase Hosting이 유일한 최신 운영 주소임

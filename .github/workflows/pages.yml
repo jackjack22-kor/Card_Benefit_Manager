@@ -1,9 +1,6 @@
-name: Deploy GitHub Pages
+name: Manual Deploy GitHub Pages
 
 on:
-  push:
-    branches:
-      - main
   workflow_dispatch:
 
 permissions:
