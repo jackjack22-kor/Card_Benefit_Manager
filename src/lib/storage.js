@@ -10,6 +10,7 @@ const MONTHLY_TARGET_MIGRATIONS = {
   'kb-talktalk-my-point': 200000,
   'shinhan-always-on': 10000
 };
+const UNMANAGED_MONTHLY_TARGET_REPAIRS = new Set(['marriott-best-shinhan']);
 const VALID_TABS = new Set(['dashboard', 'cards', 'recommend', 'settings']);
 const CATEGORY_IDS = new Set(CATEGORIES.map((item) => item.id));
 const POINT_KEYS = new Set(Object.keys(POINT_DEFAULTS));
@@ -40,6 +41,7 @@ export function createInitialState() {
       prevMonthStatus: 'met',
       currentMonthSpend: 0,
       monthlyTarget: card.defaultMonthlyTarget || 0,
+      monthlyTargetUserSet: false,
       annualSpend: 0,
       annualTarget: card.annualTargets?.[0] || 0,
       cycle: {
@@ -126,15 +128,33 @@ export function migrateState(state) {
   merged.cardOrder = [...new Set([...(state.cardOrder || []), ...base.cardOrder])].filter((id) => known.has(id));
   merged.hiddenCardIds = sanitizeCardIdList([...(state.hiddenCardIds || []), ...newlyIntroducedDefaultHidden], known);
   for (const card of CARDS) {
+    const importedOverride = importedCardSettings?.[card.id] || {};
+    const hasImportedMonthlyTarget = Object.prototype.hasOwnProperty.call(importedOverride, 'monthlyTarget');
+    const monthlyTarget = Object.prototype.hasOwnProperty.call(merged.cardOverrides[card.id] || {}, 'monthlyTarget')
+      ? Number(merged.cardOverrides[card.id]?.monthlyTarget || 0)
+      : Number(base.cardOverrides[card.id]?.monthlyTarget || 0);
+    const defaultMonthlyTarget = Number(card.defaultMonthlyTarget || 0);
+    const monthlyTargetUpdatedAt = String(merged.cardOverrides[card.id]?.monthlyTargetUpdatedAt || '');
+    const monthlyTargetUserSet = merged.cardOverrides[card.id]?.monthlyTargetUserSet === true
+      || Boolean(monthlyTargetUpdatedAt)
+      || (hasImportedMonthlyTarget && monthlyTarget !== defaultMonthlyTarget);
+    const repairUnmanagedTarget = UNMANAGED_MONTHLY_TARGET_REPAIRS.has(card.id)
+      && hasImportedMonthlyTarget
+      && !monthlyTargetUserSet
+      && monthlyTarget === defaultMonthlyTarget
+      && defaultMonthlyTarget > 0;
+    const normalizedMonthlyTarget = repairUnmanagedTarget ? 0 : monthlyTarget;
+    const normalizedMonthlyTargetUpdatedAt = repairUnmanagedTarget
+      ? (monthlyTargetUpdatedAt || new Date().toISOString())
+      : monthlyTargetUpdatedAt;
     merged.cardOverrides[card.id] = {
       ...base.cardOverrides[card.id],
       ...(merged.cardOverrides[card.id] || {}),
       prevMonthStatus: normalizePrevMonthStatus(merged.cardOverrides[card.id]?.prevMonthStatus),
       currentMonthSpend: Number(merged.cardOverrides[card.id]?.currentMonthSpend || 0),
-      monthlyTarget: Object.prototype.hasOwnProperty.call(merged.cardOverrides[card.id] || {}, 'monthlyTarget')
-        ? Number(merged.cardOverrides[card.id]?.monthlyTarget || 0)
-        : Number(base.cardOverrides[card.id]?.monthlyTarget || 0),
-      monthlyTargetUpdatedAt: String(merged.cardOverrides[card.id]?.monthlyTargetUpdatedAt || ''),
+      monthlyTarget: normalizedMonthlyTarget,
+      monthlyTargetUserSet: monthlyTargetUserSet || repairUnmanagedTarget,
+      monthlyTargetUpdatedAt: normalizedMonthlyTargetUpdatedAt,
       annualSpend: Number(merged.cardOverrides[card.id]?.annualSpend || 0),
       annualTarget: Number(merged.cardOverrides[card.id]?.annualTarget || base.cardOverrides[card.id]?.annualTarget || 0),
       cycle: {
@@ -149,6 +169,8 @@ export function migrateState(state) {
     for (const [cardId, target] of Object.entries(MONTHLY_TARGET_MIGRATIONS)) {
       if (Number(merged.cardOverrides[cardId]?.monthlyTarget || 0) === 0) {
         merged.cardOverrides[cardId].monthlyTarget = target;
+        merged.cardOverrides[cardId].monthlyTargetUserSet = true;
+        merged.cardOverrides[cardId].monthlyTargetUpdatedAt = merged.cardOverrides[cardId].monthlyTargetUpdatedAt || new Date().toISOString();
       }
     }
   }

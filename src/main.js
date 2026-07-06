@@ -96,6 +96,7 @@ function persistState(nextState) {
 function updateCard(cardId, patch) {
   const nextPatch = { ...patch };
   if (Object.prototype.hasOwnProperty.call(nextPatch, 'monthlyTarget')) {
+    nextPatch.monthlyTargetUserSet = true;
     nextPatch.monthlyTargetUpdatedAt = new Date().toISOString();
   }
   const next = {

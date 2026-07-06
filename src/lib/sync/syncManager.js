@@ -209,8 +209,7 @@ function subscribeCloud(uid) {
     try {
       const incomingState = migrateState(data.state);
       const localState = callbacks.getState();
-      const shouldProtectLocal = Boolean(saveTimer) || timestamp(localState.updatedAt) > timestamp(incomingState.updatedAt);
-      const nextState = shouldProtectLocal ? mergeStates(localState, incomingState) : incomingState;
+      const nextState = mergeStates(localState, incomingState);
       lastAppliedRevision = revision;
       lastSyncedState = incomingState;
       const remoteState = withSyncMeta(nextState, {
@@ -423,9 +422,7 @@ function hasMeaningfulData(state) {
 }
 
 function hasMeaningfulCardOverride(cardId, override = {}) {
-  const card = CARDS.find((item) => item.id === cardId);
-  const defaultMonthlyTarget = Number(card?.defaultMonthlyTarget || 0);
-  if (Object.prototype.hasOwnProperty.call(override, 'monthlyTarget') && Number(override.monthlyTarget || 0) !== defaultMonthlyTarget) return true;
+  if (isExplicitMonthlyTarget(cardId, override)) return true;
   if (Number(override.currentMonthSpend || 0) > 0) return true;
   if (Number(override.annualSpend || 0) > 0) return true;
   if (Boolean(override.memo)) return true;
@@ -437,23 +434,49 @@ function mergeCardOverrides(base = {}, overlay = {}) {
   for (const cardId of new Set([...Object.keys(base || {}), ...Object.keys(overlay || {})])) {
     const baseCard = base?.[cardId] || {};
     const overlayCard = overlay?.[cardId] || {};
+    const baseExplicit = isExplicitMonthlyTarget(cardId, baseCard);
+    const overlayExplicit = isExplicitMonthlyTarget(cardId, overlayCard);
     const baseMonthlyTargetTime = timestamp(baseCard.monthlyTargetUpdatedAt);
     const overlayMonthlyTargetTime = timestamp(overlayCard.monthlyTargetUpdatedAt);
-    if (baseMonthlyTargetTime > overlayMonthlyTargetTime && Object.prototype.hasOwnProperty.call(baseCard, 'monthlyTarget')) {
+    if (baseExplicit && !overlayExplicit && Object.prototype.hasOwnProperty.call(baseCard, 'monthlyTarget')) {
       output[cardId] = {
         ...(output[cardId] || {}),
         monthlyTarget: baseCard.monthlyTarget,
+        monthlyTargetUserSet: true,
         monthlyTargetUpdatedAt: baseCard.monthlyTargetUpdatedAt || ''
       };
-    } else if (overlayMonthlyTargetTime > baseMonthlyTargetTime && Object.prototype.hasOwnProperty.call(overlayCard, 'monthlyTarget')) {
+    } else if (overlayExplicit && !baseExplicit && Object.prototype.hasOwnProperty.call(overlayCard, 'monthlyTarget')) {
       output[cardId] = {
         ...(output[cardId] || {}),
         monthlyTarget: overlayCard.monthlyTarget,
+        monthlyTargetUserSet: true,
+        monthlyTargetUpdatedAt: overlayCard.monthlyTargetUpdatedAt || ''
+      };
+    } else if (baseExplicit && overlayExplicit && baseMonthlyTargetTime > overlayMonthlyTargetTime && Object.prototype.hasOwnProperty.call(baseCard, 'monthlyTarget')) {
+      output[cardId] = {
+        ...(output[cardId] || {}),
+        monthlyTarget: baseCard.monthlyTarget,
+        monthlyTargetUserSet: true,
+        monthlyTargetUpdatedAt: baseCard.monthlyTargetUpdatedAt || ''
+      };
+    } else if (baseExplicit && overlayExplicit && overlayMonthlyTargetTime > baseMonthlyTargetTime && Object.prototype.hasOwnProperty.call(overlayCard, 'monthlyTarget')) {
+      output[cardId] = {
+        ...(output[cardId] || {}),
+        monthlyTarget: overlayCard.monthlyTarget,
+        monthlyTargetUserSet: true,
         monthlyTargetUpdatedAt: overlayCard.monthlyTargetUpdatedAt || ''
       };
     }
   }
   return output;
+}
+
+function isExplicitMonthlyTarget(cardId, override = {}) {
+  if (!Object.prototype.hasOwnProperty.call(override, 'monthlyTarget')) return false;
+  if (override.monthlyTargetUserSet === true) return true;
+  if (override.monthlyTargetUpdatedAt) return true;
+  const card = CARDS.find((item) => item.id === cardId);
+  return Number(override.monthlyTarget || 0) !== Number(card?.defaultMonthlyTarget || 0);
 }
 
 function deepMerge(base, overlay) {

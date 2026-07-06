@@ -143,8 +143,12 @@ assertContainsInOrder(lazyQueueCloudSaveBody, ['pendingSave = true;', 'markPendi
 assert.ok(syncManagerSource.includes('let authSettled = false'), 'sync manager tracks auth readiness before dropping unauthenticated saves');
 assertContainsInOrder(managerQueueCloudSaveBody, ['if (!currentUser)', 'markPendingCloudSave();', 'return;', 'markPendingCloudSave();'], 'save without a current user is retained for later login recovery');
 assert.ok(syncManagerSource.includes('function mergeCardOverrides'), 'sync merge preserves card settings with field-level merge logic');
+assert.ok(syncManagerSource.includes('function isExplicitMonthlyTarget'), 'sync merge distinguishes explicit monthly targets from catalog defaults');
 assert.ok(syncManagerSource.includes('monthlyTargetUpdatedAt'), 'monthly target changes carry a field-level timestamp for cloud merge');
+assert.ok(syncManagerSource.includes('monthlyTargetUserSet'), 'monthly target changes carry an explicit user-set flag');
+assert.ok(syncManagerSource.includes('const nextState = mergeStates(localState, incomingState);'), 'remote snapshots always pass through merge logic');
 assert.ok(syncManagerSource.includes("import { CARDS } from '../../data/cards.js'"), 'sync manager can compare card override settings against card defaults');
+assert.ok(mainSource.includes('nextPatch.monthlyTargetUserSet = true;'), 'monthly target edits mark the target as user-set');
 assert.ok(mainSource.includes('nextPatch.monthlyTargetUpdatedAt = new Date().toISOString();'), 'monthly target edits record a field-level timestamp');
 assert.ok(firebaseClientSource.includes('const persistenceReady = setPersistence(auth, browserLocalPersistence)'), 'auth persistence setup is tracked instead of being silently ignored');
 assertContainsInOrder(managerSignInBody, ['await services.persistenceReady', 'new GoogleAuthProvider()'], 'manual Google sign-in waits for local auth persistence setup');
@@ -464,7 +468,29 @@ const migratedMarriottBestUnmanaged = migrateState({
   monthlyCardUsage: { [MONTH]: {} }
 });
 assertEqual(migratedMarriottBestUnmanaged.cardOverrides['marriott-best-shinhan'].monthlyTarget, 0, 'migrated Marriott Best unmanaged target remains zero');
+assertEqual(migratedMarriottBestUnmanaged.cardOverrides['marriott-best-shinhan'].monthlyTargetUserSet, true, 'migrated Marriott Best unmanaged target is treated as user-set');
 assertEqual(migratedMarriottBestUnmanaged.cardOverrides['marriott-best-shinhan'].monthlyTargetUpdatedAt, '2026-07-06T12:00:00.000Z', 'migrated Marriott Best monthly target timestamp is preserved');
+const migratedMarriottBestStaleDefault = migrateState({
+  schemaVersion: '2.0.1',
+  cardOverrides: {
+    'marriott-best-shinhan': {
+      monthlyTarget: 300000
+    }
+  },
+  monthlyCardUsage: { [MONTH]: {} }
+});
+assertEqual(migratedMarriottBestStaleDefault.cardOverrides['marriott-best-shinhan'].monthlyTarget, 0, 'legacy Marriott Best stale default is repaired to unmanaged');
+assertEqual(migratedMarriottBestStaleDefault.cardOverrides['marriott-best-shinhan'].monthlyTargetUserSet, true, 'legacy Marriott Best repair is treated as user-set');
+const migratedAceCatalogDefault = migrateState({
+  schemaVersion: '2.0.1',
+  cardOverrides: {
+    'shinhan-ace-blue': {
+      monthlyTarget: 300000
+    }
+  },
+  monthlyCardUsage: { [MONTH]: {} }
+});
+assertEqual(migratedAceCatalogDefault.cardOverrides['shinhan-ace-blue'].monthlyTargetUserSet, false, 'catalog default monthly target is not treated as a user-set card setting');
 assertEqual(hasPrevMonthRequirement(card('kb-skypass-platinum'), getCardOverride(baseState(), 'kb-skypass-platinum')), false, 'zero-target card is not treated as prev-month achievement managed');
 assert.ok(mainSource.includes('전월실적 무관'), 'dashboard has neutral prev-month label for unmanaged cards');
 console.log('ok - dashboard has neutral prev-month label for unmanaged cards');
