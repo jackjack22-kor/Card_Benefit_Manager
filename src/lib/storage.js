@@ -134,6 +134,7 @@ export function migrateState(state) {
       monthlyTarget: Object.prototype.hasOwnProperty.call(merged.cardOverrides[card.id] || {}, 'monthlyTarget')
         ? Number(merged.cardOverrides[card.id]?.monthlyTarget || 0)
         : Number(base.cardOverrides[card.id]?.monthlyTarget || 0),
+      monthlyTargetUpdatedAt: String(merged.cardOverrides[card.id]?.monthlyTargetUpdatedAt || ''),
       annualSpend: Number(merged.cardOverrides[card.id]?.annualSpend || 0),
       annualTarget: Number(merged.cardOverrides[card.id]?.annualTarget || base.cardOverrides[card.id]?.annualTarget || 0),
       cycle: {

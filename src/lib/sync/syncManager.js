@@ -1,5 +1,6 @@
 import { GoogleAuthProvider, getRedirectResult, onAuthStateChanged, signInWithPopup, signInWithRedirect, signOut } from 'firebase/auth';
 import { doc, getDoc, onSnapshot, runTransaction, serverTimestamp } from 'firebase/firestore';
+import { CARDS } from '../../data/cards.js';
 import { migrateState } from '../storage.js';
 import { getFirebaseServices, isFirebaseConfigured } from './firebaseClient.js';
 
@@ -121,7 +122,7 @@ export async function requestCloudSignOut() {
 export function queueCloudSave(state) {
   if (!services || savingRemote) return;
   if (!currentUser) {
-    if (!authSettled) markPendingCloudSave();
+    markPendingCloudSave();
     return;
   }
   markPendingCloudSave();
@@ -330,7 +331,7 @@ function mergeStates(localState, cloudState) {
     },
     cardOrder: mergeOrder(primary.cardOrder, secondary.cardOrder),
     hiddenCardIds: Array.isArray(primary.hiddenCardIds) ? primary.hiddenCardIds : (secondary.hiddenCardIds || []),
-    cardOverrides: deepMerge(secondary.cardOverrides || {}, primary.cardOverrides || {}),
+    cardOverrides: mergeCardOverrides(secondary.cardOverrides || {}, primary.cardOverrides || {}),
     monthlyCardUsage: deepMerge(secondary.monthlyCardUsage || {}, primary.monthlyCardUsage || {}),
     usage: deepMerge(secondary.usage || {}, primary.usage || {}),
     notes: deepMerge(secondary.notes || {}, primary.notes || {}),
@@ -418,7 +419,41 @@ function hasMeaningfulData(state) {
   if (Object.keys(state.notes || {}).length) return true;
   if (Array.isArray(state.hiddenCardIds) && state.hiddenCardIds.length > 0) return true;
   if (Object.values(state.monthlyCardUsage || {}).some((month) => Object.values(month || {}).some((item) => Number(item.currentMonthSpend || 0) > 0 || item.prevMonthStatus === 'unmet' || item.prevMonthStatus === 'manual'))) return true;
-  return Object.values(state.cardOverrides || {}).some((card) => Number(card.currentMonthSpend || 0) > 0 || Number(card.annualSpend || 0) > 0 || Boolean(card.memo));
+  return Object.entries(state.cardOverrides || {}).some(([cardId, override]) => hasMeaningfulCardOverride(cardId, override));
+}
+
+function hasMeaningfulCardOverride(cardId, override = {}) {
+  const card = CARDS.find((item) => item.id === cardId);
+  const defaultMonthlyTarget = Number(card?.defaultMonthlyTarget || 0);
+  if (Object.prototype.hasOwnProperty.call(override, 'monthlyTarget') && Number(override.monthlyTarget || 0) !== defaultMonthlyTarget) return true;
+  if (Number(override.currentMonthSpend || 0) > 0) return true;
+  if (Number(override.annualSpend || 0) > 0) return true;
+  if (Boolean(override.memo)) return true;
+  return false;
+}
+
+function mergeCardOverrides(base = {}, overlay = {}) {
+  const output = deepMerge(base, overlay);
+  for (const cardId of new Set([...Object.keys(base || {}), ...Object.keys(overlay || {})])) {
+    const baseCard = base?.[cardId] || {};
+    const overlayCard = overlay?.[cardId] || {};
+    const baseMonthlyTargetTime = timestamp(baseCard.monthlyTargetUpdatedAt);
+    const overlayMonthlyTargetTime = timestamp(overlayCard.monthlyTargetUpdatedAt);
+    if (baseMonthlyTargetTime > overlayMonthlyTargetTime && Object.prototype.hasOwnProperty.call(baseCard, 'monthlyTarget')) {
+      output[cardId] = {
+        ...(output[cardId] || {}),
+        monthlyTarget: baseCard.monthlyTarget,
+        monthlyTargetUpdatedAt: baseCard.monthlyTargetUpdatedAt || ''
+      };
+    } else if (overlayMonthlyTargetTime > baseMonthlyTargetTime && Object.prototype.hasOwnProperty.call(overlayCard, 'monthlyTarget')) {
+      output[cardId] = {
+        ...(output[cardId] || {}),
+        monthlyTarget: overlayCard.monthlyTarget,
+        monthlyTargetUpdatedAt: overlayCard.monthlyTargetUpdatedAt || ''
+      };
+    }
+  }
+  return output;
 }
 
 function deepMerge(base, overlay) {

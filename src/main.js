@@ -94,14 +94,18 @@ function persistState(nextState) {
 }
 
 function updateCard(cardId, patch) {
+  const nextPatch = { ...patch };
+  if (Object.prototype.hasOwnProperty.call(nextPatch, 'monthlyTarget')) {
+    nextPatch.monthlyTargetUpdatedAt = new Date().toISOString();
+  }
   const next = {
     ...state,
     cardOverrides: {
       ...state.cardOverrides,
       [cardId]: {
         ...(state.cardOverrides[cardId] || {}),
-        ...patch,
-        cycle: { ...(state.cardOverrides[cardId]?.cycle || {}), ...(patch.cycle || {}) }
+        ...nextPatch,
+        cycle: { ...(state.cardOverrides[cardId]?.cycle || {}), ...(nextPatch.cycle || {}) }
       }
     }
   };

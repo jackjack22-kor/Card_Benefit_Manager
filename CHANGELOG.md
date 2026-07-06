@@ -5,6 +5,13 @@
 
 ## 2026-07-06
 
+### 월 실적 목표 관리안함 동기화 원복 방지
+- **월 실적 목표 필드 타임스탬프 추가**: 카드 상세설정에서 월 실적 목표를 변경할 때 `monthlyTargetUpdatedAt`을 기록해, `관리 안 함(0원)`처럼 기본값과 다른 명시 설정이 클라우드 병합 중 예전 기본 목표로 되돌아가지 않도록 보강.
+- **클라우드 병합 보강**: `cardOverrides` 병합 시 전체 state의 `updatedAt`만 보지 않고 월 실적 목표는 필드 단위 변경 시각을 우선 비교하도록 변경. 메리어트 베스트처럼 기본 30만원이 있는 카드를 `관리 안 함`으로 바꾼 경우 원격의 오래된 30만원 값에 밀리지 않게 처리.
+- **로그인 경계 저장 보존**: Firebase 런타임은 로드됐지만 현재 사용자가 아직 없는 상태에서도 데이터 변경을 pending cloud save로 남기도록 변경해, 로그인 복구 직전/직후 카드 설정 변경이 클라우드 저장 큐에서 빠지는 문제를 줄임.
+- **의미 있는 카드 설정 판단 보강**: 월 실적 목표가 카드 기본값과 다르면 실사용 금액이 없어도 의미 있는 로컬 데이터로 간주해 첫 병합 때 원격 기본값에 쉽게 덮이지 않도록 개선.
+- **회귀 테스트 추가**: 메리어트 베스트 `monthlyTarget: 0`과 `monthlyTargetUpdatedAt`이 마이그레이션 후에도 유지되는지, 동기화 병합 코드가 필드 단위 타임스탬프를 사용하는지 `npm run audit:check`에서 검증.
+
 ### Firebase Hosting 전환 준비
 - **Hosting 설정 추가**: `.firebaserc`와 `firebase.json`을 추가해 기본 프로젝트를 `cardfit-ee4b5`로 고정하고, Firebase Hosting site/public 디렉터리, SPA rewrite, 서비스워커/HTML no-cache, hashed asset 장기 캐시 정책을 정의.
 - **Hosting 전용 빌드 추가**: `build:hosting` 스크립트와 `tools/prepare-hosting-build.mjs`를 추가해 일반 Vite 번들을 Firebase Hosting에 배포하되, 앱이 참조하는 `image/clean` 카드 이미지는 `dist`로 복사되도록 구성.
