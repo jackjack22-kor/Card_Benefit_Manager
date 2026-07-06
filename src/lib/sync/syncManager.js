@@ -23,6 +23,7 @@ let initialized = false;
 let lastAppliedRevision = 0;
 let lastSyncedState = null;
 let savingRemote = false;
+let authSettled = false;
 
 let syncStatus = {
   configured: isFirebaseConfigured(),
@@ -49,17 +50,19 @@ export function initSync(nextCallbacks) {
     return;
   }
 
-  getRedirectResult(services.auth).catch(() => {});
+  const startAuthListener = () => {
+    getRedirectResult(services.auth).catch(() => {});
 
-  onAuthStateChanged(services.auth, async (user) => {
-    currentUser = user;
-    clearCloudSubscription();
-    if (!user) {
-      lastAppliedRevision = 0;
-      lastSyncedState = null;
+    onAuthStateChanged(services.auth, async (user) => {
+      authSettled = true;
+      currentUser = user;
+      clearCloudSubscription();
+      if (!user) {
+        lastAppliedRevision = 0;
+        lastSyncedState = null;
       publish({ state: 'signed-out', user: null, message: '로그인하지 않음: 이 기기에만 저장됩니다.' });
-      return;
-    }
+        return;
+      }
 
     publish({
       state: 'loading',
@@ -79,11 +82,24 @@ export function initSync(nextCallbacks) {
       });
     }
   });
+  };
+
+  (services.persistenceReady || Promise.resolve())
+    .catch((error) => {
+      publish({
+        state: 'error',
+        user: null,
+        message: '로그인 저장소를 준비하지 못했습니다.',
+        error: error.message || String(error)
+      });
+    })
+    .finally(startAuthListener);
 }
 
 export async function requestCloudSignIn() {
   services = services || getFirebaseServices();
   if (!services) return;
+  await services.persistenceReady;
   const provider = new GoogleAuthProvider();
   try {
     await signInWithPopup(services.auth, provider);
@@ -103,7 +119,11 @@ export async function requestCloudSignOut() {
 }
 
 export function queueCloudSave(state) {
-  if (!currentUser || !services || savingRemote) return;
+  if (!services || savingRemote) return;
+  if (!currentUser) {
+    if (!authSettled) markPendingCloudSave();
+    return;
+  }
   markPendingCloudSave();
   clearTimeout(saveTimer);
   saveTimer = setTimeout(() => {

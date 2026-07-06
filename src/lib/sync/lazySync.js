@@ -1,5 +1,7 @@
 import { isFirebaseConfigured } from './firebaseConfig.js';
 
+const PENDING_SAVE_KEY = 'cardBenefitManager.pendingCloudSave';
+
 let callbacks = {
   getState: () => ({}),
   applyRemoteState: () => {},
@@ -28,7 +30,10 @@ export function initSync(nextCallbacks) {
     publish({ state: 'disabled', message: 'Firebase 설정이 없어 로컬 전용으로 실행 중입니다.' });
     return;
   }
-  publish({ state: 'signed-out', message: '로컬 전용으로 실행 중입니다. 설정에서 Google 로그인하면 클라우드 동기화를 시작합니다.' });
+  publish({ state: 'initializing', message: 'Google 로그인 상태를 확인하는 중입니다.' });
+  queueMicrotask(() => {
+    prepareCloudSync();
+  });
 }
 
 export function prepareCloudSync() {
@@ -51,6 +56,8 @@ export function queueCloudSave(state) {
     return;
   }
   pendingSave = true;
+  markPendingCloudSave();
+  prepareCloudSync();
 }
 
 export async function requestCloudSignIn() {
@@ -98,4 +105,12 @@ function startRuntime(loaded) {
 function publish(patch) {
   status = { ...status, configured: isFirebaseConfigured(), ...patch };
   callbacks.onStatusChange({ ...status });
+}
+
+function markPendingCloudSave() {
+  try {
+    localStorage.setItem(PENDING_SAVE_KEY, new Date().toISOString());
+  } catch {
+    // Best effort only.
+  }
 }

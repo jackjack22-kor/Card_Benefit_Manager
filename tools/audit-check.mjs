@@ -24,6 +24,8 @@ const MONTH = '2026-07';
 const mainSource = readFileSync(new URL('../src/main.js', import.meta.url), 'utf8');
 const stylesSource = readFileSync(new URL('../src/styles.css', import.meta.url), 'utf8');
 const lazySyncSource = readFileSync(new URL('../src/lib/sync/lazySync.js', import.meta.url), 'utf8');
+const syncManagerSource = readFileSync(new URL('../src/lib/sync/syncManager.js', import.meta.url), 'utf8');
+const firebaseClientSource = readFileSync(new URL('../src/lib/sync/firebaseClient.js', import.meta.url), 'utf8');
 const indexHtml = readFileSync(new URL('../index.html', import.meta.url), 'utf8');
 
 function card(id) {
@@ -123,8 +125,19 @@ assertEqual(getOrderedCards(hiddenCardState).some((item) => item.id === 'kb-talk
 assertEqual(recommendCards({ ...hiddenCardState, selectedCategory: 'simplepay', recommendationAmount: 10000 }, 'simplepay', 10000).some((item) => item.card.id === 'kb-talktalk-my-point'), false, 'hidden card is excluded from recommendations');
 assertEqual(getTotalMonthlyBenefitValue(hiddenCardState, getOrderedCards(hiddenCardState), MONTH), 0, 'hidden card is excluded from visible benefit totals');
 assertEqual(getMonthlyShortfall(card('kb-talktalk-my-point'), { monthlyTarget: 200000, currentMonthSpend: 100000 }), 100000, 'monthly shortfall');
+const lazyInitSyncBody = exportedFunctionBody(lazySyncSource, 'initSync');
+const lazyQueueCloudSaveBody = exportedFunctionBody(lazySyncSource, 'queueCloudSave');
+const managerQueueCloudSaveBody = exportedFunctionBody(syncManagerSource, 'queueCloudSave');
+const managerSignInBody = exportedFunctionBody(syncManagerSource, 'requestCloudSignIn');
 assert.ok(!mainSource.includes('./lib/sync/syncManager.js'), 'main entry must not statically import Firebase sync runtime');
 assert.ok(lazySyncSource.includes("import('./syncManager.js')"), 'sync runtime must stay dynamically imported');
+assertContainsInOrder(lazyInitSyncBody, ['queueMicrotask(() =>', 'prepareCloudSync();'], 'sync runtime starts checking auth immediately after app init');
+assert.ok(lazySyncSource.includes("const PENDING_SAVE_KEY = 'cardBenefitManager.pendingCloudSave'"), 'lazy sync layer can persist pending saves before runtime loads');
+assertContainsInOrder(lazyQueueCloudSaveBody, ['pendingSave = true;', 'markPendingCloudSave();', 'prepareCloudSync();'], 'save before runtime load wakes cloud sync and records a durable pending save');
+assert.ok(syncManagerSource.includes('let authSettled = false'), 'sync manager tracks auth readiness before dropping unauthenticated saves');
+assertContainsInOrder(managerQueueCloudSaveBody, ['if (!currentUser)', 'if (!authSettled) markPendingCloudSave();', 'return;', 'markPendingCloudSave();'], 'save before auth settles is retained for login recovery');
+assert.ok(firebaseClientSource.includes('const persistenceReady = setPersistence(auth, browserLocalPersistence)'), 'auth persistence setup is tracked instead of being silently ignored');
+assertContainsInOrder(managerSignInBody, ['await services.persistenceReady', 'new GoogleAuthProvider()'], 'manual Google sign-in waits for local auth persistence setup');
 assert.ok(indexHtml.includes('Content-Security-Policy'), 'index.html must include CSP meta');
 console.log('ok - sync runtime is lazy-loaded and CSP meta exists');
 
@@ -150,6 +163,31 @@ function benefit(cardId, benefitId) {
 
 function assertBenefitValue(state, cardId, benefitId, expected, label) {
   assertEqual(getMonthlyBenefitValueForBenefit(state, card(cardId), benefit(cardId, benefitId), MONTH), expected, label);
+}
+
+function exportedFunctionBody(source, name) {
+  const signatures = [`export function ${name}`, `export async function ${name}`];
+  const start = Math.max(...signatures.map((signature) => source.indexOf(signature)));
+  assert.ok(start >= 0, `Missing exported function: ${name}`);
+  const open = source.indexOf('{', start);
+  assert.ok(open >= 0, `Missing function body: ${name}`);
+  let depth = 0;
+  for (let index = open; index < source.length; index += 1) {
+    const char = source[index];
+    if (char === '{') depth += 1;
+    if (char === '}') depth -= 1;
+    if (depth === 0) return source.slice(open + 1, index);
+  }
+  throw new Error(`Unclosed function body: ${name}`);
+}
+
+function assertContainsInOrder(source, parts, label) {
+  let cursor = 0;
+  for (const part of parts) {
+    const index = source.indexOf(part, cursor);
+    assert.ok(index >= 0, `${label}: missing ${part}`);
+    cursor = index + part.length;
+  }
 }
 
 assertEqual(card('shinhan-ace-blue').benefits[0].id, 'ace-reward-mile', 'Shinhan The ACE Skypass mileage appears first');

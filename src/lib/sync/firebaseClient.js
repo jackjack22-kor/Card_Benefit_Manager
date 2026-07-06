@@ -12,10 +12,9 @@ export function getFirebaseServices() {
   const app = getApps().length ? getApps()[0] : initializeApp(firebaseConfig);
   const auth = getAuth(app);
   const db = getFirestore(app);
+  const persistenceReady = setPersistence(auth, browserLocalPersistence);
 
-  setPersistence(auth, browserLocalPersistence).catch(() => {});
-
-  services = { app, auth, db };
+  services = { app, auth, db, persistenceReady };
   return services;
 }
 

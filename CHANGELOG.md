@@ -3,6 +3,15 @@
 사람이 읽는 변경 요약입니다. 상세 diff는 git 로그를 참고하세요.
 **새 작업을 이어서 할 때는 이 파일 최상단에 최신 변경을 추가**해 항상 최신 기준을 유지하세요. (Codex/Claude 공용 기준 문서)
 
+## 2026-07-06
+
+### Firebase 동기화 자동 시작 및 저장 대기 보강
+- **앱 시작 시 Auth 확인 자동화**: 설정 탭에 들어가야 Firebase 런타임이 켜지던 구조를 보강해, 앱 시작 직후 백그라운드에서 Google 로그인 상태를 확인하도록 변경.
+- **런타임 미로드 저장 유실 방지**: Firebase 모듈이 아직 로드되지 않은 상태에서 사용자가 실적/혜택 값을 입력해도 `pendingCloudSave` marker를 localStorage에 남기고 동기화 런타임을 즉시 깨우도록 보강.
+- **Auth 확인 전 저장 큐 보존**: Firebase 모듈은 로드됐지만 `onAuthStateChanged`가 아직 사용자 상태를 확정하기 전인 구간에서 저장 요청을 조용히 버리지 않고, 로그인 복구 후 flush 가능한 pending 상태로 남김.
+- **Auth persistence 준비 추적**: `browserLocalPersistence` 설정 실패를 조용히 무시하지 않고 Promise로 추적하며, Google 로그인 요청은 persistence 준비 이후 진행하도록 정리.
+- **회귀 테스트 추가**: lazy sync 부트스트랩, pending save marker, auth-settled guard, persistence 준비 대기를 `npm run audit:check`에서 소스 assertion으로 검증.
+
 ## 2026-07-05
 
 ### 삼성 THE 1 AMEX PLATINUM ELITE 혜택 보강
