@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import { existsSync, readFileSync } from 'node:fs';
 import { CARDS, DEFAULT_HIDDEN_CARD_IDS, POINT_DEFAULTS } from '../src/data/cards.js';
+import { PUBLIC_CARD_CATALOG, PUBLIC_CARD_CATALOG_CHECKED_AT, PUBLIC_CARD_CATALOG_STATUSES } from '../src/data/publicCardCatalog.js';
 import { CATEGORIES } from '../src/data/categories.js';
 import {
   getAnnualUsageCount,
@@ -37,12 +38,15 @@ const hostingBuildSource = readFileSync(new URL('../tools/prepare-hosting-build.
 const cloudflareBuildSource = readFileSync(new URL('../tools/prepare-cloudflare-build.mjs', import.meta.url), 'utf8');
 const verifyPublicDistSource = readFileSync(new URL('../tools/verify-public-dist.mjs', import.meta.url), 'utf8');
 const cardSourceReportSource = readFileSync(new URL('../tools/card-source-report.mjs', import.meta.url), 'utf8');
+const cardCatalogReportSource = readFileSync(new URL('../tools/card-catalog-report.mjs', import.meta.url), 'utf8');
+const collectPublicCardCatalogSource = readFileSync(new URL('../tools/collect-public-card-catalog.mjs', import.meta.url), 'utf8');
 const firebaseHostingWorkflow = readFileSync(new URL('../.github/workflows/firebase-hosting.yml', import.meta.url), 'utf8');
 const githubPagesWorkflow = readFileSync(new URL('../.github/workflows/pages.yml', import.meta.url), 'utf8');
 const publicProductImplementationPlan = readFileSync(new URL('../docs/PUBLIC_PRODUCT_IMPLEMENTATION_PLAN.md', import.meta.url), 'utf8');
 const publicDistributionPlan = readFileSync(new URL('../docs/PUBLIC_DISTRIBUTION_PLAN.md', import.meta.url), 'utf8');
 const cardDataResearchGuide = readFileSync(new URL('../docs/CARD_DATA_RESEARCH_GUIDE.md', import.meta.url), 'utf8');
 const cardDataSourceMatrix = readFileSync(new URL('../docs/CARD_DATA_SOURCE_MATRIX.md', import.meta.url), 'utf8');
+const publicCardCatalogCollection = readFileSync(new URL('../docs/PUBLIC_CARD_CATALOG_COLLECTION.md', import.meta.url), 'utf8');
 
 function card(id) {
   const item = CARDS.find((candidate) => candidate.id === id);
@@ -185,6 +189,41 @@ if (unknownCategories.length) {
 console.log(`ok - card catalog data quality gates passed: ${cardIds.size} cards, ${benefitIds.size} benefits`);
 assertEqual(structuredSourceCardIds.size, CARDS.length, 'all cards have structured source metadata');
 
+const publicCatalogIds = new Set();
+const publicCatalogStatuses = new Set(PUBLIC_CARD_CATALOG_STATUSES);
+const publicCatalogProductTypes = new Set(['credit', 'check']);
+const publicCatalogStatusCounts = new Map();
+for (const item of PUBLIC_CARD_CATALOG) {
+  assert.ok(/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(item.id), `public catalog id must be stable kebab-case: ${item.id}`);
+  assert.ok(!publicCatalogIds.has(item.id), `duplicate public catalog id: ${item.id}`);
+  publicCatalogIds.add(item.id);
+  assert.ok(item.issuer, `public catalog issuer is required: ${item.id}`);
+  assert.ok(item.name, `public catalog name is required: ${item.id}`);
+  assert.ok(publicCatalogProductTypes.has(item.productType), `public catalog product type is invalid: ${item.id}`);
+  assert.ok(publicCatalogStatuses.has(item.collectionStatus), `public catalog status is invalid: ${item.id}`);
+  assert.ok(item.imageUrl && /^https:\/\//.test(item.imageUrl), `public catalog image URL must be https: ${item.id}`);
+  assert.ok(item.source?.url && /^https:\/\//.test(item.source.url), `public catalog source URL must be https: ${item.id}`);
+  assert.ok(item.source.checkedAt === PUBLIC_CARD_CATALOG_CHECKED_AT, `public catalog checkedAt must match batch date: ${item.id}`);
+  assert.ok(item.source.note, `public catalog source note is required: ${item.id}`);
+  publicCatalogStatusCounts.set(item.collectionStatus, (publicCatalogStatusCounts.get(item.collectionStatus) || 0) + 1);
+  if (item.collectionStatus === 'official_catalog') {
+    assert.ok(item.issuerProductCode, `official catalog item requires issuer product code: ${item.id}`);
+    assert.ok(item.officialUrl && /^https:\/\//.test(item.officialUrl), `official catalog item requires official URL: ${item.id}`);
+    assert.equal(item.source.type, 'official_issuer_catalog', `official catalog source type is required: ${item.id}`);
+  }
+  if (item.collectionStatus === 'candidate_index') {
+    assert.ok(Number.isInteger(item.cardGorillaId), `candidate index item requires CardGorilla id: ${item.id}`);
+    assert.ok(item.referenceUrl && /^https:\/\//.test(item.referenceUrl), `candidate index item requires reference URL: ${item.id}`);
+    assert.equal(item.source.type, 'third_party_index', `candidate index source type is required: ${item.id}`);
+  }
+}
+assert.ok(PUBLIC_CARD_CATALOG.length >= 1500, 'public catalog must include the large candidate batch');
+assert.ok((publicCatalogStatusCounts.get('official_catalog') || 0) >= 15, 'public catalog must include official KB seed records');
+assert.ok((publicCatalogStatusCounts.get('candidate_index') || 0) >= 1500, 'public catalog must include bulk candidate records');
+assert.ok(PUBLIC_CARD_CATALOG.some((item) => item.id === 'kb-09297' && item.collectionStatus === 'official_catalog'), 'public catalog includes KB WE:SH All+ official seed');
+assert.ok(PUBLIC_CARD_CATALOG.some((item) => item.id === 'cg-crd-13' && item.collectionStatus === 'candidate_index'), 'public catalog includes CardGorilla candidate sample');
+console.log(`ok - public card catalog gates passed: ${PUBLIC_CARD_CATALOG.length} records`);
+
 const hyundaiAmexPlatinum = card('hyundai-amex-platinum');
 assert.equal(hyundaiAmexPlatinum.source.status, 'needs_official_recheck', 'Hyundai Amex keeps structured source recheck status');
 assert.equal(hyundaiAmexPlatinum.source.checkedAt, '2026-07-09', 'Hyundai Amex source check date is tracked');
@@ -235,6 +274,8 @@ assert.ok(packageJson.scripts['build:public'].includes('prepare-cloudflare-build
 assert.ok(packageJson.scripts['build:public'].includes('verify-public-dist.mjs'), 'public build must verify Cloudflare Pages artifacts');
 assert.ok(packageJson.scripts['verify:public']?.includes('verify-public-dist.mjs'), 'public dist verifier must be runnable directly');
 assert.ok(packageJson.scripts['source:report']?.includes('card-source-report.mjs'), 'card source report must be runnable directly');
+assert.ok(packageJson.scripts['catalog:report']?.includes('card-catalog-report.mjs'), 'public catalog report must be runnable directly');
+assert.ok(packageJson.scripts['catalog:collect']?.includes('collect-public-card-catalog.mjs'), 'public catalog collector must be runnable directly');
 assert.ok(appEditionSource.includes("rawEdition === 'public' ? 'public' : 'personal'"), 'unknown app editions must fall back to the personal edition');
 assert.ok(appEditionSource.includes("export const ENABLE_CLOUD_SYNC = !IS_PUBLIC_EDITION"), 'public edition must disable cloud sync centrally');
 assertContainsInOrder(appEditionSource, ["export const APP_STORAGE_KEY", "cardfit.public.v1", "cardBenefitManager.v1"], 'public and personal editions use separate local storage keys');
@@ -283,9 +324,18 @@ assert.ok(cardDataResearchGuide.includes('Mastercard'), 'card research guide cov
 assert.ok(cardDataResearchGuide.includes('tools/audit-check.mjs'), 'card research guide requires audit coverage');
 assert.ok(cardDataSourceMatrix.includes('공식 출처 진입점'), 'card data source matrix documents official source entrypoints');
 assert.ok(cardDataSourceMatrix.includes('npm run source:report'), 'card data source matrix documents source report command');
+assert.ok(publicCardCatalogCollection.includes('candidate_index'), 'public catalog collection guide documents candidate status');
+assert.ok(publicCardCatalogCollection.includes('official_detail_verified'), 'public catalog collection guide documents official detail promotion');
+assert.ok(publicCardCatalogCollection.includes('사용자가 입력한 설정값'), 'public catalog collection guide documents user data precedence');
 assert.ok(cardSourceReportSource.includes('batchLabel(source)'), 'source report includes recheck batch labels');
 for (const requiredSourceReportToken of ['Card Source Recheck Queue', 'byIssuer', 'source.status', 'source.checkedAt', 'source.note']) {
   assert.ok(cardSourceReportSource.includes(requiredSourceReportToken), `card source report must include ${requiredSourceReportToken}`);
+}
+for (const requiredCatalogReportToken of ['Public Card Catalog', 'By Status', 'By Issuer', 'Official Catalog Seeds', 'Candidate Sample']) {
+  assert.ok(cardCatalogReportSource.includes(requiredCatalogReportToken), `card catalog report must include ${requiredCatalogReportToken}`);
+}
+for (const requiredCatalogCollectorToken of ['CardGorilla card search API', 'KB_OFFICIAL_CARDS', 'official_catalog', 'candidate_index']) {
+  assert.ok(collectPublicCardCatalogSource.includes(requiredCatalogCollectorToken), `card catalog collector must include ${requiredCatalogCollectorToken}`);
 }
 for (const item of CARDS) {
   assert.ok(cardDataSourceMatrix.includes(`\`${item.id}\``), `card data source matrix tracks ${item.id}`);
