@@ -36,6 +36,7 @@ const firebaseRc = JSON.parse(readFileSync(new URL('../.firebaserc', import.meta
 const hostingBuildSource = readFileSync(new URL('../tools/prepare-hosting-build.mjs', import.meta.url), 'utf8');
 const cloudflareBuildSource = readFileSync(new URL('../tools/prepare-cloudflare-build.mjs', import.meta.url), 'utf8');
 const verifyPublicDistSource = readFileSync(new URL('../tools/verify-public-dist.mjs', import.meta.url), 'utf8');
+const cardSourceReportSource = readFileSync(new URL('../tools/card-source-report.mjs', import.meta.url), 'utf8');
 const firebaseHostingWorkflow = readFileSync(new URL('../.github/workflows/firebase-hosting.yml', import.meta.url), 'utf8');
 const githubPagesWorkflow = readFileSync(new URL('../.github/workflows/pages.yml', import.meta.url), 'utf8');
 const publicProductImplementationPlan = readFileSync(new URL('../docs/PUBLIC_PRODUCT_IMPLEMENTATION_PLAN.md', import.meta.url), 'utf8');
@@ -218,6 +219,7 @@ assert.ok(packageJson.scripts['build:public'].includes('--mode public'), 'public
 assert.ok(packageJson.scripts['build:public'].includes('prepare-cloudflare-build.mjs'), 'public build must prepare Cloudflare Pages artifacts');
 assert.ok(packageJson.scripts['build:public'].includes('verify-public-dist.mjs'), 'public build must verify Cloudflare Pages artifacts');
 assert.ok(packageJson.scripts['verify:public']?.includes('verify-public-dist.mjs'), 'public dist verifier must be runnable directly');
+assert.ok(packageJson.scripts['source:report']?.includes('card-source-report.mjs'), 'card source report must be runnable directly');
 assert.ok(appEditionSource.includes("rawEdition === 'public' ? 'public' : 'personal'"), 'unknown app editions must fall back to the personal edition');
 assert.ok(appEditionSource.includes("export const ENABLE_CLOUD_SYNC = !IS_PUBLIC_EDITION"), 'public edition must disable cloud sync centrally');
 assertContainsInOrder(appEditionSource, ["export const APP_STORAGE_KEY", "cardfit.public.v1", "cardBenefitManager.v1"], 'public and personal editions use separate local storage keys');
@@ -261,6 +263,10 @@ assert.ok(cardDataResearchGuide.includes('VISA'), 'card research guide covers ca
 assert.ok(cardDataResearchGuide.includes('Mastercard'), 'card research guide covers Mastercard differences');
 assert.ok(cardDataResearchGuide.includes('tools/audit-check.mjs'), 'card research guide requires audit coverage');
 assert.ok(cardDataSourceMatrix.includes('공식 출처 진입점'), 'card data source matrix documents official source entrypoints');
+assert.ok(cardDataSourceMatrix.includes('npm run source:report'), 'card data source matrix documents source report command');
+for (const requiredSourceReportToken of ['Card Source Recheck Queue', 'byIssuer', 'source.status', 'source.checkedAt', 'source.note']) {
+  assert.ok(cardSourceReportSource.includes(requiredSourceReportToken), `card source report must include ${requiredSourceReportToken}`);
+}
 for (const item of CARDS) {
   assert.ok(cardDataSourceMatrix.includes(`\`${item.id}\``), `card data source matrix tracks ${item.id}`);
 }
