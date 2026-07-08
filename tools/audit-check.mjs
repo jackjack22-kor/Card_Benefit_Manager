@@ -37,6 +37,7 @@ const hostingBuildSource = readFileSync(new URL('../tools/prepare-hosting-build.
 const cloudflareBuildSource = readFileSync(new URL('../tools/prepare-cloudflare-build.mjs', import.meta.url), 'utf8');
 const firebaseHostingWorkflow = readFileSync(new URL('../.github/workflows/firebase-hosting.yml', import.meta.url), 'utf8');
 const githubPagesWorkflow = readFileSync(new URL('../.github/workflows/pages.yml', import.meta.url), 'utf8');
+const publicProductImplementationPlan = readFileSync(new URL('../docs/PUBLIC_PRODUCT_IMPLEMENTATION_PLAN.md', import.meta.url), 'utf8');
 const publicDistributionPlan = readFileSync(new URL('../docs/PUBLIC_DISTRIBUTION_PLAN.md', import.meta.url), 'utf8');
 const cardDataResearchGuide = readFileSync(new URL('../docs/CARD_DATA_RESEARCH_GUIDE.md', import.meta.url), 'utf8');
 const cardDataSourceMatrix = readFileSync(new URL('../docs/CARD_DATA_SOURCE_MATRIX.md', import.meta.url), 'utf8');
@@ -209,7 +210,16 @@ assert.ok(cloudflareBuildSource.includes("writeFile(join(distDir, '_redirects')"
 assert.ok(cloudflareBuildSource.includes("writeFile(join(distDir, '_headers')"), 'Cloudflare build must emit response headers');
 assert.ok(cloudflareBuildSource.includes("cp(join(root, 'image', 'clean')"), 'Cloudflare build must copy card image assets');
 assert.ok(readmeSource.includes('docs/PUBLIC_DISTRIBUTION_PLAN.md'), 'README links the public distribution plan');
+assert.ok(readmeSource.includes('docs/PUBLIC_PRODUCT_IMPLEMENTATION_PLAN.md'), 'README links the public product implementation plan');
 assert.ok(readmeSource.includes('docs/CARD_DATA_RESEARCH_GUIDE.md'), 'README links the card data research guide');
+assertContainsInOrder(
+  publicProductImplementationPlan,
+  ['개인용 서비스는 현재 Firebase Hosting', '공개판은 Cloudflare Pages', '사용자가 최종 입력한 값', 'npm run audit:check'],
+  'public product implementation plan keeps core direction and verification policy'
+);
+assert.ok(publicProductImplementationPlan.includes('cardBenefitManager.v1'), 'public product plan documents personal storage key');
+assert.ok(publicProductImplementationPlan.includes('cardfit.public.v1'), 'public product plan documents public storage key');
+assert.ok(publicProductImplementationPlan.includes('데이터 원복 방지 체크리스트'), 'public product plan documents data reversion prevention checklist');
 assertContainsInOrder(publicDistributionPlan, ['Cloudflare Pages', 'npm run build:public', 'dist'], 'public distribution plan documents Cloudflare public build flow');
 assert.ok(publicDistributionPlan.includes('VITE_APP_EDITION=public'), 'public distribution plan documents the public edition env');
 assert.ok(publicDistributionPlan.includes('cardfit.public.v1'), 'public distribution plan documents the public storage key');
