@@ -39,6 +39,7 @@ const firebaseHostingWorkflow = readFileSync(new URL('../.github/workflows/fireb
 const githubPagesWorkflow = readFileSync(new URL('../.github/workflows/pages.yml', import.meta.url), 'utf8');
 const publicDistributionPlan = readFileSync(new URL('../docs/PUBLIC_DISTRIBUTION_PLAN.md', import.meta.url), 'utf8');
 const cardDataResearchGuide = readFileSync(new URL('../docs/CARD_DATA_RESEARCH_GUIDE.md', import.meta.url), 'utf8');
+const cardDataSourceMatrix = readFileSync(new URL('../docs/CARD_DATA_SOURCE_MATRIX.md', import.meta.url), 'utf8');
 
 function card(id) {
   const item = CARDS.find((candidate) => candidate.id === id);
@@ -172,6 +173,10 @@ assert.ok(cardDataResearchGuide.includes('PDF'), 'card research guide requires o
 assert.ok(cardDataResearchGuide.includes('VISA'), 'card research guide covers card network differences');
 assert.ok(cardDataResearchGuide.includes('Mastercard'), 'card research guide covers Mastercard differences');
 assert.ok(cardDataResearchGuide.includes('tools/audit-check.mjs'), 'card research guide requires audit coverage');
+assert.ok(cardDataSourceMatrix.includes('공식 출처 진입점'), 'card data source matrix documents official source entrypoints');
+for (const item of CARDS) {
+  assert.ok(cardDataSourceMatrix.includes(`\`${item.id}\``), `card data source matrix tracks ${item.id}`);
+}
 assert.ok(!mainSource.includes('./lib/sync/syncManager.js'), 'main entry must not statically import Firebase sync runtime');
 assert.ok(lazySyncSource.includes("import('./syncManager.js')"), 'sync runtime must stay dynamically imported');
 assertContainsInOrder(lazyInitSyncBody, ['queueMicrotask(() =>', 'prepareCloudSync();'], 'sync runtime starts checking auth immediately after app init');
