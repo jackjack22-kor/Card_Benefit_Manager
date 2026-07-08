@@ -35,6 +35,7 @@ const firebaseJson = JSON.parse(readFileSync(new URL('../firebase.json', import.
 const firebaseRc = JSON.parse(readFileSync(new URL('../.firebaserc', import.meta.url), 'utf8'));
 const hostingBuildSource = readFileSync(new URL('../tools/prepare-hosting-build.mjs', import.meta.url), 'utf8');
 const cloudflareBuildSource = readFileSync(new URL('../tools/prepare-cloudflare-build.mjs', import.meta.url), 'utf8');
+const verifyPublicDistSource = readFileSync(new URL('../tools/verify-public-dist.mjs', import.meta.url), 'utf8');
 const firebaseHostingWorkflow = readFileSync(new URL('../.github/workflows/firebase-hosting.yml', import.meta.url), 'utf8');
 const githubPagesWorkflow = readFileSync(new URL('../.github/workflows/pages.yml', import.meta.url), 'utf8');
 const publicProductImplementationPlan = readFileSync(new URL('../docs/PUBLIC_PRODUCT_IMPLEMENTATION_PLAN.md', import.meta.url), 'utf8');
@@ -191,6 +192,8 @@ const managerSignInBody = exportedFunctionBody(syncManagerSource, 'requestCloudS
 assert.ok(packageJson.scripts['build:personal'].includes('--mode personal'), 'personal build must pin the personal edition mode');
 assert.ok(packageJson.scripts['build:public'].includes('--mode public'), 'public build must pin the public edition mode');
 assert.ok(packageJson.scripts['build:public'].includes('prepare-cloudflare-build.mjs'), 'public build must prepare Cloudflare Pages artifacts');
+assert.ok(packageJson.scripts['build:public'].includes('verify-public-dist.mjs'), 'public build must verify Cloudflare Pages artifacts');
+assert.ok(packageJson.scripts['verify:public']?.includes('verify-public-dist.mjs'), 'public dist verifier must be runnable directly');
 assert.ok(appEditionSource.includes("rawEdition === 'public' ? 'public' : 'personal'"), 'unknown app editions must fall back to the personal edition');
 assert.ok(appEditionSource.includes("export const ENABLE_CLOUD_SYNC = !IS_PUBLIC_EDITION"), 'public edition must disable cloud sync centrally');
 assertContainsInOrder(appEditionSource, ["export const APP_STORAGE_KEY", "cardfit.public.v1", "cardBenefitManager.v1"], 'public and personal editions use separate local storage keys');
@@ -209,6 +212,9 @@ assertContainsInOrder(lazySyncSource, ["import.meta.env.VITE_APP_EDITION === 'pu
 assert.ok(cloudflareBuildSource.includes("writeFile(join(distDir, '_redirects')"), 'Cloudflare build must emit SPA redirects');
 assert.ok(cloudflareBuildSource.includes("writeFile(join(distDir, '_headers')"), 'Cloudflare build must emit response headers');
 assert.ok(cloudflareBuildSource.includes("cp(join(root, 'image', 'clean')"), 'Cloudflare build must copy card image assets');
+for (const requiredPublicVerifierToken of ['cardfit.public.v1', 'syncManager', '_redirects', '_headers', "join(distDir, 'image', 'clean')", 'CARDS']) {
+  assert.ok(verifyPublicDistSource.includes(requiredPublicVerifierToken), `public dist verifier must check ${requiredPublicVerifierToken}`);
+}
 assert.ok(readmeSource.includes('docs/PUBLIC_DISTRIBUTION_PLAN.md'), 'README links the public distribution plan');
 assert.ok(readmeSource.includes('docs/PUBLIC_PRODUCT_IMPLEMENTATION_PLAN.md'), 'README links the public product implementation plan');
 assert.ok(readmeSource.includes('docs/CARD_DATA_RESEARCH_GUIDE.md'), 'README links the card data research guide');
@@ -220,10 +226,12 @@ assertContainsInOrder(
 assert.ok(publicProductImplementationPlan.includes('cardBenefitManager.v1'), 'public product plan documents personal storage key');
 assert.ok(publicProductImplementationPlan.includes('cardfit.public.v1'), 'public product plan documents public storage key');
 assert.ok(publicProductImplementationPlan.includes('데이터 원복 방지 체크리스트'), 'public product plan documents data reversion prevention checklist');
+assert.ok(publicProductImplementationPlan.includes('npm run verify:public'), 'public product plan documents public dist verification');
 assertContainsInOrder(publicDistributionPlan, ['Cloudflare Pages', 'npm run build:public', 'dist'], 'public distribution plan documents Cloudflare public build flow');
 assert.ok(publicDistributionPlan.includes('VITE_APP_EDITION=public'), 'public distribution plan documents the public edition env');
 assert.ok(publicDistributionPlan.includes('cardfit.public.v1'), 'public distribution plan documents the public storage key');
 assert.ok(publicDistributionPlan.includes('syncManager'), 'public distribution plan documents the public bundle sync exclusion');
+assert.ok(publicDistributionPlan.includes('npm run verify:public'), 'public distribution plan documents public dist verification');
 assert.ok(cardDataResearchGuide.includes('PDF'), 'card research guide requires official PDF checks');
 assert.ok(cardDataResearchGuide.includes('VISA'), 'card research guide covers card network differences');
 assert.ok(cardDataResearchGuide.includes('Mastercard'), 'card research guide covers Mastercard differences');

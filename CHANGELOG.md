@@ -9,6 +9,7 @@
 - **앱 에디션 분리**: `VITE_APP_EDITION` 기반으로 개인용(`personal`)과 공개용(`public`)을 구분하는 `appEdition` 설정을 추가. 개인용은 기존 Firebase 동기화와 `cardBenefitManager.v1` 저장 키를 유지하고, 공개용은 `cardfit.public.v1` 로컬 저장 키를 사용하도록 분리.
 - **공개판 로컬 전용 처리**: 공개용 빌드에서는 클라우드 동기화 초기화/저장 요청을 no-op 처리하고, 설정 화면의 동기화 카드와 충돌 UI를 숨기도록 보강. 사용자가 입력한 설정/실적 데이터가 공개판에서 브라우저 로컬 데이터 기준으로만 유지되도록 정리.
 - **Cloudflare Pages 빌드 추가**: `build:public`과 `tools/prepare-cloudflare-build.mjs`를 추가해 카드 이미지 복사, SPA `_redirects`, 기본 보안/캐시 `_headers`를 산출하도록 구성.
+- **공개판 산출물 검증 추가**: `tools/verify-public-dist.mjs`와 `verify:public`을 추가하고 `build:public` 마지막에 연결해, 실제 `dist` 기준으로 Cloudflare 파일, 카드 이미지, 공개판 저장 키, `syncManager` 제외 여부를 검증.
 - **감사 테스트 보강**: 공개판/개인판 빌드 모드, 저장 키 분리, 동기화 비활성화, Cloudflare 산출물 생성을 `npm run audit:check`에서 검증하도록 추가.
 - **공개판 백업 UX 보강**: 공개판 설정 화면에 로컬 전용 데이터 보관 카드를 추가하고, JSON 백업 버튼이 여러 곳에 있어도 모두 동작하도록 이벤트 바인딩을 보강.
 - **운영/리서치 문서 추가**: Cloudflare Pages 고정 도메인 운영 기준(`docs/PUBLIC_DISTRIBUTION_PLAN.md`)과 카드 데이터 공식 출처 검증 기준(`docs/CARD_DATA_RESEARCH_GUIDE.md`)을 추가.

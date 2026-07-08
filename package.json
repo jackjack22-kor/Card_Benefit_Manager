@@ -9,14 +9,15 @@
     "dev:personal": "vite --mode personal --host 127.0.0.1",
     "build": "vite build",
     "build:personal": "vite build --mode personal",
-    "build:public": "vite build --mode public && node tools/prepare-cloudflare-build.mjs",
+    "build:public": "vite build --mode public && node tools/prepare-cloudflare-build.mjs && node tools/verify-public-dist.mjs",
     "build:single": "vite build && node tools/build-single.mjs",
     "build:pages": "npm run build:single && node tools/build-pages.mjs",
     "build:hosting": "vite build && node tools/prepare-hosting-build.mjs",
     "deploy:hosting": "npm run build:hosting && firebase deploy --only hosting",
     "preview": "vite preview --host 127.0.0.1",
-    "check": "node --check src/main.js && node --check src/data/cards.js && node --check src/data/categories.js && node --check src/lib/appEdition.js && node --check src/lib/cycles.js && node --check src/lib/storage.js && node --check src/lib/recommend.js && node --check src/lib/format.js && node --check src/lib/ui/constants.js && node --check src/lib/sync/firebaseConfig.js && node --check src/lib/sync/firebaseClient.js && node --check src/lib/sync/syncManager.js && node --check src/lib/sync/lazySync.js && node --check tools/build-single.mjs && node --check tools/prepare-hosting-build.mjs && node --check tools/prepare-cloudflare-build.mjs",
+    "check": "node --check src/main.js && node --check src/data/cards.js && node --check src/data/categories.js && node --check src/lib/appEdition.js && node --check src/lib/cycles.js && node --check src/lib/storage.js && node --check src/lib/recommend.js && node --check src/lib/format.js && node --check src/lib/ui/constants.js && node --check src/lib/sync/firebaseConfig.js && node --check src/lib/sync/firebaseClient.js && node --check src/lib/sync/syncManager.js && node --check src/lib/sync/lazySync.js && node --check tools/build-single.mjs && node --check tools/prepare-hosting-build.mjs && node --check tools/prepare-cloudflare-build.mjs && node --check tools/verify-public-dist.mjs",
     "audit:check": "npm run check && node tools/audit-check.mjs",
+    "verify:public": "node tools/verify-public-dist.mjs",
     "build:zip": "node tools/make-zip.mjs"
   },
   "devDependencies": {

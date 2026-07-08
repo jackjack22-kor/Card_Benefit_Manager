@@ -33,6 +33,8 @@
 - SPA 라우팅용 `dist/_redirects`
 - 기본 보안/캐시 정책용 `dist/_headers`
 
+`build:public`은 마지막에 `verify:public`을 실행해 위 파일들이 실제 `dist`에 있는지, 카드 이미지가 모두 복사됐는지, 공개판 저장 키 `cardfit.public.v1`이 포함됐는지, `syncManager` 청크/참조가 없는지 확인해야 합니다.
+
 공개판 번들에는 Firebase 동기화 청크가 포함되지 않아야 합니다.
 
 ## 사용자 설치 흐름
@@ -53,6 +55,7 @@
 
 - `npm run audit:check` 통과
 - `npm run build:public` 통과
+- 필요 시 기존 `dist`에 대해 `npm run verify:public` 재실행
 - `dist`에 `_redirects`, `_headers`, `image/clean` 존재
 - 공개판 번들에서 `syncManager` 청크 미생성
 - 설정 화면에서 클라우드 동기화 UI 미노출

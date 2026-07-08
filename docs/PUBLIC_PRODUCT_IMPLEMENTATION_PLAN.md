@@ -24,6 +24,7 @@
 | 공개판 데이터 보관 | localStorage + JSON 백업 |
 | 카드 이미지 | `image/clean/*.png` 가로형 이미지 사용 |
 | 회귀 방지 | `npm run audit:check`, `npm run build:pages`, `npm run build:public` 통과 후 커밋 |
+| 공개판 산출물 검증 | `build:public`에서 `verify:public`을 함께 실행해 `dist` 기준으로 Cloudflare 파일, 이미지, 저장 키, 동기화 코드 제외 여부 확인 |
 | 카드 데이터 출처 | 공식 상품 페이지와 상품설명서 PDF 우선 |
 
 ## 아직 열어둘 사항
@@ -63,6 +64,7 @@
 
 - `build:public` 유지
 - `dist/_redirects`, `dist/_headers`, `image/clean` 복사 유지
+- `verify:public`로 공개판 산출물을 직접 검증
 - Cloudflare Pages 설정 절차 문서화
 - 공개판 설정 화면의 로컬 저장/백업 안내 유지
 - 공개판 번들에 Firebase 동기화 청크가 없는지 확인
@@ -70,6 +72,7 @@
 완료 기준:
 
 - `npm run build:public` 통과
+- `npm run verify:public` 통과
 - 공개판 `dist`에서 `syncManager` 미검출
 - Cloudflare Pages 프로젝트 생성 후 첫 배포 성공
 - 고정 도메인 연결 성공
@@ -197,6 +200,7 @@
 npm run audit:check
 npm run build:pages
 npm run build:public
+npm run verify:public
 git diff --check
 ```
 
