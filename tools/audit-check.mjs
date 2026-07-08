@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import { CARDS, DEFAULT_HIDDEN_CARD_IDS, POINT_DEFAULTS } from '../src/data/cards.js';
 import { CATEGORIES } from '../src/data/categories.js';
 import {
@@ -103,10 +103,54 @@ function assertBetween(actual, min, max, label) {
   console.log(`ok - ${label}: ${actual}`);
 }
 
+function readPngDimensions(imageUrl) {
+  const buffer = readFileSync(imageUrl);
+  const pngSignature = '89504e470d0a1a0a';
+  assert.equal(buffer.subarray(0, 8).toString('hex'), pngSignature, `${imageUrl.pathname} must be a PNG file`);
+  return {
+    width: buffer.readUInt32BE(16),
+    height: buffer.readUInt32BE(20)
+  };
+}
+
 const categoryIds = new Set(CATEGORIES.map((item) => item.id));
 const unknownCategories = [];
+const cardIds = new Set();
+const benefitIds = new Set();
+const allowedBenefitPriorities = new Set(['core', 'normal']);
+const allowedCycleTypes = new Set(['calendar', 'anniversary', 'issueMonth']);
 for (const item of CARDS) {
+  assert.ok(/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(item.id), `card id must be stable kebab-case: ${item.id}`);
+  assert.ok(!cardIds.has(item.id), `duplicate card id: ${item.id}`);
+  cardIds.add(item.id);
+  assert.ok(item.issuer, `card issuer is required: ${item.id}`);
+  assert.ok(item.name, `card name is required: ${item.id}`);
+  assert.ok(item.shortName, `card shortName is required: ${item.id}`);
+  assert.ok(item.sourceNote, `card sourceNote is required: ${item.id}`);
+  assert.ok(Array.isArray(item.monthlyTargets), `card monthlyTargets must be an array: ${item.id}`);
+  assert.ok(Array.isArray(item.annualTargets), `card annualTargets must be an array: ${item.id}`);
+  assert.ok(item.defaultCycle?.type && allowedCycleTypes.has(item.defaultCycle.type), `card default cycle type is invalid: ${item.id}`);
+  assert.ok(Number.isFinite(Number(item.defaultMonthlyTarget || 0)), `card default monthly target must be numeric: ${item.id}`);
+  assert.ok(Number.isFinite(Number(item.annualFee || 0)), `card annual fee must be numeric: ${item.id}`);
+  assert.ok(String(item.image || '').startsWith('image/clean/'), `card image must use image/clean: ${item.id}`);
+  assert.ok(String(item.image || '').endsWith('.png'), `card image must be a PNG: ${item.id}`);
+  const imageUrl = new URL(`../${item.image}`, import.meta.url);
+  assert.ok(existsSync(imageUrl), `card image file must exist: ${item.id}`);
+  const imageInfo = readPngDimensions(imageUrl);
+  assert.ok(imageInfo.width >= imageInfo.height, `card image must be landscape: ${item.id}`);
+  assert.ok(imageInfo.width >= 250 && imageInfo.height >= 150, `card image is too small: ${item.id}`);
+  assert.ok(Array.isArray(item.benefits) && item.benefits.length > 0, `card benefits are required: ${item.id}`);
   for (const benefit of item.benefits || []) {
+    assert.ok(/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(benefit.id), `benefit id must be stable kebab-case: ${item.id}:${benefit.id}`);
+    assert.ok(!benefitIds.has(benefit.id), `duplicate benefit id: ${benefit.id}`);
+    benefitIds.add(benefit.id);
+    assert.ok(benefit.name, `benefit name is required: ${item.id}:${benefit.id}`);
+    assert.ok(benefit.type, `benefit type is required: ${item.id}:${benefit.id}`);
+    assert.ok(allowedBenefitPriorities.has(benefit.priority), `benefit priority is invalid: ${item.id}:${benefit.id}`);
+    assert.ok(Array.isArray(benefit.categories) && benefit.categories.length > 0, `benefit categories are required: ${item.id}:${benefit.id}`);
+    assert.ok(benefit.summary, `benefit summary is required: ${item.id}:${benefit.id}`);
+    assert.ok(benefit.homeLabel, `benefit homeLabel is required: ${item.id}:${benefit.id}`);
+    if (benefit.cycleType) assert.ok(allowedCycleTypes.has(benefit.cycleType), `benefit cycle type is invalid: ${item.id}:${benefit.id}`);
     for (const categoryId of benefit.categories || []) {
       if (!categoryIds.has(categoryId)) unknownCategories.push(`${item.id}:${benefit.id}:${categoryId}`);
     }
@@ -116,6 +160,7 @@ for (const item of CARDS) {
 if (unknownCategories.length) {
   console.warn(`warn - unknown categories: ${unknownCategories.join(', ')}`);
 }
+console.log(`ok - card catalog data quality gates passed: ${cardIds.size} cards, ${benefitIds.size} benefits`);
 
 assertEqual(getOrderedCards(baseState()).length, CARDS.length, 'all cards are orderable');
 assert.deepEqual(createInitialState().hiddenCardIds, DEFAULT_HIDDEN_CARD_IDS, 'new optional cards are hidden by default for fresh installs');
