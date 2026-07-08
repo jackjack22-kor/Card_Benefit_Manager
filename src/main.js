@@ -1,6 +1,7 @@
 import './styles.css';
 import { CARDS, CARD_MAP } from './data/cards.js';
 import { CATEGORIES, CATEGORY_MAP, getSubcategories } from './data/categories.js';
+import { APP_TITLE, ENABLE_CLOUD_SYNC, IS_PUBLIC_EDITION } from './lib/appEdition.js';
 import { CYCLE_LABELS, getCycle, getMonthKey, monthsInCycle } from './lib/cycles.js';
 import { APP_VERSION, exportState, importState, loadState, resetState, saveState } from './lib/storage.js';
 import {
@@ -95,9 +96,30 @@ function persistState(nextState) {
 
 function updateCard(cardId, patch) {
   const nextPatch = { ...patch };
+  const now = new Date().toISOString();
   if (Object.prototype.hasOwnProperty.call(nextPatch, 'monthlyTarget')) {
     nextPatch.monthlyTargetUserSet = true;
-    nextPatch.monthlyTargetUpdatedAt = new Date().toISOString();
+    nextPatch.monthlyTargetUpdatedAt = now;
+  }
+  if (Object.prototype.hasOwnProperty.call(nextPatch, 'annualTarget')) {
+    nextPatch.annualTargetUserSet = true;
+    nextPatch.annualTargetUpdatedAt = now;
+  }
+  if (Object.prototype.hasOwnProperty.call(nextPatch, 'annualSpend')) {
+    nextPatch.annualSpendUserSet = true;
+    nextPatch.annualSpendUpdatedAt = now;
+  }
+  if (Object.prototype.hasOwnProperty.call(nextPatch, 'memo')) {
+    nextPatch.memoUserSet = true;
+    nextPatch.memoUpdatedAt = now;
+  }
+  if (nextPatch.cycle && Object.prototype.hasOwnProperty.call(nextPatch.cycle, 'type')) {
+    nextPatch.cycleTypeUserSet = true;
+    nextPatch.cycleTypeUpdatedAt = now;
+  }
+  if (nextPatch.cycle && Object.prototype.hasOwnProperty.call(nextPatch.cycle, 'annualFeeStartMonth')) {
+    nextPatch.annualFeeStartMonthUserSet = true;
+    nextPatch.annualFeeStartMonthUpdatedAt = now;
   }
   const next = {
     ...state,
@@ -115,8 +137,18 @@ function updateCard(cardId, patch) {
   render();
 }
 
+function withFieldUpdatedAt(patch) {
+  const now = new Date().toISOString();
+  return Object.entries(patch || {}).reduce((result, [key, value]) => {
+    result[key] = value;
+    if (!key.endsWith('UpdatedAt') && !key.endsWith('UserSet')) result[`${key}UpdatedAt`] = now;
+    return result;
+  }, {});
+}
+
 function updateMonthlyCard(cardId, patch, options = {}) {
   const key = selectedMonthKey();
+  const nextPatch = withFieldUpdatedAt(patch);
   state = {
     ...state,
     monthlyCardUsage: {
@@ -125,7 +157,7 @@ function updateMonthlyCard(cardId, patch, options = {}) {
         ...(state.monthlyCardUsage?.[key] || {}),
         [cardId]: {
           ...(state.monthlyCardUsage?.[key]?.[cardId] || {}),
-          ...patch
+          ...nextPatch
         }
       }
     }
@@ -165,8 +197,15 @@ function updateSettings(patch) {
 }
 
 function updatePointValue(key, value) {
-  // 포인트 가치는 실제 데이터: 동기화 대상
-  state = { ...state, settings: { ...state.settings, pointValues: { ...state.settings.pointValues, [key]: Number(value || 0) } } };
+  const now = new Date().toISOString();
+  state = {
+    ...state,
+    settings: {
+      ...state.settings,
+      pointValues: { ...state.settings.pointValues, [key]: Number(value || 0) },
+      pointValuesUpdatedAt: { ...(state.settings.pointValuesUpdatedAt || {}), [key]: now }
+    }
+  };
   persistState(state);
   render();
 }
@@ -848,12 +887,81 @@ function renderSettings() {
     <section class="page-head compact-head">
       <div>
         <h2>설정</h2>
+        <p>${IS_PUBLIC_EDITION ? '로컬 저장, 카드 표시, 포인트 가치와 백업을 관리합니다.' : '동기화, 포인트 가치, 백업을 관리합니다.'}</p>
+      </div>
+    </section>
+    <div class="settings-list">
+      ${ENABLE_CLOUD_SYNC ? renderCloudSyncCard() : ''}
+      ${ENABLE_CLOUD_SYNC ? renderSyncConflicts() : ''}
+      ${IS_PUBLIC_EDITION ? renderPublicDataSafetyCard() : ''}
+      ${renderSettingsSection('cards', '카드 설정', renderCardSettingsBody())}
+      ${renderSettingsSection('points', '포인트 가치', `
+        <p>추천 순위의 예상 혜택 계산에 사용합니다.</p>
+        ${Object.entries(state.settings.pointValues).map(([key, value]) => `<label>${escapeHtml(pointLabel(key))}<input type="number" step="0.1" value="${value}" data-point-value="${key}"></label>`).join('')}
+      `)}
+      ${renderSettingsSection('backup', '백업 / 복원', `
+        <p>JSON 백업으로 데이터를 다른 기기로 옮기거나 복원합니다.</p>
+        <p class="sync-meta">마지막 백업: <strong>${escapeHtml(lastBackupLabel())}</strong> · 앱 버전 ${escapeHtml(APP_VERSION)}</p>
+        <div class="backup-actions">
+          <button data-action="export-json">JSON 내보내기</button>
+          <label class="file-button">JSON 불러오기<input type="file" accept="application/json" data-action="import-json"></label>
+          <button class="danger" data-action="reset-all">초기화</button>
+        </div>
+        <textarea id="backupBox" placeholder="내보낸 JSON이 여기에 표시됩니다."></textarea>
+        <div class="section-note">
+          <p><strong>데이터 이동 순서</strong>: 기존 기기에서 JSON 내보내기 → 파일을 새 기기로 이동 → 새 기기에서 접속 → JSON 불러오기로 복원</p>
+          <p>백업 JSON에는 개인 카드 사용 패턴이 들어가므로 공개 저장소에 올리지 마세요.</p>
+        </div>
+      `)}
+      <div class="settings-card">
+        <h3>앱 / 저장 안내</h3>
+        <p>${escapeHtml(appStorageGuideText())}</p>
+        <p class="sync-meta">${escapeHtml(appStorageMetaText())}</p>
+      </div>
+    </div>
+  `;
+}
+
+function renderPublicDataSafetyCard() {
+  const backupStatus = getBackupStatus();
+  return `
+    <div class="settings-card public-data-safety ${backupStatus.shouldWarn ? 'warn' : 'good'}">
+      <h3>공개판 데이터 보관</h3>
+      <p>공개판은 로그인 없이 이 브라우저에만 저장됩니다. 카드 설정, 월 실적, 연간 실적, 혜택 사용내역은 서버로 전송되지 않습니다.</p>
+      <p class="sync-meta">마지막 백업: <strong>${escapeHtml(lastBackupLabel())}</strong></p>
+      <p>${escapeHtml(backupStatus.message)}</p>
+      <div class="backup-actions">
+        <button data-action="export-json">JSON 백업 만들기</button>
+      </div>
+    </div>
+  `;
+}
+
+function appStorageGuideText() {
+  if (IS_PUBLIC_EDITION) {
+    return `${APP_TITLE} 공개판은 계정 로그인 없이 이 브라우저의 localStorage에만 데이터를 저장합니다. 기기를 바꾸거나 브라우저 데이터를 지우기 전 JSON 백업을 만들어 두세요.`;
+  }
+  return 'Firebase Hosting 주소를 브라우저에서 열어 사용합니다. 비로그인 데이터는 이 브라우저의 localStorage에만 저장되고, Google 로그인 시 Firebase Firestore와 동기화됩니다.';
+}
+
+function appStorageMetaText() {
+  if (IS_PUBLIC_EDITION) {
+    return '공개판 데이터는 서버로 전송되지 않습니다. 브라우저/도메인별로 저장소가 분리되며, 도메인이 바뀌면 JSON 백업/복원으로 옮겨야 합니다.';
+  }
+  return '데이터는 실적·혜택 사용내역 등 값을 입력·변경할 때만 클라우드에 저장됩니다. 화면 이동은 기기별로 따로 동작합니다.';
+}
+
+function renderSettingsLegacy() {
+  return `
+    <section class="page-head compact-head">
+      <div>
+        <h2>설정</h2>
         <p>동기화, 포인트 가치, 백업을 관리합니다.</p>
       </div>
     </section>
     <div class="settings-list">
-      ${renderCloudSyncCard()}
-      ${renderSyncConflicts()}
+      ${ENABLE_CLOUD_SYNC ? renderCloudSyncCard() : ''}
+      ${ENABLE_CLOUD_SYNC ? renderSyncConflicts() : ''}
       ${renderSettingsSection('cards', '카드 설정', renderCardSettingsBody())}
       ${renderSettingsSection('points', '포인트 가치', `
         <p>추천 탭의 예상 혜택 계산에 사용합니다.</p>
@@ -1103,7 +1211,7 @@ function bindEvents() {
   });
   document.querySelectorAll('[data-point-value]').forEach((input) => input.addEventListener('change', () => updatePointValue(input.dataset.pointValue, input.value)));
 
-  document.querySelector('[data-action="export-json"]')?.addEventListener('click', exportJson);
+  document.querySelectorAll('[data-action="export-json"]').forEach((button) => button.addEventListener('click', exportJson));
   document.querySelector('[data-action="import-json"]')?.addEventListener('change', importJson);
   document.querySelector('[data-action="cloud-signin"]')?.addEventListener('click', async () => {
     try {
@@ -1194,7 +1302,7 @@ function benefitRateText(rate, spend) {
 }
 
 function updateUsage(benefitId, patch) {
-  state = setBenefitUsage(state, benefitId, monthKey(), withManualBenefitOverride(withAutoBenefitValue(benefitId, patch)));
+  state = setBenefitUsage(state, benefitId, monthKey(), withFieldUpdatedAt(withManualBenefitOverride(withAutoBenefitValue(benefitId, patch))));
   persistState(state);
   render();
 }
@@ -1387,7 +1495,7 @@ function moveCard(cardId, direction) {
   const nextIdx = idx + direction;
   if (idx < 0 || nextIdx < 0 || nextIdx >= order.length) return;
   [order[idx], order[nextIdx]] = [order[nextIdx], order[idx]];
-  state = { ...state, cardOrder: order };
+  state = { ...state, cardOrder: order, cardOrderUpdatedAt: new Date().toISOString() };
   persistState(state);
   render();
 }
@@ -1401,7 +1509,7 @@ function setCardVisible(cardId, visible) {
   const selectedCardId = nextHidden.includes(state.selectedCardId)
     ? (visibleCards[0]?.id || state.selectedCardId)
     : state.selectedCardId;
-  state = { ...state, hiddenCardIds: nextHidden, selectedCardId };
+  state = { ...state, hiddenCardIds: nextHidden, hiddenCardIdsUpdatedAt: new Date().toISOString(), selectedCardId };
   persistState(state);
   render();
 }
@@ -1463,7 +1571,7 @@ function reorderCardBefore(draggedId, targetId) {
   if (from < 0 || to < 0 || from === to) return;
   order.splice(from, 1);
   order.splice(to, 0, draggedId);
-  state = { ...state, cardOrder: order };
+  state = { ...state, cardOrder: order, cardOrderUpdatedAt: new Date().toISOString() };
   persistState(state);
   render();
 }

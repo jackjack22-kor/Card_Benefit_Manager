@@ -1,3 +1,4 @@
+import { ENABLE_CLOUD_SYNC, IS_PUBLIC_EDITION } from '../appEdition.js';
 import { isFirebaseConfigured } from './firebaseConfig.js';
 
 const PENDING_SAVE_KEY = 'cardBenefitManager.pendingCloudSave';
@@ -11,10 +12,21 @@ let managerPromise = null;
 let manager = null;
 let pendingSave = false;
 let runtimeStarted = false;
+const loadCloudSyncManager = import.meta.env.VITE_APP_EDITION === 'public'
+  ? () => Promise.resolve(null)
+  : () => {
+      if (!managerPromise) {
+        managerPromise = import('./syncManager.js').then((loaded) => {
+          manager = loaded;
+          return loaded;
+        });
+      }
+      return managerPromise;
+    };
 let status = {
-  configured: isFirebaseConfigured(),
-  state: isFirebaseConfigured() ? 'initializing' : 'disabled',
-  message: isFirebaseConfigured() ? '클라우드 동기화 모듈을 준비 중입니다.' : 'Firebase 설정이 없습니다.',
+  configured: ENABLE_CLOUD_SYNC && isFirebaseConfigured(),
+  state: ENABLE_CLOUD_SYNC && isFirebaseConfigured() ? 'initializing' : 'disabled',
+  message: initialSyncMessage(),
   user: null,
   lastSyncedAt: '',
   error: ''
@@ -26,8 +38,8 @@ export function getInitialSyncStatus() {
 
 export function initSync(nextCallbacks) {
   callbacks = { ...callbacks, ...nextCallbacks };
-  if (!isFirebaseConfigured()) {
-    publish({ state: 'disabled', message: 'Firebase 설정이 없어 로컬 전용으로 실행 중입니다.' });
+  if (!ENABLE_CLOUD_SYNC || !isFirebaseConfigured()) {
+    publish({ state: 'disabled', message: initialSyncMessage() });
     return;
   }
   publish({ state: 'initializing', message: 'Google 로그인 상태를 확인하는 중입니다.' });
@@ -37,8 +49,9 @@ export function initSync(nextCallbacks) {
 }
 
 export function prepareCloudSync() {
-  if (!isFirebaseConfigured()) return Promise.resolve(null);
+  if (!ENABLE_CLOUD_SYNC || !isFirebaseConfigured()) return Promise.resolve(null);
   loadManager().then((loaded) => {
+    if (!loaded) return;
     startRuntime(loaded);
   }).catch((error) => {
     publish({
@@ -51,6 +64,7 @@ export function prepareCloudSync() {
 }
 
 export function queueCloudSave(state) {
+  if (!ENABLE_CLOUD_SYNC) return;
   if (manager) {
     manager.queueCloudSave(state);
     return;
@@ -79,13 +93,7 @@ export async function requestCloudSyncNow() {
 }
 
 function loadManager() {
-  if (!managerPromise) {
-    managerPromise = import('./syncManager.js').then((loaded) => {
-      manager = loaded;
-      return loaded;
-    });
-  }
-  return managerPromise;
+  return loadCloudSyncManager();
 }
 
 function startRuntime(loaded) {
@@ -103,7 +111,7 @@ function startRuntime(loaded) {
 }
 
 function publish(patch) {
-  status = { ...status, configured: isFirebaseConfigured(), ...patch };
+  status = { ...status, configured: ENABLE_CLOUD_SYNC && isFirebaseConfigured(), ...patch };
   callbacks.onStatusChange({ ...status });
 }
 
@@ -113,4 +121,9 @@ function markPendingCloudSave() {
   } catch {
     // Best effort only.
   }
+}
+
+function initialSyncMessage() {
+  if (IS_PUBLIC_EDITION) return '공개판은 이 브라우저에만 저장됩니다. JSON 백업으로 데이터를 보관하세요.';
+  return isFirebaseConfigured() ? '클라우드 동기화 모듈을 준비 중입니다.' : 'Firebase 설정이 없습니다.';
 }

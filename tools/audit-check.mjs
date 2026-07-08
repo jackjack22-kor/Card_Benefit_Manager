@@ -23,16 +23,22 @@ import { createInitialState, importState, migrateState } from '../src/lib/storag
 const MONTH = '2026-07';
 const mainSource = readFileSync(new URL('../src/main.js', import.meta.url), 'utf8');
 const stylesSource = readFileSync(new URL('../src/styles.css', import.meta.url), 'utf8');
+const appEditionSource = readFileSync(new URL('../src/lib/appEdition.js', import.meta.url), 'utf8');
+const storageSource = readFileSync(new URL('../src/lib/storage.js', import.meta.url), 'utf8');
 const lazySyncSource = readFileSync(new URL('../src/lib/sync/lazySync.js', import.meta.url), 'utf8');
 const syncManagerSource = readFileSync(new URL('../src/lib/sync/syncManager.js', import.meta.url), 'utf8');
 const firebaseClientSource = readFileSync(new URL('../src/lib/sync/firebaseClient.js', import.meta.url), 'utf8');
 const indexHtml = readFileSync(new URL('../index.html', import.meta.url), 'utf8');
+const readmeSource = readFileSync(new URL('../README.md', import.meta.url), 'utf8');
 const packageJson = JSON.parse(readFileSync(new URL('../package.json', import.meta.url), 'utf8'));
 const firebaseJson = JSON.parse(readFileSync(new URL('../firebase.json', import.meta.url), 'utf8'));
 const firebaseRc = JSON.parse(readFileSync(new URL('../.firebaserc', import.meta.url), 'utf8'));
 const hostingBuildSource = readFileSync(new URL('../tools/prepare-hosting-build.mjs', import.meta.url), 'utf8');
+const cloudflareBuildSource = readFileSync(new URL('../tools/prepare-cloudflare-build.mjs', import.meta.url), 'utf8');
 const firebaseHostingWorkflow = readFileSync(new URL('../.github/workflows/firebase-hosting.yml', import.meta.url), 'utf8');
 const githubPagesWorkflow = readFileSync(new URL('../.github/workflows/pages.yml', import.meta.url), 'utf8');
+const publicDistributionPlan = readFileSync(new URL('../docs/PUBLIC_DISTRIBUTION_PLAN.md', import.meta.url), 'utf8');
+const cardDataResearchGuide = readFileSync(new URL('../docs/CARD_DATA_RESEARCH_GUIDE.md', import.meta.url), 'utf8');
 
 function card(id) {
   const item = CARDS.find((candidate) => candidate.id === id);
@@ -135,6 +141,37 @@ const lazyInitSyncBody = exportedFunctionBody(lazySyncSource, 'initSync');
 const lazyQueueCloudSaveBody = exportedFunctionBody(lazySyncSource, 'queueCloudSave');
 const managerQueueCloudSaveBody = exportedFunctionBody(syncManagerSource, 'queueCloudSave');
 const managerSignInBody = exportedFunctionBody(syncManagerSource, 'requestCloudSignIn');
+assert.ok(packageJson.scripts['build:personal'].includes('--mode personal'), 'personal build must pin the personal edition mode');
+assert.ok(packageJson.scripts['build:public'].includes('--mode public'), 'public build must pin the public edition mode');
+assert.ok(packageJson.scripts['build:public'].includes('prepare-cloudflare-build.mjs'), 'public build must prepare Cloudflare Pages artifacts');
+assert.ok(appEditionSource.includes("rawEdition === 'public' ? 'public' : 'personal'"), 'unknown app editions must fall back to the personal edition');
+assert.ok(appEditionSource.includes("export const ENABLE_CLOUD_SYNC = !IS_PUBLIC_EDITION"), 'public edition must disable cloud sync centrally');
+assertContainsInOrder(appEditionSource, ["export const APP_STORAGE_KEY", "cardfit.public.v1", "cardBenefitManager.v1"], 'public and personal editions use separate local storage keys');
+assert.ok(storageSource.includes("import { APP_STORAGE_KEY } from './appEdition.js'"), 'storage layer must read the edition-aware storage key');
+assert.ok(storageSource.includes('export const STORAGE_KEY = APP_STORAGE_KEY'), 'storage key must be provided by app edition config');
+assert.ok(mainSource.includes("import { APP_TITLE, ENABLE_CLOUD_SYNC, IS_PUBLIC_EDITION } from './lib/appEdition.js'"), 'main UI must read app edition flags');
+assert.ok(mainSource.includes('ENABLE_CLOUD_SYNC ? renderCloudSyncCard() :'), 'public settings UI must hide cloud sync status card');
+assert.ok(mainSource.includes('ENABLE_CLOUD_SYNC ? renderSyncConflicts() :'), 'public settings UI must hide cloud sync conflict UI');
+assert.ok(mainSource.includes('IS_PUBLIC_EDITION ? renderPublicDataSafetyCard() :'), 'public settings UI must show a local-only data safety card');
+assert.ok(mainSource.includes('function renderPublicDataSafetyCard()'), 'public data safety card renderer must exist');
+assert.ok(mainSource.includes('document.querySelectorAll(\'[data-action="export-json"]\')'), 'all JSON export buttons must be bound');
+assert.ok(stylesSource.includes('.public-data-safety'), 'public data safety card has dedicated spacing styles');
+assert.ok(lazySyncSource.includes('if (!ENABLE_CLOUD_SYNC || !isFirebaseConfigured())'), 'lazy sync init must stay disabled for public edition');
+assert.ok(lazyQueueCloudSaveBody.includes('if (!ENABLE_CLOUD_SYNC) return;'), 'public edition saves must remain browser-local only');
+assertContainsInOrder(lazySyncSource, ["import.meta.env.VITE_APP_EDITION === 'public'", "() => Promise.resolve(null)", "import('./syncManager.js')"], 'public build can tree-shake cloud sync runtime import');
+assert.ok(cloudflareBuildSource.includes("writeFile(join(distDir, '_redirects')"), 'Cloudflare build must emit SPA redirects');
+assert.ok(cloudflareBuildSource.includes("writeFile(join(distDir, '_headers')"), 'Cloudflare build must emit response headers');
+assert.ok(cloudflareBuildSource.includes("cp(join(root, 'image', 'clean')"), 'Cloudflare build must copy card image assets');
+assert.ok(readmeSource.includes('docs/PUBLIC_DISTRIBUTION_PLAN.md'), 'README links the public distribution plan');
+assert.ok(readmeSource.includes('docs/CARD_DATA_RESEARCH_GUIDE.md'), 'README links the card data research guide');
+assertContainsInOrder(publicDistributionPlan, ['Cloudflare Pages', 'npm run build:public', 'dist'], 'public distribution plan documents Cloudflare public build flow');
+assert.ok(publicDistributionPlan.includes('VITE_APP_EDITION=public'), 'public distribution plan documents the public edition env');
+assert.ok(publicDistributionPlan.includes('cardfit.public.v1'), 'public distribution plan documents the public storage key');
+assert.ok(publicDistributionPlan.includes('syncManager'), 'public distribution plan documents the public bundle sync exclusion');
+assert.ok(cardDataResearchGuide.includes('PDF'), 'card research guide requires official PDF checks');
+assert.ok(cardDataResearchGuide.includes('VISA'), 'card research guide covers card network differences');
+assert.ok(cardDataResearchGuide.includes('Mastercard'), 'card research guide covers Mastercard differences');
+assert.ok(cardDataResearchGuide.includes('tools/audit-check.mjs'), 'card research guide requires audit coverage');
 assert.ok(!mainSource.includes('./lib/sync/syncManager.js'), 'main entry must not statically import Firebase sync runtime');
 assert.ok(lazySyncSource.includes("import('./syncManager.js')"), 'sync runtime must stay dynamically imported');
 assertContainsInOrder(lazyInitSyncBody, ['queueMicrotask(() =>', 'prepareCloudSync();'], 'sync runtime starts checking auth immediately after app init');
@@ -146,10 +183,19 @@ assert.ok(syncManagerSource.includes('function mergeCardOverrides'), 'sync merge
 assert.ok(syncManagerSource.includes('function isExplicitMonthlyTarget'), 'sync merge distinguishes explicit monthly targets from catalog defaults');
 assert.ok(syncManagerSource.includes('monthlyTargetUpdatedAt'), 'monthly target changes carry a field-level timestamp for cloud merge');
 assert.ok(syncManagerSource.includes('monthlyTargetUserSet'), 'monthly target changes carry an explicit user-set flag');
+assert.ok(syncManagerSource.includes('CARD_OVERRIDE_FIELDS'), 'card override merge uses shared field-level metadata');
+assert.ok(syncManagerSource.includes('annualTargetUpdatedAt'), 'annual target changes carry a field-level timestamp for cloud merge');
+assert.ok(syncManagerSource.includes('annualFeeStartMonthUpdatedAt'), 'annual fee start month changes carry a field-level timestamp for cloud merge');
+assert.ok(syncManagerSource.includes('mergeTimestampedRecords'), 'monthly and benefit usage records merge by field timestamps when available');
+assert.ok(syncManagerSource.includes('mergePointValues'), 'point values merge by point-level timestamps when available');
 assert.ok(syncManagerSource.includes('const nextState = mergeStates(localState, incomingState);'), 'remote snapshots always pass through merge logic');
 assert.ok(syncManagerSource.includes("import { CARDS } from '../../data/cards.js'"), 'sync manager can compare card override settings against card defaults');
 assert.ok(mainSource.includes('nextPatch.monthlyTargetUserSet = true;'), 'monthly target edits mark the target as user-set');
-assert.ok(mainSource.includes('nextPatch.monthlyTargetUpdatedAt = new Date().toISOString();'), 'monthly target edits record a field-level timestamp');
+assert.ok(mainSource.includes('nextPatch.monthlyTargetUpdatedAt = now;'), 'monthly target edits record a field-level timestamp');
+assert.ok(mainSource.includes('nextPatch.annualTargetUserSet = true;'), 'annual target edits mark the target as user-set');
+assert.ok(mainSource.includes('nextPatch.annualFeeStartMonthUpdatedAt = now;'), 'annual fee start month edits record a field-level timestamp');
+assert.ok(mainSource.includes('pointValuesUpdatedAt'), 'point value edits record per-point timestamps');
+assert.ok(!mainSource.includes('state = { ...state, settings: { ...state.settings, pointValues: { ...state.settings.pointValues, [key]: Number(value || 0) } } };'), 'point value timestamp update is not overwritten by legacy assignment');
 assert.ok(firebaseClientSource.includes('const persistenceReady = setPersistence(auth, browserLocalPersistence)'), 'auth persistence setup is tracked instead of being silently ignored');
 assertContainsInOrder(managerSignInBody, ['await services.persistenceReady', 'new GoogleAuthProvider()'], 'manual Google sign-in waits for local auth persistence setup');
 assert.ok(indexHtml.includes('Content-Security-Policy'), 'index.html must include CSP meta');
@@ -491,6 +537,32 @@ const migratedAceCatalogDefault = migrateState({
   monthlyCardUsage: { [MONTH]: {} }
 });
 assertEqual(migratedAceCatalogDefault.cardOverrides['shinhan-ace-blue'].monthlyTargetUserSet, false, 'catalog default monthly target is not treated as a user-set card setting');
+const migratedHyundaiAnnualSettings = migrateState({
+  schemaVersion: '2.0.1',
+  cardOverrides: {
+    'hyundai-amex-platinum': {
+      annualTarget: 36000000,
+      cycle: { type: 'anniversary', annualFeeStartMonth: 7 }
+    }
+  },
+  monthlyCardUsage: { [MONTH]: {} }
+});
+assertEqual(migratedHyundaiAnnualSettings.cardOverrides['hyundai-amex-platinum'].annualTarget, 36000000, 'migrated Hyundai Amex annual target remains user setting');
+assertEqual(migratedHyundaiAnnualSettings.cardOverrides['hyundai-amex-platinum'].annualTargetUserSet, true, 'migrated Hyundai Amex annual target is treated as user-set');
+assertEqual(migratedHyundaiAnnualSettings.cardOverrides['hyundai-amex-platinum'].cycle.annualFeeStartMonth, 7, 'migrated Hyundai Amex annual fee start month remains user setting');
+assertEqual(migratedHyundaiAnnualSettings.cardOverrides['hyundai-amex-platinum'].annualFeeStartMonthUserSet, true, 'migrated Hyundai Amex annual fee start month is treated as user-set');
+const migratedHyundaiAnnualDefaults = migrateState({
+  schemaVersion: '2.0.1',
+  cardOverrides: {
+    'hyundai-amex-platinum': {
+      annualTarget: 1000000,
+      cycle: { type: 'anniversary', annualFeeStartMonth: 1 }
+    }
+  },
+  monthlyCardUsage: { [MONTH]: {} }
+});
+assertEqual(migratedHyundaiAnnualDefaults.cardOverrides['hyundai-amex-platinum'].annualTargetUserSet, false, 'catalog default annual target is not treated as a user-set card setting');
+assertEqual(migratedHyundaiAnnualDefaults.cardOverrides['hyundai-amex-platinum'].annualFeeStartMonthUserSet, false, 'catalog default annual fee start month is not treated as user-set');
 assertEqual(hasPrevMonthRequirement(card('kb-skypass-platinum'), getCardOverride(baseState(), 'kb-skypass-platinum')), false, 'zero-target card is not treated as prev-month achievement managed');
 assert.ok(mainSource.includes('전월실적 무관'), 'dashboard has neutral prev-month label for unmanaged cards');
 console.log('ok - dashboard has neutral prev-month label for unmanaged cards');

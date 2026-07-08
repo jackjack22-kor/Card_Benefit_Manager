@@ -10,6 +10,16 @@ const SYNC_DEBOUNCE_MS = 1200;
 const CLOUD_DOC_ID = 'cardfit';
 const CONFLICT_ROOTS = ['cardOverrides', 'monthlyCardUsage', 'usage', 'notes', 'settings.pointValues', 'cardOrder', 'hiddenCardIds'];
 const MAX_CONFLICTS = 20;
+const CARD_OVERRIDE_FIELDS = [
+  { field: 'monthlyTarget', userSet: 'monthlyTargetUserSet', updatedAt: 'monthlyTargetUpdatedAt', defaultValue: (card) => Number(card?.defaultMonthlyTarget || 0), normalize: numberValue },
+  { field: 'annualTarget', userSet: 'annualTargetUserSet', updatedAt: 'annualTargetUpdatedAt', defaultValue: (card) => Number(card?.annualTargets?.[0] || 0), normalize: numberValue },
+  { field: 'annualSpend', userSet: 'annualSpendUserSet', updatedAt: 'annualSpendUpdatedAt', defaultValue: () => 0, normalize: numberValue },
+  { field: 'memo', userSet: 'memoUserSet', updatedAt: 'memoUpdatedAt', defaultValue: () => '', normalize: stringValue }
+];
+const CARD_CYCLE_FIELDS = [
+  { field: 'type', userSet: 'cycleTypeUserSet', updatedAt: 'cycleTypeUpdatedAt', defaultValue: (card) => card?.defaultCycle?.type || 'calendar', normalize: stringValue },
+  { field: 'annualFeeStartMonth', userSet: 'annualFeeStartMonthUserSet', updatedAt: 'annualFeeStartMonthUpdatedAt', defaultValue: (card) => Number(card?.defaultCycle?.startMonth || 1), normalize: numberValue }
+];
 
 let callbacks = {
   getState: () => ({}),
@@ -323,16 +333,16 @@ function mergeStates(localState, cloudState) {
     settings: {
       ...(secondary.settings || {}),
       ...(primary.settings || {}),
-      pointValues: {
-        ...(secondary.settings?.pointValues || {}),
-        ...(primary.settings?.pointValues || {})
-      }
+      pointValues: mergePointValues(secondary.settings || {}, primary.settings || {}),
+      pointValuesUpdatedAt: mergePointValueTimestamps(secondary.settings || {}, primary.settings || {})
     },
-    cardOrder: mergeOrder(primary.cardOrder, secondary.cardOrder),
-    hiddenCardIds: Array.isArray(primary.hiddenCardIds) ? primary.hiddenCardIds : (secondary.hiddenCardIds || []),
+    cardOrder: newerListField('cardOrder', secondary, primary, mergeOrder(primary.cardOrder, secondary.cardOrder)),
+    hiddenCardIds: newerListField('hiddenCardIds', secondary, primary, Array.isArray(primary.hiddenCardIds) ? primary.hiddenCardIds : (secondary.hiddenCardIds || [])),
+    cardOrderUpdatedAt: newerTimestamp(primary.cardOrderUpdatedAt, secondary.cardOrderUpdatedAt),
+    hiddenCardIdsUpdatedAt: newerTimestamp(primary.hiddenCardIdsUpdatedAt, secondary.hiddenCardIdsUpdatedAt),
     cardOverrides: mergeCardOverrides(secondary.cardOverrides || {}, primary.cardOverrides || {}),
-    monthlyCardUsage: deepMerge(secondary.monthlyCardUsage || {}, primary.monthlyCardUsage || {}),
-    usage: deepMerge(secondary.usage || {}, primary.usage || {}),
+    monthlyCardUsage: mergeTimestampedRecords(secondary.monthlyCardUsage || {}, primary.monthlyCardUsage || {}),
+    usage: mergeTimestampedRecords(secondary.usage || {}, primary.usage || {}),
     notes: deepMerge(secondary.notes || {}, primary.notes || {}),
     backupMeta: { ...(secondary.backupMeta || {}), ...(primary.backupMeta || {}) },
     syncMeta: { ...(secondary.syncMeta || {}), ...(primary.syncMeta || {}) }
@@ -422,7 +432,7 @@ function hasMeaningfulData(state) {
 }
 
 function hasMeaningfulCardOverride(cardId, override = {}) {
-  if (isExplicitMonthlyTarget(cardId, override)) return true;
+  if (isExplicitCardOverride(cardId, override)) return true;
   if (Number(override.currentMonthSpend || 0) > 0) return true;
   if (Number(override.annualSpend || 0) > 0) return true;
   if (Boolean(override.memo)) return true;
@@ -434,55 +444,141 @@ function mergeCardOverrides(base = {}, overlay = {}) {
   for (const cardId of new Set([...Object.keys(base || {}), ...Object.keys(overlay || {})])) {
     const baseCard = base?.[cardId] || {};
     const overlayCard = overlay?.[cardId] || {};
-    const baseExplicit = isExplicitMonthlyTarget(cardId, baseCard);
-    const overlayExplicit = isExplicitMonthlyTarget(cardId, overlayCard);
-    const baseMonthlyTargetTime = timestamp(baseCard.monthlyTargetUpdatedAt);
-    const overlayMonthlyTargetTime = timestamp(overlayCard.monthlyTargetUpdatedAt);
-    if (baseExplicit && !overlayExplicit && Object.prototype.hasOwnProperty.call(baseCard, 'monthlyTarget')) {
-      output[cardId] = {
-        ...(output[cardId] || {}),
-        monthlyTarget: baseCard.monthlyTarget,
-        monthlyTargetUserSet: true,
-        monthlyTargetUpdatedAt: baseCard.monthlyTargetUpdatedAt || ''
-      };
-    } else if (overlayExplicit && !baseExplicit && Object.prototype.hasOwnProperty.call(overlayCard, 'monthlyTarget')) {
-      output[cardId] = {
-        ...(output[cardId] || {}),
-        monthlyTarget: overlayCard.monthlyTarget,
-        monthlyTargetUserSet: true,
-        monthlyTargetUpdatedAt: overlayCard.monthlyTargetUpdatedAt || ''
-      };
-    } else if (baseExplicit && overlayExplicit && baseMonthlyTargetTime > overlayMonthlyTargetTime && Object.prototype.hasOwnProperty.call(baseCard, 'monthlyTarget')) {
-      output[cardId] = {
-        ...(output[cardId] || {}),
-        monthlyTarget: baseCard.monthlyTarget,
-        monthlyTargetUserSet: true,
-        monthlyTargetUpdatedAt: baseCard.monthlyTargetUpdatedAt || ''
-      };
-    } else if (baseExplicit && overlayExplicit && overlayMonthlyTargetTime > baseMonthlyTargetTime && Object.prototype.hasOwnProperty.call(overlayCard, 'monthlyTarget')) {
-      output[cardId] = {
-        ...(output[cardId] || {}),
-        monthlyTarget: overlayCard.monthlyTarget,
-        monthlyTargetUserSet: true,
-        monthlyTargetUpdatedAt: overlayCard.monthlyTargetUpdatedAt || ''
-      };
-    }
+    const card = CARDS.find((item) => item.id === cardId);
+    output[cardId] = output[cardId] || {};
+    for (const meta of CARD_OVERRIDE_FIELDS) mergeTrackedCardField(output[cardId], card, baseCard, overlayCard, meta);
+    output[cardId].cycle = output[cardId].cycle || {};
+    for (const meta of CARD_CYCLE_FIELDS) mergeTrackedCardField(output[cardId], card, baseCard, overlayCard, meta, { nested: 'cycle' });
   }
   return output;
 }
 
 function isExplicitMonthlyTarget(cardId, override = {}) {
-  if (!Object.prototype.hasOwnProperty.call(override, 'monthlyTarget')) return false;
-  if (override.monthlyTargetUserSet === true) return true;
-  if (override.monthlyTargetUpdatedAt) return true;
   const card = CARDS.find((item) => item.id === cardId);
-  return Number(override.monthlyTarget || 0) !== Number(card?.defaultMonthlyTarget || 0);
+  return isExplicitTrackedField(card, override, CARD_OVERRIDE_FIELDS[0]);
+}
+
+function isExplicitCardOverride(cardId, override = {}) {
+  const card = CARDS.find((item) => item.id === cardId);
+  return CARD_OVERRIDE_FIELDS.some((meta) => isExplicitTrackedField(card, override, meta))
+    || CARD_CYCLE_FIELDS.some((meta) => isExplicitTrackedField(card, override, meta, { nested: 'cycle' }));
+}
+
+function mergeTrackedCardField(output, card, baseCard, overlayCard, meta, options = {}) {
+  const baseExplicit = isExplicitTrackedField(card, baseCard, meta, options);
+  const overlayExplicit = isExplicitTrackedField(card, overlayCard, meta, options);
+  const baseHas = hasTrackedValue(baseCard, meta, options);
+  const overlayHas = hasTrackedValue(overlayCard, meta, options);
+  const baseTime = timestamp(baseCard?.[meta.updatedAt]);
+  const overlayTime = timestamp(overlayCard?.[meta.updatedAt]);
+  if (baseExplicit && !overlayExplicit && baseHas) {
+    applyTrackedCardField(output, baseCard, meta, options);
+  } else if (overlayExplicit && !baseExplicit && overlayHas) {
+    applyTrackedCardField(output, overlayCard, meta, options);
+  } else if (baseExplicit && overlayExplicit && baseTime > overlayTime && baseHas) {
+    applyTrackedCardField(output, baseCard, meta, options);
+  } else if (baseExplicit && overlayExplicit && overlayTime > baseTime && overlayHas) {
+    applyTrackedCardField(output, overlayCard, meta, options);
+  }
+}
+
+function applyTrackedCardField(output, source, meta, options = {}) {
+  if (options.nested) {
+    output[options.nested] = { ...(output[options.nested] || {}), [meta.field]: source?.[options.nested]?.[meta.field] };
+  } else {
+    output[meta.field] = source?.[meta.field];
+  }
+  output[meta.userSet] = true;
+  output[meta.updatedAt] = source?.[meta.updatedAt] || '';
+}
+
+function isExplicitTrackedField(card, override = {}, meta, options = {}) {
+  if (!hasTrackedValue(override, meta, options)) return false;
+  if (override?.[meta.userSet] === true) return true;
+  if (override?.[meta.updatedAt]) return true;
+  return meta.normalize(readTrackedValue(override, meta, options)) !== meta.normalize(meta.defaultValue(card));
+}
+
+function hasTrackedValue(source = {}, meta, options = {}) {
+  const target = options.nested ? source?.[options.nested] : source;
+  return Object.prototype.hasOwnProperty.call(target || {}, meta.field);
+}
+
+function readTrackedValue(source = {}, meta, options = {}) {
+  return options.nested ? source?.[options.nested]?.[meta.field] : source?.[meta.field];
+}
+
+function mergePointValues(baseSettings = {}, overlaySettings = {}) {
+  const output = {
+    ...(baseSettings.pointValues || {}),
+    ...(overlaySettings.pointValues || {})
+  };
+  const keys = new Set([...Object.keys(baseSettings.pointValues || {}), ...Object.keys(overlaySettings.pointValues || {})]);
+  for (const key of keys) {
+    const baseTime = timestamp(baseSettings.pointValuesUpdatedAt?.[key]);
+    const overlayTime = timestamp(overlaySettings.pointValuesUpdatedAt?.[key]);
+    if (baseTime > overlayTime && Object.prototype.hasOwnProperty.call(baseSettings.pointValues || {}, key)) {
+      output[key] = baseSettings.pointValues[key];
+    } else if (overlayTime > baseTime && Object.prototype.hasOwnProperty.call(overlaySettings.pointValues || {}, key)) {
+      output[key] = overlaySettings.pointValues[key];
+    }
+  }
+  return output;
+}
+
+function mergePointValueTimestamps(baseSettings = {}, overlaySettings = {}) {
+  const output = {
+    ...(baseSettings.pointValuesUpdatedAt || {}),
+    ...(overlaySettings.pointValuesUpdatedAt || {})
+  };
+  const keys = new Set([...Object.keys(baseSettings.pointValuesUpdatedAt || {}), ...Object.keys(overlaySettings.pointValuesUpdatedAt || {})]);
+  for (const key of keys) {
+    output[key] = newerTimestamp(overlaySettings.pointValuesUpdatedAt?.[key], baseSettings.pointValuesUpdatedAt?.[key]);
+  }
+  return output;
+}
+
+function newerListField(field, secondary = {}, primary = {}, fallback = []) {
+  const updatedAt = `${field}UpdatedAt`;
+  const primaryTime = timestamp(primary?.[updatedAt]);
+  const secondaryTime = timestamp(secondary?.[updatedAt]);
+  if (secondaryTime > primaryTime && Array.isArray(secondary?.[field])) return secondary[field];
+  if (primaryTime > secondaryTime && Array.isArray(primary?.[field])) return primary[field];
+  return fallback;
+}
+
+function newerTimestamp(left = '', right = '') {
+  return timestamp(left) >= timestamp(right) ? (left || right || '') : (right || left || '');
+}
+
+function mergeTimestampedRecords(base = {}, overlay = {}) {
+  const output = deepMerge(base, overlay);
+  for (const key of new Set([...Object.keys(base || {}), ...Object.keys(overlay || {})])) {
+    const baseValue = base?.[key];
+    const overlayValue = overlay?.[key];
+    if (isPlainObject(baseValue) && isPlainObject(overlayValue)) {
+      output[key] = mergeTimestampedRecords(baseValue, overlayValue);
+      continue;
+    }
+    if (String(key).endsWith('UpdatedAt')) continue;
+    const updatedAtKey = `${key}UpdatedAt`;
+    const baseTime = timestamp(base?.[updatedAtKey]);
+    const overlayTime = timestamp(overlay?.[updatedAtKey]);
+    if (baseTime > overlayTime && Object.prototype.hasOwnProperty.call(base || {}, key)) {
+      output[key] = baseValue;
+      output[updatedAtKey] = base?.[updatedAtKey] || '';
+    } else if (overlayTime > baseTime && Object.prototype.hasOwnProperty.call(overlay || {}, key)) {
+      output[key] = overlayValue;
+      output[updatedAtKey] = overlay?.[updatedAtKey] || '';
+    }
+  }
+  return output;
 }
 
 function deepMerge(base, overlay) {
   const output = { ...base };
   for (const [key, value] of Object.entries(overlay || {})) {
-    if (value && typeof value === 'object' && !Array.isArray(value) && base?.[key] && typeof base[key] === 'object' && !Array.isArray(base[key])) {
+    if (isPlainObject(value) && isPlainObject(base?.[key])) {
       output[key] = deepMerge(base[key], value);
     } else {
       output[key] = value;
@@ -493,6 +589,18 @@ function deepMerge(base, overlay) {
 
 function mergeOrder(primary = [], secondary = []) {
   return [...new Set([...(primary || []), ...(secondary || [])])];
+}
+
+function isPlainObject(value) {
+  return value && typeof value === 'object' && !Array.isArray(value);
+}
+
+function numberValue(value) {
+  return Number(value || 0);
+}
+
+function stringValue(value) {
+  return String(value || '');
 }
 
 function withSyncMeta(state, meta) {

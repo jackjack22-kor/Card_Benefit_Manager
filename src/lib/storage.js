@@ -1,8 +1,9 @@
 import { CARDS, DEFAULT_HIDDEN_CARD_IDS, POINT_DEFAULTS } from '../data/cards.js';
 import { CATEGORIES } from '../data/categories.js';
+import { APP_STORAGE_KEY } from './appEdition.js';
 import { getMonthKey } from './cycles.js';
 
-export const STORAGE_KEY = 'cardBenefitManager.v1';
+export const STORAGE_KEY = APP_STORAGE_KEY;
 export const SCHEMA_VERSION = '2.0.1';
 export const APP_VERSION = '1.0.0-single-html';
 
@@ -25,6 +26,7 @@ export function createInitialState() {
     settings: {
       darkMode: true,
       pointValues: { ...POINT_DEFAULTS },
+      pointValuesUpdatedAt: {},
       recommendMode: 'bestValue'
     },
     selectedTab: 'dashboard',
@@ -36,20 +38,33 @@ export function createInitialState() {
     isSortingCards: false,
     cardSettingsOpen: false,
     cardOrder: CARDS.map((card) => card.id),
+    cardOrderUpdatedAt: '',
     hiddenCardIds: [...DEFAULT_HIDDEN_CARD_IDS],
+    hiddenCardIdsUpdatedAt: '',
     cardOverrides: Object.fromEntries(CARDS.map((card) => [card.id, {
       prevMonthStatus: 'met',
       currentMonthSpend: 0,
       monthlyTarget: card.defaultMonthlyTarget || 0,
       monthlyTargetUserSet: false,
+      monthlyTargetUpdatedAt: '',
       annualSpend: 0,
+      annualSpendUserSet: false,
+      annualSpendUpdatedAt: '',
       annualTarget: card.annualTargets?.[0] || 0,
+      annualTargetUserSet: false,
+      annualTargetUpdatedAt: '',
+      cycleTypeUserSet: false,
+      cycleTypeUpdatedAt: '',
+      annualFeeStartMonthUserSet: false,
+      annualFeeStartMonthUpdatedAt: '',
       cycle: {
         ...(card.defaultCycle || { type: 'calendar', startMonth: 1 }),
         annualFeeStartMonth: card.defaultCycle?.startMonth || 1,
         issueMonth: card.defaultCycle?.startMonth || 1
       },
-      memo: ''
+      memo: '',
+      memoUserSet: false,
+      memoUpdatedAt: ''
     }])),
     monthlyCardUsage: {},
     usage: {},
@@ -99,6 +114,7 @@ export function migrateState(state) {
   const base = createInitialState();
   const importedSettings = state.settings || {};
   const importedPointValues = sanitizePointValues(state.pointValues || importedSettings.pointValues || {});
+  const importedPointValuesUpdatedAt = sanitizePointValueTimestamps(state.pointValuesUpdatedAt || importedSettings.pointValuesUpdatedAt || {});
   const importedCardSettings = state.cardSettings || state.cardOverrides || {};
   const importedBenefitUsage = state.benefitUsage || state.usage || {};
   const importedMonthlyCardUsage = state.monthlyCardUsage || {};
@@ -110,7 +126,12 @@ export function migrateState(state) {
   const merged = {
     ...base,
     ...state,
-    settings: { ...base.settings, ...importedSettings, pointValues: { ...base.settings.pointValues, ...importedPointValues } },
+    settings: {
+      ...base.settings,
+      ...importedSettings,
+      pointValues: { ...base.settings.pointValues, ...importedPointValues },
+      pointValuesUpdatedAt: { ...importedPointValuesUpdatedAt }
+    },
     cardOverrides: { ...base.cardOverrides, ...importedCardSettings },
     monthlyCardUsage: { ...importedMonthlyCardUsage },
     usage: { ...importedBenefitUsage },
@@ -127,8 +148,16 @@ export function migrateState(state) {
   const newlyIntroducedDefaultHidden = DEFAULT_HIDDEN_CARD_IDS.filter((id) => !previousCardOrder.includes(id));
   merged.cardOrder = [...new Set([...(state.cardOrder || []), ...base.cardOrder])].filter((id) => known.has(id));
   merged.hiddenCardIds = sanitizeCardIdList([...(state.hiddenCardIds || []), ...newlyIntroducedDefaultHidden], known);
+  merged.cardOrderUpdatedAt = state.cardOrderUpdatedAt || (isDefaultCardOrder(merged.cardOrder) ? '' : new Date().toISOString());
+  merged.hiddenCardIdsUpdatedAt = state.hiddenCardIdsUpdatedAt || (isDefaultHiddenCardIds(merged.hiddenCardIds) ? '' : new Date().toISOString());
+  for (const key of Object.keys(importedPointValues)) {
+    if (!merged.settings.pointValuesUpdatedAt[key] && Number(importedPointValues[key] || 0) !== Number(POINT_DEFAULTS[key] || 1)) {
+      merged.settings.pointValuesUpdatedAt[key] = new Date().toISOString();
+    }
+  }
   for (const card of CARDS) {
     const importedOverride = importedCardSettings?.[card.id] || {};
+    const importedCycle = importedOverride.cycle || {};
     const hasImportedMonthlyTarget = Object.prototype.hasOwnProperty.call(importedOverride, 'monthlyTarget');
     const monthlyTarget = Object.prototype.hasOwnProperty.call(merged.cardOverrides[card.id] || {}, 'monthlyTarget')
       ? Number(merged.cardOverrides[card.id]?.monthlyTarget || 0)
@@ -147,6 +176,42 @@ export function migrateState(state) {
     const normalizedMonthlyTargetUpdatedAt = repairUnmanagedTarget
       ? (monthlyTargetUpdatedAt || new Date().toISOString())
       : monthlyTargetUpdatedAt;
+    const hasImportedAnnualTarget = Object.prototype.hasOwnProperty.call(importedOverride, 'annualTarget');
+    const annualTarget = Number(merged.cardOverrides[card.id]?.annualTarget || base.cardOverrides[card.id]?.annualTarget || 0);
+    const defaultAnnualTarget = Number(base.cardOverrides[card.id]?.annualTarget || 0);
+    const annualTargetUpdatedAt = String(merged.cardOverrides[card.id]?.annualTargetUpdatedAt || '');
+    const annualTargetUserSet = merged.cardOverrides[card.id]?.annualTargetUserSet === true
+      || Boolean(annualTargetUpdatedAt)
+      || (hasImportedAnnualTarget && annualTarget !== defaultAnnualTarget);
+    const hasImportedAnnualSpend = Object.prototype.hasOwnProperty.call(importedOverride, 'annualSpend');
+    const annualSpend = Number(merged.cardOverrides[card.id]?.annualSpend || 0);
+    const annualSpendUpdatedAt = String(merged.cardOverrides[card.id]?.annualSpendUpdatedAt || '');
+    const annualSpendUserSet = merged.cardOverrides[card.id]?.annualSpendUserSet === true
+      || Boolean(annualSpendUpdatedAt)
+      || (hasImportedAnnualSpend && annualSpend !== 0);
+    const defaultCycleType = card.defaultCycle?.type || 'calendar';
+    const cycleType = merged.cardOverrides[card.id]?.cycle?.type || defaultCycleType;
+    const cycleTypeUpdatedAt = String(merged.cardOverrides[card.id]?.cycleTypeUpdatedAt || '');
+    const cycleTypeUserSet = merged.cardOverrides[card.id]?.cycleTypeUserSet === true
+      || Boolean(cycleTypeUpdatedAt)
+      || (Object.prototype.hasOwnProperty.call(importedCycle, 'type') && cycleType !== defaultCycleType);
+    const defaultAnnualFeeStartMonth = Number(card.defaultCycle?.startMonth || 1);
+    const annualFeeStartMonth = Number(
+      merged.cardOverrides[card.id]?.cycle?.annualFeeStartMonth
+      || merged.cardOverrides[card.id]?.cycle?.startMonth
+      || defaultAnnualFeeStartMonth
+    );
+    const annualFeeStartMonthUpdatedAt = String(merged.cardOverrides[card.id]?.annualFeeStartMonthUpdatedAt || '');
+    const hasImportedAnnualFeeStartMonth = Object.prototype.hasOwnProperty.call(importedCycle, 'annualFeeStartMonth')
+      || (Object.prototype.hasOwnProperty.call(importedCycle, 'startMonth') && Number(importedCycle.startMonth || 1) !== defaultAnnualFeeStartMonth);
+    const annualFeeStartMonthUserSet = merged.cardOverrides[card.id]?.annualFeeStartMonthUserSet === true
+      || Boolean(annualFeeStartMonthUpdatedAt)
+      || (hasImportedAnnualFeeStartMonth && annualFeeStartMonth !== defaultAnnualFeeStartMonth);
+    const memo = String(merged.cardOverrides[card.id]?.memo || '');
+    const memoUpdatedAt = String(merged.cardOverrides[card.id]?.memoUpdatedAt || '');
+    const memoUserSet = merged.cardOverrides[card.id]?.memoUserSet === true
+      || Boolean(memoUpdatedAt)
+      || Boolean(memo);
     merged.cardOverrides[card.id] = {
       ...base.cardOverrides[card.id],
       ...(merged.cardOverrides[card.id] || {}),
@@ -155,13 +220,25 @@ export function migrateState(state) {
       monthlyTarget: normalizedMonthlyTarget,
       monthlyTargetUserSet: monthlyTargetUserSet || repairUnmanagedTarget,
       monthlyTargetUpdatedAt: normalizedMonthlyTargetUpdatedAt,
-      annualSpend: Number(merged.cardOverrides[card.id]?.annualSpend || 0),
-      annualTarget: Number(merged.cardOverrides[card.id]?.annualTarget || base.cardOverrides[card.id]?.annualTarget || 0),
+      annualSpend,
+      annualSpendUserSet,
+      annualSpendUpdatedAt,
+      annualTarget,
+      annualTargetUserSet,
+      annualTargetUpdatedAt,
+      cycleTypeUserSet,
+      cycleTypeUpdatedAt,
+      annualFeeStartMonthUserSet,
+      annualFeeStartMonthUpdatedAt,
       cycle: {
         ...(base.cardOverrides[card.id]?.cycle || {}),
         ...(card.defaultCycle || {}),
-        ...(merged.cardOverrides[card.id]?.cycle || {})
-      }
+        ...(merged.cardOverrides[card.id]?.cycle || {}),
+        annualFeeStartMonth
+      },
+      memo,
+      memoUserSet,
+      memoUpdatedAt
     };
   }
   merged.monthlyCardUsage = sanitizeMonthlyCardUsage(merged.monthlyCardUsage, known);
@@ -197,8 +274,11 @@ export function exportState(state) {
     appVersion: APP_VERSION,
     exportedAt,
     pointValues: state.settings?.pointValues || {},
+    pointValuesUpdatedAt: state.settings?.pointValuesUpdatedAt || {},
     cardOrder: state.cardOrder || [],
+    cardOrderUpdatedAt: state.cardOrderUpdatedAt || '',
     hiddenCardIds: state.hiddenCardIds || [],
+    hiddenCardIdsUpdatedAt: state.hiddenCardIdsUpdatedAt || '',
     cardSettings,
     selectedMonth: state.selectedMonth || getMonthKey(),
     selectedCategory: state.selectedCategory || '',
@@ -249,6 +329,21 @@ function sanitizePointValues(values = {}) {
   return Object.fromEntries(Object.entries(values)
     .filter(([key]) => POINT_KEYS.has(key))
     .map(([key, value]) => [key, Number(value) || POINT_DEFAULTS[key] || 1]));
+}
+
+function sanitizePointValueTimestamps(values = {}) {
+  return Object.fromEntries(Object.entries(values || {})
+    .filter(([key]) => POINT_KEYS.has(key))
+    .map(([key, value]) => [key, String(value || '')]));
+}
+
+function isDefaultCardOrder(order = []) {
+  const defaultOrder = CARDS.map((card) => card.id);
+  return JSON.stringify(order || []) === JSON.stringify(defaultOrder);
+}
+
+function isDefaultHiddenCardIds(ids = []) {
+  return JSON.stringify([...(ids || [])].sort()) === JSON.stringify([...DEFAULT_HIDDEN_CARD_IDS].sort());
 }
 
 function sanitizeMonthlyCardUsage(monthlyCardUsage = {}, knownCards = new Set()) {

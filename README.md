@@ -156,6 +156,16 @@ iPhone Safari의 HTTPS 배포 주소 접속 환경에서는 JSON 내보내기/�
 
 `public/` 아래 파일(아이콘, 매니페스트, 서비스워커)은 Vite 빌드 시 `dist/`로 그대로 복사되어 배포됩니다.
 
+## 공개 배포판
+
+Cloudflare Pages와 고정 도메인으로 운영하는 공개 배포판은 `VITE_APP_EDITION=public` 기준으로 빌드합니다. 공개판은 Firebase 로그인/동기화를 사용하지 않고 브라우저 localStorage와 JSON 백업만 사용합니다.
+
+```bash
+npm run build:public
+```
+
+운영 절차는 `docs/PUBLIC_DISTRIBUTION_PLAN.md`, 카드 데이터 확장과 공식 출처 검증 기준은 `docs/CARD_DATA_RESEARCH_GUIDE.md`를 기준으로 관리합니다.
+
 ## 카드 추가 방법
 
 `src/data/cards.js`에 카드 객체를 추가합니다.
