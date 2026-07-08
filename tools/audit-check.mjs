@@ -119,6 +119,7 @@ const categoryIds = new Set(CATEGORIES.map((item) => item.id));
 const unknownCategories = [];
 const cardIds = new Set();
 const benefitIds = new Set();
+const structuredSourceCardIds = new Set();
 const allowedBenefitPriorities = new Set(['core', 'normal']);
 const allowedCycleTypes = new Set(['calendar', 'anniversary', 'issueMonth']);
 const allowedSourceStatuses = new Set(['official_verified', 'needs_official_recheck']);
@@ -131,16 +132,17 @@ for (const item of CARDS) {
   assert.ok(item.name, `card name is required: ${item.id}`);
   assert.ok(item.shortName, `card shortName is required: ${item.id}`);
   assert.ok(item.sourceNote, `card sourceNote is required: ${item.id}`);
+  assert.ok(item.source, `card structured source metadata is required: ${item.id}`);
   assert.ok(Array.isArray(item.monthlyTargets), `card monthlyTargets must be an array: ${item.id}`);
   assert.ok(Array.isArray(item.annualTargets), `card annualTargets must be an array: ${item.id}`);
   assert.ok(item.defaultCycle?.type && allowedCycleTypes.has(item.defaultCycle.type), `card default cycle type is invalid: ${item.id}`);
   assert.ok(Number.isFinite(Number(item.defaultMonthlyTarget || 0)), `card default monthly target must be numeric: ${item.id}`);
   assert.ok(Number.isFinite(Number(item.annualFee || 0)), `card annual fee must be numeric: ${item.id}`);
-  if (item.source) {
-    assert.ok(allowedSourceStatuses.has(item.source.status), `card source status is invalid: ${item.id}`);
-    assert.ok(/^\d{4}-\d{2}-\d{2}$/.test(item.source.checkedAt || ''), `card source checkedAt must use YYYY-MM-DD: ${item.id}`);
-    assert.ok(item.source.url || item.source.pdf || item.source.appCapture, `card source must include an official URL, PDF, or app capture: ${item.id}`);
-  }
+  structuredSourceCardIds.add(item.id);
+  assert.ok(allowedSourceStatuses.has(item.source.status), `card source status is invalid: ${item.id}`);
+  assert.ok(/^\d{4}-\d{2}-\d{2}$/.test(item.source.checkedAt || ''), `card source checkedAt must use YYYY-MM-DD: ${item.id}`);
+  assert.ok(item.source.url || item.source.pdf || item.source.appCapture, `card source must include an official URL, PDF, or app capture: ${item.id}`);
+  assert.ok(item.source.note, `card source note is required: ${item.id}`);
   if (item.networks) {
     assert.ok(Array.isArray(item.networks) && item.networks.length > 0, `card networks must be a non-empty array: ${item.id}`);
     for (const network of item.networks) {
@@ -178,6 +180,7 @@ if (unknownCategories.length) {
   console.warn(`warn - unknown categories: ${unknownCategories.join(', ')}`);
 }
 console.log(`ok - card catalog data quality gates passed: ${cardIds.size} cards, ${benefitIds.size} benefits`);
+assertEqual(structuredSourceCardIds.size, CARDS.length, 'all cards have structured source metadata');
 
 const hyundaiAmexPlatinum = card('hyundai-amex-platinum');
 assert.equal(hyundaiAmexPlatinum.source.status, 'needs_official_recheck', 'Hyundai Amex keeps structured source recheck status');

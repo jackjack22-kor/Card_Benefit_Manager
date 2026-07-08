@@ -20,6 +20,16 @@ export const DEFAULT_HIDDEN_CARD_IDS = [
   'lotte-hilton-amex'
 ];
 
+const SOURCE_RECHECK_DATE = '2026-07-09';
+
+function sourceNeedsRecheck(details) {
+  return {
+    status: 'needs_official_recheck',
+    checkedAt: SOURCE_RECHECK_DATE,
+    ...details
+  };
+}
+
 export const CARDS = [
   {
     id: 'shinhan-ace-blue',
@@ -35,6 +45,10 @@ export const CARDS = [
     annualTargets: [6000000, 10000000],
     tags: ['의료', '프리미엄', '라운지', '호텔', '항공'],
     sourceNote: '업로드 PDF: 신한 더에이스블루라벨. 2025년 안내장 기준.',
+    source: sourceNeedsRecheck({
+      pdf: '신한 더에이스블루라벨 2025년 안내장',
+      note: '공개판 확장 전 신한카드 공식 상품 페이지와 최신 상품설명서 PDF로 Gift Option, 라운지/호텔 서비스 재확인 필요'
+    }),
     benefits: [
       {
         id: 'ace-reward-mile',
@@ -161,6 +175,10 @@ export const CARDS = [
     annualTargets: [1000000, 10000000, 20000000, 60000000],
     tags: ['메리어트', '호텔', '라운지', '해외'],
     sourceNote: '업로드 PDF: 메리어트 본보이 더 베스트 신한카드.',
+    source: sourceNeedsRecheck({
+      pdf: '메리어트 본보이 더 베스트 신한카드',
+      note: '공개판 확장 전 신한카드 공식 상품 페이지와 최신 상품설명서 PDF로 연간 무료숙박권, 보너스 포인트, 실적 제외 항목 재확인 필요'
+    }),
     benefits: [
       {
         id: 'mb-best-free-night',
@@ -295,6 +313,10 @@ export const CARDS = [
     annualTargets: [1000000, 5000000, 10000000, 15000000, 20000000],
     tags: ['메리어트', '호텔', '라운지'],
     sourceNote: '업로드 PDF: 메리어트 본보이 더 클래식 신한카드.',
+    source: sourceNeedsRecheck({
+      pdf: '메리어트 본보이 더 클래식 신한카드',
+      note: '공개판 확장 전 신한카드 공식 상품 페이지와 최신 상품설명서 PDF로 연간 기프트, 라운지, 메리어트 적립 제외 조건 재확인 필요'
+    }),
     benefits: [
       {
         id: 'mb-classic-annual-gift',
@@ -427,13 +449,11 @@ export const CARDS = [
     annualTargets: [1000000, 36000000],
     tags: ['MR', '아티제', '백미당', 'Be My Guest', '호텔', '공항'],
     sourceNote: '업로드 PDF: 현대 아멕스 플래티넘 가이드북 및 현대카드 앱 Amex Member 캡처/텍스트.',
-    source: {
-      status: 'needs_official_recheck',
-      checkedAt: '2026-07-09',
+    source: sourceNeedsRecheck({
       pdf: '현대 아멕스 플래티넘 가이드북',
       appCapture: '현대카드 앱 Amex Member 캡처/텍스트',
       note: '공개판 확장 전 현대카드 공식 상품 페이지와 최신 상품설명서 PDF로 FHR/THC/BMG 대상점과 연간 MR 조건 재확인 필요'
-    },
+    }),
     networks: [
       {
         name: 'American Express',
@@ -473,6 +493,10 @@ export const CARDS = [
     annualTargets: [6000000, 10000000, 20000000, 30000000],
     tags: ['프리미엄', '아시아나', '다이닝', '호텔', '골프'],
     sourceNote: '업로드 PDF: 삼성 THE O 아시아나.',
+    source: sourceNeedsRecheck({
+      pdf: '삼성 THE O 아시아나',
+      note: '공개판 확장 전 삼성카드 공식 상품 페이지와 최신 상품설명서 PDF로 단종/신규발급 여부, 기프트 조건, 호텔/다이닝 대상점 재확인 필요'
+    }),
     benefits: [
       { id: 'the-o-reward-asiana', name: '아시아나 기본 마일리지', type: 'reward', priority: 'core', categories: ['other'], pointCurrency: 'asiana', pointsPer1000: 1, deriveFromMonthlySpend: true, summary: '아시아나 1,000원당 1마일 기본 적립', targets: '개인회원 및 개인사업자/국가/지자체/소기업 법인회원 기준', exclusions: '무이자할부, 세금, 공과금, 대학등록금, 대중교통, 선불충전, 카드대출, 연회비 등 제외', conditions: '개인카드는 적립한도 없음', homeLabel: '아시아나' },
       { id: 'the-o-additional-reward', name: '연간 이용금액 1천만원당 추가 리워드', type: 'milestone', priority: 'core', categories: ['premiumgift'], cycleType: 'anniversary', milestones: [{ spend: 10000000, label: '3,500마일' }, { spend: 20000000, label: '7,000마일' }, { spend: 30000000, label: '10,500마일' }], summary: '아시아나형 연간 이용금액 1천만원당 3,500마일 추가', targets: '본인+가족 일시불·할부 합산', exclusions: '정상카드 미보유 시 미적립', conditions: '2차년도부터 매년 카드 발급월 5영업일 적립', homeLabel: '추가마일' },
@@ -500,6 +524,11 @@ export const CARDS = [
     annualTargets: [500000, 6000000],
     tags: ['대한항공', '기프트', '스타벅스', '공항', '메가박스', '아웃백', 'AMEX'],
     sourceNote: '업로드 PDF: 삼성 THE 1 스카이패스, 삼성카드 앱 혜택 캡처, 2604_AMEX_E_002 American Express PLATINUM ELITE 서비스.',
+    source: sourceNeedsRecheck({
+      pdf: '삼성 THE 1 스카이패스 및 2604_AMEX_E_002 American Express PLATINUM ELITE 서비스',
+      appCapture: '삼성카드 앱 혜택 캡처',
+      note: '공개판 확장 전 삼성카드 공식 상품 페이지와 최신 상품설명서 PDF로 AMEX PLATINUM ELITE 서비스, 특별 적립 월 한도 재확인 필요'
+    }),
     benefits: [
       { id: 'the1-basic-mile', name: '기본 스카이패스 1마일/천원', type: 'reward', priority: 'core', categories: ['other'], pointCurrency: 'koreanAir', pointsPer1000: 1, deriveFromMonthlySpend: true, summary: '모든 가맹점 1,000원당 스카이패스 1마일', targets: '모든 가맹점', exclusions: '할인 적용, 무이자, 세금, 대중교통, 택시, 고속버스, 통행료, 선불충전 등 제외', conditions: '전월실적 관계없이 한도 없음', homeLabel: '1마일' },
       { id: 'the1-special-mile', name: '특별 스카이패스 2마일/천원', type: 'reward', priority: 'core', categories: ['department', 'travel', 'hotel', 'golf', 'airline'], pointCurrency: 'koreanAir', pointsPer1000: 2, bonusOverBase: true, monthlyPointCap: 2000, summary: '백화점, 여행, 호텔, 골프 1,000원당 2마일', targets: '신세계·롯데·현대·갤러리아 등 백화점, 호텔/항공/철도/렌터카/관광여행사, 골프장/연습장', exclusions: '백화점 일부 임대매장/식품매장 제외. 월 2,000마일 초과 시 기본적립', conditions: '특별 리워드 통합 월 2,000마일 한도', homeLabel: '2마일' },
@@ -539,6 +568,10 @@ export const CARDS = [
     annualTargets: [],
     tags: ['포인트', '간편결제', '전기차충전', '커피', '온라인'],
     sourceNote: '업로드 PDF: 카드의정석 POINT 주거래.',
+    source: sourceNeedsRecheck({
+      pdf: '카드의정석 POINT 주거래',
+      note: '공개판 확장 전 우리카드 공식 상품 페이지와 최신 상품설명서 PDF로 통합 포인트 한도, 간편결제 대상, 주거래 조건 재확인 필요'
+    }),
     benefits: [
       { id: 'woori-monthly-points', name: '통합 월 적립한도', type: 'amount_cap', priority: 'core', categories: ['other'], monthlyCapBySpend: [{ min: 300000, cap: 10000 }, { min: 600000, cap: 20000 }, { min: 1200000, cap: 50000 }], cycleType: 'calendar', summary: '기본/특별/추가 통합 월 적립한도', targets: '전월 30/60/120만원 이상에 따라 1만/2만/5만점', exclusions: '한도 이월 없음', conditions: '서비스는 거래 승인 순서대로 적용', homeLabel: '월한도' },
       { id: 'woori-special-3', name: '특별 3% 적립', type: 'reward_cap_pool', priority: 'core', categories: ['telecom', 'transit', 'evcharge', 'coffee', 'movie'], rate: 0.03, capPoolId: 'woori-monthly-points', summary: '이동통신, 대중교통, 전기차충전, 커피, 영화 3% 모아포인트', targets: 'SKT/KT/LGU+/알뜰폰 일부, 버스/지하철, 환경부/한전/KT 등 전기차 급속충전, 스타벅스/엔제리너스/이디야, CGV/롯데시네마', exclusions: '통신 결합상품, 커피 입점매장/상품권, 영화 예매대행, 전기차 상세 대상 확인 필요', conditions: '전월 국내 30만원 이상. 통합 월 적립한도 적용.', homeLabel: '3%' },
@@ -563,6 +596,10 @@ export const CARDS = [
     annualTargets: [],
     tags: ['SKT', '통신비', 'T라이트할부', '영화', '커피'],
     sourceNote: '첨부 PDF: SKT 우리카드 카드발급/이용안내. 2022년 12월 기준.',
+    source: sourceNeedsRecheck({
+      pdf: 'SKT 우리카드 카드발급/이용안내 2022년 12월 기준',
+      note: '공개판 확장 전 우리카드 공식 상품 페이지와 최신 상품설명서 PDF로 SKT 자동납부/T라이트할부 중복 조건과 통신요금 할인 구간 재확인 필요'
+    }),
     benefits: [
       { id: 'skt-woori-telecom-tlight', name: 'SKT 통신요금 자동납부 할인', type: 'amount_cap', priority: 'core', categories: ['telecom'], rate: 1, deriveFromMonthlySpend: true, monthlyCapBySpend: [{ min: 300000, cap: 10000 }, { min: 700000, cap: 15000 }, { min: 1000000, cap: 20000 }], cycleType: 'calendar', summary: 'SKT 통신료 자동납부 시 전월실적 구간별 청구할인', targets: 'SKT 통신요금 자동납부. T라이트할부 미이용/상환 종료 기준 1만/1.5만/2만원', exclusions: '자동납부가 아닌 일반 결제 제외. T라이트할부 서비스와 SKT 할인서비스 중복 적용 불가', conditions: '통신료 자동납부 필수. 전월 30/70/100만원 이상. T라이트할부 미이용 또는 상환 종료 시 1만/1.5만/2만원 할인.', homeLabel: 'SKT' },
       { id: 'skt-woori-tlight-installment', name: 'T라이트할부', type: 'info', priority: 'normal', categories: ['telecom'], summary: 'SKT 통신기기 및 통신서비스 구매 시 T라이트할부 제공', targets: 'SKT 통신기기 및 통신서비스 10만원 이상 구매', exclusions: 'SKT 할인서비스와 중복 적용 불가', conditions: '24개월 또는 36개월, 할부수수료율 연 5.9%, 원금균등상환', homeLabel: 'T라이트' },
@@ -586,6 +623,10 @@ export const CARDS = [
     annualTargets: [],
     tags: ['MASTER', '대한항공', '스카이패스', '호텔뷔페', '플래티늄'],
     sourceNote: 'KB국민카드 공식 홈페이지: 스카이패스 KB국민 플래티늄카드(MASTER) 기준.',
+    source: sourceNeedsRecheck({
+      url: 'https://card.kbcard.com/',
+      note: '공개판 확장 전 KB국민카드 공식 상품 페이지와 최신 상품설명서 PDF로 Mastercard/VISA/AMEX 플래티늄 서비스 차이 재확인 필요'
+    }),
     benefits: [
       { id: 'kb-skypass-mile', name: '대한항공 마일리지 적립', type: 'reward', priority: 'core', categories: ['other', 'airline'], pointCurrency: 'koreanAir', pointsPer1000: 0.6667, deriveFromMonthlySpend: true, summary: 'KB국민카드 가맹점 이용 시 신판입금액 1,500원당 대한항공 1마일 적립', targets: '국내외 일시불·할부 이용금액. 대한항공 탑승/제휴 호텔 등은 대한항공 기준에 따라 별도 적립 가능', exclusions: '단기카드대출, 장기카드대출, 각종 수수료·이자, 선불카드 구입/충전, 세금, 대학등록금, 연회비, 무이자할부, 아파트관리비, 상품권 이용금액 등 제외', conditions: '마일리지는 결제일로부터 15일 경과 후 확인 가능. MASTER 플래티늄 기준으로 관리.', homeLabel: '1,500원=1M' },
       { id: 'kb-skypass-hotel-buffet', name: '호텔 뷔페 무료 식사 이용권', type: 'check', priority: 'core', categories: ['premiumgift', 'hotel', 'restaurant'], annualLimitCount: 1, cycleType: 'anniversary', summary: '연 1회 쿠폰서비스 중 택1. 국내 지정 호텔뷔페 2인 무료식사 또는 지정 레스토랑 현장할인', targets: '국내 지정 호텔뷔페 2인 무료식사 및 지정 레스토랑 현장할인 대상점', exclusions: '호텔 사정에 따라 이용 제한 또는 당일 이용 불가 가능. 다른 이용권, 패키지, 시즌특별가 등 행사와 중복 적용 불가', conditions: '쿠폰형 플래티늄카드 회원대상 서비스. 반드시 사전예약 후 이용 당일 플래티늄 카드 제시. 초과금액은 해당 카드로 결제.', homeLabel: '호텔뷔페' }
@@ -605,6 +646,10 @@ export const CARDS = [
     annualTargets: [3000000],
     tags: ['KB Pay', '무실적', '포인트리'],
     sourceNote: '업로드 PDF: KB 톡톡 my point카드.',
+    source: sourceNeedsRecheck({
+      pdf: 'KB 톡톡 my point카드',
+      note: '공개판 확장 전 KB국민카드 공식 상품 페이지와 최신 상품설명서 PDF로 KB Pay 적립 제외 조건과 연간 리워드 기준 재확인 필요'
+    }),
     benefits: [
       { id: 'kb-base', name: '모든 가맹점 0.5% 적립', type: 'reward', priority: 'core', categories: ['other'], pointCurrency: 'kbPointree', rate: 0.005, deriveFromMonthlySpend: true, summary: '국내외 모든 가맹점 0.5% 포인트리', targets: '국내외 모든 가맹점', exclusions: '무이자할부, 취소, 카드대출, 상품권/선불, 관리비, 학교납입금, 세금/공과금, 4대보험, 연회비 등 제외', conditions: '전월실적 및 적립한도 없음', homeLabel: '0.5%' },
       { id: 'kb-pay-5', name: 'KB Pay 5% 적립', type: 'amount_cap', priority: 'core', categories: ['simplepay'], rate: 0.05, deriveFromMonthlySpend: true, monthlyCap: 10000, cycleType: 'calendar', summary: '국내 온/오프라인 가맹점 KB Pay 결제 5% 적립', targets: 'KB Pay 국내 온/오프라인 결제', exclusions: '해외이용 전체, 타 간편결제, 제외 업종', conditions: '전월실적 없음. 월 최대 1만점.', homeLabel: 'KB Pay' },
@@ -625,6 +670,10 @@ export const CARDS = [
     annualTargets: [],
     tags: ['전기차충전', '대중교통', '커피', '친환경'],
     sourceNote: '롯데카드 공식 홈페이지 및 환경부 정책브리핑 기준.',
+    source: sourceNeedsRecheck({
+      url: 'https://www.lottecard.co.kr/',
+      note: '공개판 확장 전 롯데카드 공식 상품 페이지와 최신 상품설명서 PDF, 환경부 공식 자료로 친환경 대중교통/커피 대상 업종과 월 한도 재확인 필요'
+    }),
     benefits: [
       { id: 'lotte-green-ev', name: '전기차/수소차 충전 에코머니', type: 'amount_cap', priority: 'core', categories: ['evcharge'], rateBySpend: [{ min: 300000, rate: 0.20 }, { min: 600000, rate: 0.40 }], monthlyCap: 20000, cycleType: 'calendar', summary: '친환경 자동차 충전 20~40% 에코머니 적립', targets: '전기차·수소차 충전 업종', exclusions: '롯데카드 가맹점/업종 분류 기준', conditions: '전월 30만원 이상 20%, 60만원 이상 40%, 월 최대 2만P', homeLabel: '전기차' },
       { id: 'lotte-green-mobility', name: '공유 모빌리티 10%', type: 'amount_cap', priority: 'core', categories: ['transit'], rate: 0.10, monthlyCap: 5000, cycleType: 'calendar', summary: '공유 모빌리티 10% 에코머니', targets: '공유 모빌리티 대상처', exclusions: '대상처 및 업종 기준 확인 필요', conditions: '전월 30만원 이상. 월 최대 5천P.', homeLabel: '모빌리티' },
@@ -647,6 +696,10 @@ export const CARDS = [
     annualTargets: [],
     tags: ['간편결제', 'OTT', '멤버십'],
     sourceNote: '업로드 PDF: MG+ S 하나카드.',
+    source: sourceNeedsRecheck({
+      pdf: 'MG+ S 하나카드',
+      note: '공개판 확장 전 하나카드 공식 상품 페이지와 최신 상품설명서 PDF로 새마을금고 결제계좌 조건, 간편결제/OTT/멤버십 대상 재확인 필요'
+    }),
     benefits: [
       { id: 'mg-monthly-discount', name: 'MG+ S 월 통합 할인한도', type: 'amount_cap', priority: 'core', categories: ['other'], monthlyCapBySpend: [{ min: 300000, cap: 15000 }, { min: 600000, cap: 30000 }, { min: 1000000, cap: 60000 }], cycleType: 'calendar', summary: '지난달 실적에 따른 월 통합 할인한도', targets: '간편결제/영상 스트리밍/디지털 멤버십 통합', exclusions: '세금, 공과금, 4대보험, 아파트관리비, 학교납입금, 상품권/선불, 부동산임대료, 무이자/부분무이자 등 제외', conditions: '새마을금고 계좌 결제계좌 조건', homeLabel: '월한도' },
       { id: 'mg-simplepay', name: '간편결제 10% 할인', type: 'amount_cap_pool', priority: 'core', categories: ['simplepay'], rate: 0.10, deriveFromMonthlySpend: true, capPoolId: 'mg-monthly-discount', minAmount: 10000, summary: '간편결제 건당 1만원 이상 10% 청구할인', targets: '네이버페이, 카카오페이, 토스페이, SSG페이, 11pay, 스마일페이', exclusions: '가맹점정보가 간편결제 전용 가맹점인 경우 간편결제로 분류. 중복 시 높은 할인 우선.', conditions: '전월 30/60/100만원 이상 월 통합한도 1.5만/3만/6만원', homeLabel: '간편결제' },
@@ -668,6 +721,10 @@ export const CARDS = [
     annualTargets: [],
     tags: ['대한항공', '해외', '롯데'],
     sourceNote: '업로드 PDF: 롯데 아멕스 스카이패스.',
+    source: sourceNeedsRecheck({
+      pdf: '롯데 아멕스 스카이패스',
+      note: '공개판 확장 전 롯데카드 공식 상품 페이지와 최신 상품설명서 PDF로 AMEX 서비스, 해외 2마일 적립 제외 조건 재확인 필요'
+    }),
     benefits: [
       { id: 'lotte-amex-domestic-mile', name: '국내 1마일/천원', type: 'reward', priority: 'core', categories: ['other'], pointCurrency: 'koreanAir', pointsPer1000: 1, deriveFromMonthlySpend: true, summary: '국내 일시불/할부 1,000원당 1마일', targets: '국내 신판 이용금액', exclusions: '1,000원 미만, 지방세, 고용보험, 카드대출, 연회비, 할부이자, 관리비, 도시가스, 캐시백, 무이자할부 제외', conditions: '결제일 완납 시 적립. 1회 적립한도 65,000점.', homeLabel: '국내1M' },
       { id: 'lotte-amex-overseas-mile', name: '해외 2마일/천원', type: 'reward', priority: 'core', categories: ['overseas'], pointCurrency: 'koreanAir', pointsPer1000: 2, bonusOverBase: true, summary: '해외 일시불/할부 1,000원당 2마일', targets: '해외 이용금액', exclusions: '해외구매대행은 1마일 적립', conditions: '결제일 완납 시 적립. 1회 적립한도 65,000점.', homeLabel: '해외2M' },
@@ -690,6 +747,10 @@ export const CARDS = [
     annualTargets: [],
     tags: ['소액결제', '마이신한포인트'],
     sourceNote: '신한카드 공식 홈페이지. 2018.05.02부터 순신규 발급 중단 상품.',
+    source: sourceNeedsRecheck({
+      url: 'https://www.shinhancard.com/',
+      note: '공개판 확장 전 신한카드 공식 상품 페이지와 최신 상품설명서 PDF로 SOL페이 추가 적립 조건, 온라인 영화 할인 조건, 순신규 발급 중단 상태 재확인 필요'
+    }),
     benefits: [
       { id: 'always-on-2tx', name: '1만원 이상 2건 월 2,000P', type: 'two_transactions', priority: 'core', categories: ['small', 'other'], fixedBenefit: 2000, minAmount: 10000, deriveFromMonthlySpend: true, monthlyLimitCount: 1, cycleType: 'calendar', summary: '월 1만원 이상 결제 2건 운영용. 마이신한포인트 최대 2,000P', targets: '1만원 내외 소액 결제 2건. 신한 SOL페이 거래 포함 시 특별적립 조건 충족.', exclusions: '카드대출, 연회비, 수수료, 이자, 기프트카드 구매, 선불카드 충전, 취소금액 제외', conditions: '공식 기준: 월 1만원 이상 이용 시 기본 1,000P, SOL페이 실적 또는 일반+SOL페이 조합/2건 이상 조건 충족 시 추가 1,000P.', homeLabel: '2건' },
       { id: 'always-on-movie', name: 'CGV/메가박스 온라인 영화 할인', type: 'count_amount', priority: 'normal', categories: ['movie'], fixedBenefitByAmount: [{ min: 9000, value: 1500 }, { min: 18000, value: 3000 }], monthlyLimitCount: 4, annualLimitCount: 12, cycleType: 'calendar', summary: 'CGV/메가박스 온라인 영화 예매 1,500~3,000원 할인', targets: 'CGV, 메가박스 공식 홈페이지 및 APP', exclusions: '온라인 영화예매 서비스 기준', conditions: '전월 30만원 이상. 통합 일 2회, 월 4회, 연 12회.', homeLabel: '영화' }
@@ -709,6 +770,10 @@ export const CARDS = [
     annualTargets: [],
     tags: ['쿠팡', '와우', '참고용', '월 사용액'],
     sourceNote: '참고용 카드. 쿠팡 결제 월 사용액과 쿠팡캐시 4% 적립 효과 확인 목적으로 관리.',
+    source: sourceNeedsRecheck({
+      url: 'https://card.kbcard.com/',
+      note: '공개판 확장 전 KB국민카드/쿠팡 공식 상품 페이지로 공개판 추천 포함 여부, 쿠팡캐시 월 한도와 제외 조건 재확인 필요'
+    }),
     benefits: [
       { id: 'coupang-wow-cashback', name: '쿠팡캐시 4% 적립', type: 'amount_cap', priority: 'normal', categories: ['other'], rate: 0.04, deriveFromMonthlySpend: true, summary: '쿠팡 결제 월 사용액 기준 쿠팡캐시 4% 적립 효과를 실사용 혜택률에 자동 반영', targets: '쿠팡, 쿠팡이츠, 쿠팡플레이 등 쿠팡 계열 결제 확인용', exclusions: '참고용 카드로 결제추천에는 반영하지 않음. 정확한 월 한도·제외 조건은 공식 상품설명서 확인 필요', conditions: '월 실적 목표 없이 이번달 사용액만 입력하면 혜택률 계산에 4%를 자동 반영', homeLabel: '쿠팡캐시' }
     ]
@@ -728,6 +793,10 @@ export const CARDS = [
     annualTargets: [30000000],
     tags: ['페이북머니', '국내 1.5%', '해외 3%', '기본숨김'],
     sourceNote: 'BC카드 공식 페이지: GOAT BC 바로카드(gdsno=100008) 기준.',
+    source: sourceNeedsRecheck({
+      url: 'https://www.bccard.com/',
+      note: '공개판 확장 전 BC카드 공식 상품 페이지와 최신 상품설명서 PDF로 Mastercard/VISA Platinum 서비스, 국내/해외 Paybooc 적립 조건 재확인 필요'
+    }),
     benefits: [
       {
         id: 'bc-goat-domestic-paybook',
@@ -802,6 +871,10 @@ export const CARDS = [
     annualTargets: [35000000],
     tags: ['Accor', 'ALL 리워드', '호텔', '라운지', '기본숨김'],
     sourceNote: 'ALL 우리카드 Infinite 공식 프로모션/상품 페이지 기준. ALL 리워드 기본값은 1P=0.02EUR, 2025년 평균 EUR 1,609.81원 기준 약 32.2원.',
+    source: sourceNeedsRecheck({
+      url: 'https://pc.wooricard.com/',
+      note: '공개판 확장 전 우리카드 공식 상품 페이지와 최신 상품설명서 PDF로 ALL Accor+ 멤버십, 리무진/라운지, 연간 포인트 조건 재확인 필요'
+    }),
     benefits: [
       {
         id: 'all-woori-accor-plus',
@@ -926,6 +999,10 @@ export const CARDS = [
     annualTargets: [12000000],
     tags: ['Hilton', 'AMEX', '호텔', '라운지', '기본숨김'],
     sourceNote: '롯데카드 공식 페이지: 힐튼 아너스 아멕스 기준. 힐튼 포인트 가치는 사용자 기준 1P=0.5원.',
+    source: sourceNeedsRecheck({
+      url: 'https://www.lottecard.co.kr/',
+      note: '공개판 확장 전 롯데카드 공식 상품 페이지와 최신 상품설명서 PDF로 힐튼 주말 무료숙박권, 골드 등급, AMEX 서비스 재확인 필요'
+    }),
     benefits: [
       {
         id: 'hilton-base-point',
