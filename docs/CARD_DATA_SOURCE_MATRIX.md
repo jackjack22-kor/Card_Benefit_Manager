@@ -70,9 +70,12 @@
 
 ```js
 source: {
+  status: 'official_verified | needs_official_recheck',
   url: 'https://...',
   pdf: '상품설명서 파일명 또는 URL',
-  checkedAt: 'YYYY-MM-DD'
+  appCapture: '앱 캡처 또는 텍스트 확인 메모',
+  checkedAt: 'YYYY-MM-DD',
+  note: '검증 메모'
 },
 networks: [
   {
@@ -84,4 +87,4 @@ networks: [
 ]
 ```
 
-추가 전에는 기존 `sourceNote`와 충돌하지 않도록 마이그레이션이 필요합니다. 공개판에서 카드 조건이 오래된 상태로 보이지 않게, 출처 확인일이 오래된 카드에는 앱 내부 안내 또는 관리용 감사 경고를 붙이는 방안도 검토합니다.
+`sourceNote`는 사람이 읽는 기존 메모로 유지하고, 구조화된 `source`와 `networks`는 감사와 공개판 확장을 위한 선택 필드로 추가합니다. 첫 적용 샘플은 `hyundai-amex-platinum`이며, 공식 상품 페이지/PDF 최신 재확인 전까지 `needs_official_recheck` 상태를 유지합니다. 공개판에서 카드 조건이 오래된 상태로 보이지 않게, 출처 확인일이 오래된 카드에는 앱 내부 안내 또는 관리용 감사 경고를 붙이는 방안도 검토합니다.

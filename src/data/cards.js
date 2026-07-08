@@ -427,6 +427,21 @@ export const CARDS = [
     annualTargets: [1000000, 36000000],
     tags: ['MR', '아티제', '백미당', 'Be My Guest', '호텔', '공항'],
     sourceNote: '업로드 PDF: 현대 아멕스 플래티넘 가이드북 및 현대카드 앱 Amex Member 캡처/텍스트.',
+    source: {
+      status: 'needs_official_recheck',
+      checkedAt: '2026-07-09',
+      pdf: '현대 아멕스 플래티넘 가이드북',
+      appCapture: '현대카드 앱 Amex Member 캡처/텍스트',
+      note: '공개판 확장 전 현대카드 공식 상품 페이지와 최신 상품설명서 PDF로 FHR/THC/BMG 대상점과 연간 MR 조건 재확인 필요'
+    },
+    networks: [
+      {
+        name: 'American Express',
+        annualFee: 1000000,
+        services: ['American Express Platinum'],
+        note: '현재 모델은 단일 AMEX 플래티넘 상품 기준이며 VISA/Mastercard 분기 없음'
+      }
+    ],
     benefits: [
       { id: 'hy-amex-mr-base', name: '기본 1.5MR/천원', type: 'reward', priority: 'core', categories: ['other'], pointCurrency: 'hyundaiMR', pointsPer1000: 1.5, deriveFromMonthlySpend: true, summary: '국내외 가맹점 1천원당 1.5MR', targets: '국내외 모든 물품/서비스 이용대금', exclusions: '공과금, 전기/가스/관리비, 학교/대학 등록금, 보험, 상품권, 고속도로 통행료, 할인/무이자 등 제외', conditions: '전월실적 관계없이 적립, 한도 없음', homeLabel: '1.5MR' },
       { id: 'hy-amex-mr-2x', name: '해외/국내 특급호텔 3MR/천원', type: 'reward', priority: 'core', categories: ['overseas', 'hotel'], pointCurrency: 'hyundaiMR', pointsPer1000: 3, bonusOverBase: true, summary: '해외 가맹점·국내 특급호텔 2X 특별적립', targets: '해외 가맹점, 국내 특급호텔', exclusions: '해외 원화결제 시 특별적립 불가. 간편결제명 승인 시 기본적립 가능성', conditions: '전월 50만원 이상 시 한도 없이 적립', homeLabel: '2X' },

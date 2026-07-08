@@ -121,6 +121,8 @@ const cardIds = new Set();
 const benefitIds = new Set();
 const allowedBenefitPriorities = new Set(['core', 'normal']);
 const allowedCycleTypes = new Set(['calendar', 'anniversary', 'issueMonth']);
+const allowedSourceStatuses = new Set(['official_verified', 'needs_official_recheck']);
+const allowedNetworkNames = new Set(['VISA', 'Mastercard', 'American Express', 'UnionPay', 'BC', 'Private Label']);
 for (const item of CARDS) {
   assert.ok(/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(item.id), `card id must be stable kebab-case: ${item.id}`);
   assert.ok(!cardIds.has(item.id), `duplicate card id: ${item.id}`);
@@ -134,6 +136,19 @@ for (const item of CARDS) {
   assert.ok(item.defaultCycle?.type && allowedCycleTypes.has(item.defaultCycle.type), `card default cycle type is invalid: ${item.id}`);
   assert.ok(Number.isFinite(Number(item.defaultMonthlyTarget || 0)), `card default monthly target must be numeric: ${item.id}`);
   assert.ok(Number.isFinite(Number(item.annualFee || 0)), `card annual fee must be numeric: ${item.id}`);
+  if (item.source) {
+    assert.ok(allowedSourceStatuses.has(item.source.status), `card source status is invalid: ${item.id}`);
+    assert.ok(/^\d{4}-\d{2}-\d{2}$/.test(item.source.checkedAt || ''), `card source checkedAt must use YYYY-MM-DD: ${item.id}`);
+    assert.ok(item.source.url || item.source.pdf || item.source.appCapture, `card source must include an official URL, PDF, or app capture: ${item.id}`);
+  }
+  if (item.networks) {
+    assert.ok(Array.isArray(item.networks) && item.networks.length > 0, `card networks must be a non-empty array: ${item.id}`);
+    for (const network of item.networks) {
+      assert.ok(allowedNetworkNames.has(network.name), `card network is invalid: ${item.id}:${network.name}`);
+      if (network.annualFee !== undefined) assert.ok(Number.isFinite(Number(network.annualFee)), `card network annual fee must be numeric: ${item.id}:${network.name}`);
+      if (network.services !== undefined) assert.ok(Array.isArray(network.services), `card network services must be an array: ${item.id}:${network.name}`);
+    }
+  }
   assert.ok(String(item.image || '').startsWith('image/clean/'), `card image must use image/clean: ${item.id}`);
   assert.ok(String(item.image || '').endsWith('.png'), `card image must be a PNG: ${item.id}`);
   const imageUrl = new URL(`../${item.image}`, import.meta.url);
@@ -163,6 +178,12 @@ if (unknownCategories.length) {
   console.warn(`warn - unknown categories: ${unknownCategories.join(', ')}`);
 }
 console.log(`ok - card catalog data quality gates passed: ${cardIds.size} cards, ${benefitIds.size} benefits`);
+
+const hyundaiAmexPlatinum = card('hyundai-amex-platinum');
+assert.equal(hyundaiAmexPlatinum.source.status, 'needs_official_recheck', 'Hyundai Amex keeps structured source recheck status');
+assert.equal(hyundaiAmexPlatinum.source.checkedAt, '2026-07-09', 'Hyundai Amex source check date is tracked');
+assert.deepEqual(hyundaiAmexPlatinum.networks.map((item) => item.name), ['American Express'], 'Hyundai Amex network model is explicit');
+assert.equal(hyundaiAmexPlatinum.networks[0].annualFee, hyundaiAmexPlatinum.annualFee, 'Hyundai Amex network annual fee matches card annual fee');
 
 assertEqual(getOrderedCards(baseState()).length, CARDS.length, 'all cards are orderable');
 assert.deepEqual(createInitialState().hiddenCardIds, DEFAULT_HIDDEN_CARD_IDS, 'new optional cards are hidden by default for fresh installs');
