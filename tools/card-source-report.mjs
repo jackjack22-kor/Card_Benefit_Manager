@@ -20,6 +20,10 @@ function sourceLabel(source) {
   return 'source missing';
 }
 
+function batchLabel(source) {
+  return source.recheckBatch || 'unbatched';
+}
+
 console.log('# Card Source Recheck Queue');
 console.log('');
 console.log(`Total cards: ${CARDS.length}`);
@@ -31,7 +35,7 @@ console.log('');
 for (const [issuer, cards] of [...byIssuer.entries()].sort(([a], [b]) => a.localeCompare(b, 'ko'))) {
   console.log(`## ${issuer}`);
   for (const card of cards) {
-    console.log(`- ${card.id} | ${card.name} | ${card.source.status} | ${card.source.checkedAt} | ${sourceLabel(card.source)}`);
+    console.log(`- ${card.id} | ${card.name} | ${card.source.status} | ${card.source.checkedAt} | ${sourceLabel(card.source)} | ${batchLabel(card.source)}`);
     console.log(`  - ${card.source.note}`);
   }
   console.log('');

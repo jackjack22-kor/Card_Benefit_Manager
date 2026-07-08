@@ -144,6 +144,8 @@ for (const item of CARDS) {
   assert.ok(/^\d{4}-\d{2}-\d{2}$/.test(item.source.checkedAt || ''), `card source checkedAt must use YYYY-MM-DD: ${item.id}`);
   assert.ok(item.source.url || item.source.pdf || item.source.appCapture, `card source must include an official URL, PDF, or app capture: ${item.id}`);
   assert.ok(item.source.note, `card source note is required: ${item.id}`);
+  if (item.source.officialEntryUrl) assert.ok(/^https:\/\//.test(item.source.officialEntryUrl), `card official entry URL must be https: ${item.id}`);
+  if (item.source.recheckBatch) assert.ok(/^[a-z0-9]+-\d{4}-\d{2}$/.test(item.source.recheckBatch), `card recheck batch must use issuer-YYYY-MM: ${item.id}`);
   if (item.networks) {
     assert.ok(Array.isArray(item.networks) && item.networks.length > 0, `card networks must be a non-empty array: ${item.id}`);
     for (const network of item.networks) {
@@ -189,6 +191,19 @@ assert.equal(hyundaiAmexPlatinum.source.checkedAt, '2026-07-09', 'Hyundai Amex s
 assert.deepEqual(hyundaiAmexPlatinum.networks.map((item) => item.name), ['American Express'], 'Hyundai Amex network model is explicit');
 assert.equal(hyundaiAmexPlatinum.networks[0].annualFee, hyundaiAmexPlatinum.annualFee, 'Hyundai Amex network annual fee matches card annual fee');
 
+for (const id of ['shinhan-ace-blue', 'marriott-best-shinhan', 'marriott-classic-shinhan', 'shinhan-always-on']) {
+  assert.equal(card(id).source.status, 'needs_official_recheck', `Shinhan recheck batch must not be treated as official verified: ${id}`);
+  assert.equal(card(id).source.recheckBatch, 'shinhan-2026-07', `Shinhan recheck batch is tracked: ${id}`);
+  assert.equal(card(id).source.officialEntryUrl, 'https://www.shinhancard.com/', `Shinhan official entrypoint is tracked: ${id}`);
+}
+
+const networkCards = CARDS.filter((item) => item.networks);
+assert.ok(networkCards.length >= 5, 'network model covers initial brand-difference batch');
+assert.deepEqual(card('bc-goat-card').networks.map((item) => item.name), ['Mastercard', 'VISA'], 'BC GOAT tracks Mastercard and VISA network variants');
+assert.equal(card('kb-skypass-platinum').networks[0].name, 'Mastercard', 'KB Skypass current model is tied to Mastercard');
+assert.equal(card('lotte-amex-skypass').networks[0].name, 'American Express', 'Lotte Amex Skypass network is explicit');
+assert.ok(card('samsung-the1-skypass').networks[0].services.includes('American Express PLATINUM ELITE'), 'Samsung THE 1 tracks AMEX Platinum Elite service tier');
+
 assertEqual(getOrderedCards(baseState()).length, CARDS.length, 'all cards are orderable');
 assert.deepEqual(createInitialState().hiddenCardIds, DEFAULT_HIDDEN_CARD_IDS, 'new optional cards are hidden by default for fresh installs');
 const oldStateWithoutNewCards = migrateState({
@@ -231,7 +246,11 @@ assert.ok(mainSource.includes('ENABLE_CLOUD_SYNC ? renderSyncConflicts() :'), 'p
 assert.ok(mainSource.includes('IS_PUBLIC_EDITION ? renderPublicDataSafetyCard() :'), 'public settings UI must show a local-only data safety card');
 assert.ok(mainSource.includes('function renderPublicDataSafetyCard()'), 'public data safety card renderer must exist');
 assert.ok(mainSource.includes('document.querySelectorAll(\'[data-action="export-json"]\')'), 'all JSON export buttons must be bound');
+assert.ok(mainSource.includes('function renderSourceStatus(card)'), 'card detail shows structured source status');
+assert.ok(mainSource.includes("card.source.status === 'official_verified'"), 'card detail distinguishes official verified source status');
+assert.ok(mainSource.includes('공식 재검증 필요'), 'card detail warns when card source needs official recheck');
 assert.ok(stylesSource.includes('.public-data-safety'), 'public data safety card has dedicated spacing styles');
+assert.ok(stylesSource.includes('.source-status.warn'), 'source recheck badge has warning styling');
 assert.ok(lazySyncSource.includes('if (!ENABLE_CLOUD_SYNC || !isFirebaseConfigured())'), 'lazy sync init must stay disabled for public edition');
 assert.ok(lazyQueueCloudSaveBody.includes('if (!ENABLE_CLOUD_SYNC) return;'), 'public edition saves must remain browser-local only');
 assertContainsInOrder(lazySyncSource, ["import.meta.env.VITE_APP_EDITION === 'public'", "() => Promise.resolve(null)", "import('./syncManager.js')"], 'public build can tree-shake cloud sync runtime import');
@@ -264,6 +283,7 @@ assert.ok(cardDataResearchGuide.includes('Mastercard'), 'card research guide cov
 assert.ok(cardDataResearchGuide.includes('tools/audit-check.mjs'), 'card research guide requires audit coverage');
 assert.ok(cardDataSourceMatrix.includes('공식 출처 진입점'), 'card data source matrix documents official source entrypoints');
 assert.ok(cardDataSourceMatrix.includes('npm run source:report'), 'card data source matrix documents source report command');
+assert.ok(cardSourceReportSource.includes('batchLabel(source)'), 'source report includes recheck batch labels');
 for (const requiredSourceReportToken of ['Card Source Recheck Queue', 'byIssuer', 'source.status', 'source.checkedAt', 'source.note']) {
   assert.ok(cardSourceReportSource.includes(requiredSourceReportToken), `card source report must include ${requiredSourceReportToken}`);
 }

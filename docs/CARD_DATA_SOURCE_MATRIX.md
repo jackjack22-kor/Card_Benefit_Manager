@@ -78,9 +78,11 @@ npm run source:report
 source: {
   status: 'official_verified | needs_official_recheck',
   url: 'https://...',
+  officialEntryUrl: 'https://...',
   pdf: '상품설명서 파일명 또는 URL',
   appCapture: '앱 캡처 또는 텍스트 확인 메모',
   checkedAt: 'YYYY-MM-DD',
+  recheckBatch: 'issuer-YYYY-MM',
   note: '검증 메모'
 },
 networks: [
@@ -93,4 +95,4 @@ networks: [
 ]
 ```
 
-`sourceNote`는 사람이 읽는 기존 메모로 유지하고, 구조화된 `source`는 모든 카드에 필수로 둡니다. `networks`는 제휴 브랜드 차이가 계산이나 안내에 영향을 주는 카드부터 선택 필드로 추가합니다. 현재 전체 카드는 공식 상품 페이지/PDF 최신 재확인 전까지 `needs_official_recheck` 상태를 유지하며, 첫 `networks` 적용 샘플은 `hyundai-amex-platinum`입니다. 공개판에서 카드 조건이 오래된 상태로 보이지 않게, 출처 확인일이 오래된 카드에는 앱 내부 안내 또는 관리용 감사 경고를 붙이는 방안도 검토합니다.
+`sourceNote`는 사람이 읽는 기존 메모로 유지하고, 구조화된 `source`는 모든 카드에 필수로 둡니다. `officialEntryUrl`은 상품별 공식 URL을 아직 안정적으로 잡지 못했을 때 카드사 공식 진입점을 남기는 보조 필드이며, `recheckBatch`는 같은 카드사/월 단위 검증 작업을 추적하는 값입니다. `networks`는 제휴 브랜드 차이가 계산이나 안내에 영향을 주는 카드부터 선택 필드로 추가합니다. 현재 전체 카드는 공식 상품 페이지/PDF 최신 재확인 전까지 `needs_official_recheck` 상태를 유지하며, 1차 `networks` 적용 범위는 현대 아멕스 플래티넘, 삼성 THE 1 스카이패스, 스카이패스 KB국민 플래티늄, 롯데 아멕스 스카이패스, GOAT BC 바로카드입니다. 공개판 카드 상세에서는 구조화된 출처 상태를 작은 배지로 표시해 공식 재검증 대기 데이터를 최신 검증 데이터처럼 보이지 않게 합니다.

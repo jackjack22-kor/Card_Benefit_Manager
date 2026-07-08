@@ -228,6 +228,11 @@ p { color: var(--muted); line-height: 1.55; }
 .detail-title { display: flex; align-items: flex-start; justify-content: space-between; gap: 14px; }
 .detail-title h2 { margin: 3px 0 0; font-size: 22px; }
 .detail-card-image { width: 100%; aspect-ratio: 1.586 / 1; }
+.source-status { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 8px; margin-top: 8px; color: var(--muted); font-size: 11px; line-height: 1.35; }
+.source-status span { border: 1px solid var(--line); border-radius: var(--r-pill); padding: 4px 8px; background: var(--surface-2); font-weight: 900; }
+.source-status small { min-width: 180px; max-width: 100%; }
+.source-status.good span { color: var(--good); border-color: color-mix(in srgb, var(--good) 35%, var(--line)); }
+.source-status.warn span { color: var(--warn); border-color: color-mix(in srgb, var(--warn) 35%, var(--line)); }
 .annual-fee { color: var(--muted); border: 1px solid var(--line); background: var(--surface-2); border-radius: var(--r-pill); padding: 7px 12px; white-space: nowrap; font-size: 13px; }
 .summary-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(132px, 1fr)); gap: 10px; margin-top: 16px; }
 .metric { border: 1px solid var(--line); background: var(--surface-2); border-radius: var(--r-md); padding: 12px; min-height: 72px; }

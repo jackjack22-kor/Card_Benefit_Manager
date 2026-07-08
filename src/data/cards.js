@@ -46,6 +46,8 @@ export const CARDS = [
     tags: ['의료', '프리미엄', '라운지', '호텔', '항공'],
     sourceNote: '업로드 PDF: 신한 더에이스블루라벨. 2025년 안내장 기준.',
     source: sourceNeedsRecheck({
+      recheckBatch: 'shinhan-2026-07',
+      officialEntryUrl: 'https://www.shinhancard.com/',
       pdf: '신한 더에이스블루라벨 2025년 안내장',
       note: '공개판 확장 전 신한카드 공식 상품 페이지와 최신 상품설명서 PDF로 Gift Option, 라운지/호텔 서비스 재확인 필요'
     }),
@@ -176,6 +178,8 @@ export const CARDS = [
     tags: ['메리어트', '호텔', '라운지', '해외'],
     sourceNote: '업로드 PDF: 메리어트 본보이 더 베스트 신한카드.',
     source: sourceNeedsRecheck({
+      recheckBatch: 'shinhan-2026-07',
+      officialEntryUrl: 'https://www.shinhancard.com/',
       pdf: '메리어트 본보이 더 베스트 신한카드',
       note: '공개판 확장 전 신한카드 공식 상품 페이지와 최신 상품설명서 PDF로 연간 무료숙박권, 보너스 포인트, 실적 제외 항목 재확인 필요'
     }),
@@ -314,6 +318,8 @@ export const CARDS = [
     tags: ['메리어트', '호텔', '라운지'],
     sourceNote: '업로드 PDF: 메리어트 본보이 더 클래식 신한카드.',
     source: sourceNeedsRecheck({
+      recheckBatch: 'shinhan-2026-07',
+      officialEntryUrl: 'https://www.shinhancard.com/',
       pdf: '메리어트 본보이 더 클래식 신한카드',
       note: '공개판 확장 전 신한카드 공식 상품 페이지와 최신 상품설명서 PDF로 연간 기프트, 라운지, 메리어트 적립 제외 조건 재확인 필요'
     }),
@@ -529,6 +535,14 @@ export const CARDS = [
       appCapture: '삼성카드 앱 혜택 캡처',
       note: '공개판 확장 전 삼성카드 공식 상품 페이지와 최신 상품설명서 PDF로 AMEX PLATINUM ELITE 서비스, 특별 적립 월 한도 재확인 필요'
     }),
+    networks: [
+      {
+        name: 'American Express',
+        annualFee: 250000,
+        services: ['American Express PLATINUM ELITE'],
+        note: 'AMEX PLATINUM ELITE service terms need official recheck before public copy is treated as current.'
+      }
+    ],
     benefits: [
       { id: 'the1-basic-mile', name: '기본 스카이패스 1마일/천원', type: 'reward', priority: 'core', categories: ['other'], pointCurrency: 'koreanAir', pointsPer1000: 1, deriveFromMonthlySpend: true, summary: '모든 가맹점 1,000원당 스카이패스 1마일', targets: '모든 가맹점', exclusions: '할인 적용, 무이자, 세금, 대중교통, 택시, 고속버스, 통행료, 선불충전 등 제외', conditions: '전월실적 관계없이 한도 없음', homeLabel: '1마일' },
       { id: 'the1-special-mile', name: '특별 스카이패스 2마일/천원', type: 'reward', priority: 'core', categories: ['department', 'travel', 'hotel', 'golf', 'airline'], pointCurrency: 'koreanAir', pointsPer1000: 2, bonusOverBase: true, monthlyPointCap: 2000, summary: '백화점, 여행, 호텔, 골프 1,000원당 2마일', targets: '신세계·롯데·현대·갤러리아 등 백화점, 호텔/항공/철도/렌터카/관광여행사, 골프장/연습장', exclusions: '백화점 일부 임대매장/식품매장 제외. 월 2,000마일 초과 시 기본적립', conditions: '특별 리워드 통합 월 2,000마일 한도', homeLabel: '2마일' },
@@ -627,6 +641,14 @@ export const CARDS = [
       url: 'https://card.kbcard.com/',
       note: '공개판 확장 전 KB국민카드 공식 상품 페이지와 최신 상품설명서 PDF로 Mastercard/VISA/AMEX 플래티늄 서비스 차이 재확인 필요'
     }),
+    networks: [
+      {
+        name: 'Mastercard',
+        annualFee: 120000,
+        services: ['Platinum'],
+        note: 'Current benefit model follows the MASTER Platinum source note; VISA/AMEX availability and service differences need official recheck.'
+      }
+    ],
     benefits: [
       { id: 'kb-skypass-mile', name: '대한항공 마일리지 적립', type: 'reward', priority: 'core', categories: ['other', 'airline'], pointCurrency: 'koreanAir', pointsPer1000: 0.6667, deriveFromMonthlySpend: true, summary: 'KB국민카드 가맹점 이용 시 신판입금액 1,500원당 대한항공 1마일 적립', targets: '국내외 일시불·할부 이용금액. 대한항공 탑승/제휴 호텔 등은 대한항공 기준에 따라 별도 적립 가능', exclusions: '단기카드대출, 장기카드대출, 각종 수수료·이자, 선불카드 구입/충전, 세금, 대학등록금, 연회비, 무이자할부, 아파트관리비, 상품권 이용금액 등 제외', conditions: '마일리지는 결제일로부터 15일 경과 후 확인 가능. MASTER 플래티늄 기준으로 관리.', homeLabel: '1,500원=1M' },
       { id: 'kb-skypass-hotel-buffet', name: '호텔 뷔페 무료 식사 이용권', type: 'check', priority: 'core', categories: ['premiumgift', 'hotel', 'restaurant'], annualLimitCount: 1, cycleType: 'anniversary', summary: '연 1회 쿠폰서비스 중 택1. 국내 지정 호텔뷔페 2인 무료식사 또는 지정 레스토랑 현장할인', targets: '국내 지정 호텔뷔페 2인 무료식사 및 지정 레스토랑 현장할인 대상점', exclusions: '호텔 사정에 따라 이용 제한 또는 당일 이용 불가 가능. 다른 이용권, 패키지, 시즌특별가 등 행사와 중복 적용 불가', conditions: '쿠폰형 플래티늄카드 회원대상 서비스. 반드시 사전예약 후 이용 당일 플래티늄 카드 제시. 초과금액은 해당 카드로 결제.', homeLabel: '호텔뷔페' }
@@ -725,6 +747,14 @@ export const CARDS = [
       pdf: '롯데 아멕스 스카이패스',
       note: '공개판 확장 전 롯데카드 공식 상품 페이지와 최신 상품설명서 PDF로 AMEX 서비스, 해외 2마일 적립 제외 조건 재확인 필요'
     }),
+    networks: [
+      {
+        name: 'American Express',
+        annualFee: 20000,
+        services: ['AMEX'],
+        note: 'Current benefit model follows the AMEX Skypass source note; AMEX service terms and overseas 2-mile exclusions need official recheck.'
+      }
+    ],
     benefits: [
       { id: 'lotte-amex-domestic-mile', name: '국내 1마일/천원', type: 'reward', priority: 'core', categories: ['other'], pointCurrency: 'koreanAir', pointsPer1000: 1, deriveFromMonthlySpend: true, summary: '국내 일시불/할부 1,000원당 1마일', targets: '국내 신판 이용금액', exclusions: '1,000원 미만, 지방세, 고용보험, 카드대출, 연회비, 할부이자, 관리비, 도시가스, 캐시백, 무이자할부 제외', conditions: '결제일 완납 시 적립. 1회 적립한도 65,000점.', homeLabel: '국내1M' },
       { id: 'lotte-amex-overseas-mile', name: '해외 2마일/천원', type: 'reward', priority: 'core', categories: ['overseas'], pointCurrency: 'koreanAir', pointsPer1000: 2, bonusOverBase: true, summary: '해외 일시불/할부 1,000원당 2마일', targets: '해외 이용금액', exclusions: '해외구매대행은 1마일 적립', conditions: '결제일 완납 시 적립. 1회 적립한도 65,000점.', homeLabel: '해외2M' },
@@ -748,6 +778,8 @@ export const CARDS = [
     tags: ['소액결제', '마이신한포인트'],
     sourceNote: '신한카드 공식 홈페이지. 2018.05.02부터 순신규 발급 중단 상품.',
     source: sourceNeedsRecheck({
+      recheckBatch: 'shinhan-2026-07',
+      officialEntryUrl: 'https://www.shinhancard.com/',
       url: 'https://www.shinhancard.com/',
       note: '공개판 확장 전 신한카드 공식 상품 페이지와 최신 상품설명서 PDF로 SOL페이 추가 적립 조건, 온라인 영화 할인 조건, 순신규 발급 중단 상태 재확인 필요'
     }),
@@ -797,6 +829,20 @@ export const CARDS = [
       url: 'https://www.bccard.com/',
       note: '공개판 확장 전 BC카드 공식 상품 페이지와 최신 상품설명서 PDF로 Mastercard/VISA Platinum 서비스, 국내/해외 Paybooc 적립 조건 재확인 필요'
     }),
+    networks: [
+      {
+        name: 'Mastercard',
+        annualFee: 12000,
+        services: ['Platinum'],
+        note: 'Paybooc reward model is shared; Mastercard Platinum add-on service terms need official recheck.'
+      },
+      {
+        name: 'VISA',
+        annualFee: 12000,
+        services: ['Platinum'],
+        note: 'Paybooc reward model is shared; VISA Platinum add-on service terms need official recheck.'
+      }
+    ],
     benefits: [
       {
         id: 'bc-goat-domestic-paybook',

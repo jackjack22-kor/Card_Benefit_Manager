@@ -598,6 +598,28 @@ function renderCardDetail() {
   `;
 }
 
+function getSourceStatusLabel(card) {
+  if (!card.source) return '출처 확인 필요';
+  if (card.source.status === 'official_verified') return `공식 확인 ${card.source.checkedAt}`;
+  return `공식 재검증 필요 ${card.source.checkedAt || ''}`.trim();
+}
+
+function getSourceReferenceLabel(card) {
+  const source = card.source || {};
+  return source.url || source.pdf || source.appCapture || card.sourceNote || '출처 미기록';
+}
+
+function renderSourceStatus(card) {
+  if (!card.source) return '';
+  const tone = card.source.status === 'official_verified' ? 'good' : 'warn';
+  return `
+                    <div class="source-status ${tone}">
+                      <span>${escapeHtml(getSourceStatusLabel(card))}</span>
+                      <small>${escapeHtml(getSourceReferenceLabel(card))}</small>
+                    </div>
+  `;
+}
+
 function renderCardDetailMain(selected) {
   const override = getCardOverride(state, selected.id);
   const cycle = getCycle(selected, override, {}, selectedDate());
@@ -618,6 +640,7 @@ function renderCardDetailMain(selected) {
                   <span class="issuer">${escapeHtml(selected.issuer)}</span>
                   <h2>${escapeHtml(selected.name)}</h2>
                   <p>${escapeHtml(selected.sourceNote || '')}</p>
+                  ${renderSourceStatus(selected)}
                 </div>
                 <span class="annual-fee">연회비 ${selected.annualFee ? won(selected.annualFee) : '확인 필요'}</span>
               </div>
