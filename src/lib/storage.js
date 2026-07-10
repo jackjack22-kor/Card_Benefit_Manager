@@ -2,9 +2,10 @@ import { CARDS, DEFAULT_HIDDEN_CARD_IDS, POINT_DEFAULTS } from '../data/cards.js
 import { CATEGORIES } from '../data/categories.js';
 import { APP_STORAGE_KEY, IS_PUBLIC_EDITION } from './appEdition.js';
 import { getMonthKey } from './cycles.js';
+import { createDefaultCardOverride, getRuntimeCardMap, sanitizeOwnedCatalogCards } from './ownedCards.js';
 
 export const STORAGE_KEY = APP_STORAGE_KEY;
-export const SCHEMA_VERSION = '2.0.1';
+export const SCHEMA_VERSION = '2.1.0';
 export const APP_VERSION = '1.0.0-single-html';
 
 const MONTHLY_TARGET_MIGRATIONS = {
@@ -18,6 +19,7 @@ const POINT_KEYS = new Set(Object.keys(POINT_DEFAULTS));
 
 export function createInitialState() {
   const currentMonth = getMonthKey();
+  const ownedCardIds = IS_PUBLIC_EDITION ? [] : CARDS.map((card) => card.id);
   return {
     schemaVersion: SCHEMA_VERSION,
     appVersion: APP_VERSION,
@@ -34,38 +36,17 @@ export function createInitialState() {
     selectedCategory: 'evcharge',
     selectedSubcategory: '',
     recommendationAmount: 10000,
-    selectedCardId: CARDS[0]?.id || '',
+    selectedCardId: ownedCardIds[0] || '',
     isSortingCards: false,
     cardSettingsOpen: false,
-    cardOrder: CARDS.map((card) => card.id),
+    ownedCardIds,
+    removedOwnedCardIds: [],
+    ownedCatalogCards: {},
+    cardOrder: IS_PUBLIC_EDITION ? [] : CARDS.map((card) => card.id),
     cardOrderUpdatedAt: '',
-    hiddenCardIds: [...DEFAULT_HIDDEN_CARD_IDS],
+    hiddenCardIds: IS_PUBLIC_EDITION ? [] : [...DEFAULT_HIDDEN_CARD_IDS],
     hiddenCardIdsUpdatedAt: '',
-    cardOverrides: Object.fromEntries(CARDS.map((card) => [card.id, {
-      prevMonthStatus: 'met',
-      currentMonthSpend: 0,
-      monthlyTarget: card.defaultMonthlyTarget || 0,
-      monthlyTargetUserSet: false,
-      monthlyTargetUpdatedAt: '',
-      annualSpend: 0,
-      annualSpendUserSet: false,
-      annualSpendUpdatedAt: '',
-      annualTarget: card.annualTargets?.[0] || 0,
-      annualTargetUserSet: false,
-      annualTargetUpdatedAt: '',
-      cycleTypeUserSet: false,
-      cycleTypeUpdatedAt: '',
-      annualFeeStartMonthUserSet: false,
-      annualFeeStartMonthUpdatedAt: '',
-      cycle: {
-        ...(card.defaultCycle || { type: 'calendar', startMonth: 1 }),
-        annualFeeStartMonth: card.defaultCycle?.startMonth || 1,
-        issueMonth: card.defaultCycle?.startMonth || 1
-      },
-      memo: '',
-      memoUserSet: false,
-      memoUpdatedAt: ''
-    }])),
+    cardOverrides: Object.fromEntries(CARDS.map((card) => [card.id, createDefaultCardOverride(card)])),
     monthlyCardUsage: {},
     usage: {},
     notes: {},
@@ -119,6 +100,7 @@ export function migrateState(state) {
   const importedBenefitUsage = state.benefitUsage || state.usage || {};
   const importedMonthlyCardUsage = state.monthlyCardUsage || {};
   const importedNotes = state.notes || {};
+  const importedOwnedCatalogCards = sanitizeOwnedCatalogCards(state.ownedCatalogCards || {});
   const importedBackupMeta = {
     ...(state.backupMeta || {}),
     ...(state.lastBackupAt ? { lastBackupAt: state.lastBackupAt } : {})
@@ -133,21 +115,47 @@ export function migrateState(state) {
       pointValuesUpdatedAt: { ...importedPointValuesUpdatedAt }
     },
     cardOverrides: { ...base.cardOverrides, ...importedCardSettings },
+    ownedCatalogCards: importedOwnedCatalogCards,
     monthlyCardUsage: { ...importedMonthlyCardUsage },
     usage: { ...importedBenefitUsage },
     notes: { ...importedNotes },
     syncConflicts: Array.isArray(state.syncConflicts) ? state.syncConflicts : [],
     backupMeta: { ...base.backupMeta, ...importedBackupMeta }
   };
-  const known = new Set(CARDS.map((card) => card.id));
+  const runtimeCardMap = getRuntimeCardMap(merged);
+  const known = new Set(runtimeCardMap.keys());
   merged.selectedTab = VALID_TABS.has(state.selectedTab) ? state.selectedTab : base.selectedTab;
   merged.selectedCategory = CATEGORY_IDS.has(state.selectedCategory) ? state.selectedCategory : base.selectedCategory;
   merged.selectedMonth = state.selectedMonth || base.selectedMonth;
   merged.selectedSubcategory = state.selectedSubcategory || '';
   const previousCardOrder = Array.isArray(state.cardOrder) ? state.cardOrder : [];
-  const newlyIntroducedDefaultHidden = DEFAULT_HIDDEN_CARD_IDS.filter((id) => !previousCardOrder.includes(id));
-  merged.cardOrder = [...new Set([...(state.cardOrder || []), ...base.cardOrder])].filter((id) => known.has(id));
-  merged.hiddenCardIds = sanitizeCardIdList([...(state.hiddenCardIds || []), ...newlyIntroducedDefaultHidden], known);
+  const previousHidden = new Set(Array.isArray(state.hiddenCardIds) ? state.hiddenCardIds : []);
+  const hasOwnedCardState = Array.isArray(state.ownedCardIds);
+  const migratedPublicOwnedIds = previousCardOrder.filter((id) => known.has(id) && !previousHidden.has(id));
+  merged.ownedCardIds = sanitizeCardIdList(
+    hasOwnedCardState
+      ? state.ownedCardIds
+      : (IS_PUBLIC_EDITION ? migratedPublicOwnedIds : CARDS.map((card) => card.id)),
+    known
+  );
+  const ownedCardIdSet = new Set(merged.ownedCardIds);
+  merged.removedOwnedCardIds = sanitizeCardIdList(state.removedOwnedCardIds || [], known)
+    .filter((id) => !ownedCardIdSet.has(id));
+  const newlyIntroducedDefaultHidden = IS_PUBLIC_EDITION
+    ? []
+    : DEFAULT_HIDDEN_CARD_IDS.filter((id) => !previousCardOrder.includes(id));
+  merged.cardOrder = [...new Set([
+    ...(state.cardOrder || []),
+    ...merged.ownedCardIds,
+    ...(IS_PUBLIC_EDITION ? [] : base.cardOrder)
+  ])].filter((id) => known.has(id) && (!IS_PUBLIC_EDITION || ownedCardIdSet.has(id)));
+  merged.hiddenCardIds = sanitizeCardIdList(
+    [...(state.hiddenCardIds || []), ...newlyIntroducedDefaultHidden],
+    IS_PUBLIC_EDITION ? ownedCardIdSet : known
+  );
+  if (IS_PUBLIC_EDITION && !ownedCardIdSet.has(merged.selectedCardId)) {
+    merged.selectedCardId = merged.cardOrder.find((id) => !merged.hiddenCardIds.includes(id)) || '';
+  }
   merged.cardOrderUpdatedAt = state.cardOrderUpdatedAt || (isDefaultCardOrder(merged.cardOrder) ? '' : new Date().toISOString());
   merged.hiddenCardIdsUpdatedAt = state.hiddenCardIdsUpdatedAt || (isDefaultHiddenCardIds(merged.hiddenCardIds) ? '' : new Date().toISOString());
   for (const key of Object.keys(importedPointValues)) {
@@ -155,13 +163,14 @@ export function migrateState(state) {
       merged.settings.pointValuesUpdatedAt[key] = new Date().toISOString();
     }
   }
-  for (const card of CARDS) {
+  for (const card of runtimeCardMap.values()) {
+    const baseOverride = base.cardOverrides[card.id] || createDefaultCardOverride(card);
     const importedOverride = importedCardSettings?.[card.id] || {};
     const importedCycle = importedOverride.cycle || {};
     const hasImportedMonthlyTarget = Object.prototype.hasOwnProperty.call(importedOverride, 'monthlyTarget');
     const monthlyTarget = Object.prototype.hasOwnProperty.call(merged.cardOverrides[card.id] || {}, 'monthlyTarget')
       ? Number(merged.cardOverrides[card.id]?.monthlyTarget || 0)
-      : Number(base.cardOverrides[card.id]?.monthlyTarget || 0);
+      : Number(baseOverride.monthlyTarget || 0);
     const defaultMonthlyTarget = Number(card.defaultMonthlyTarget || 0);
     const monthlyTargetUpdatedAt = String(merged.cardOverrides[card.id]?.monthlyTargetUpdatedAt || '');
     const monthlyTargetUserSet = merged.cardOverrides[card.id]?.monthlyTargetUserSet === true
@@ -177,8 +186,10 @@ export function migrateState(state) {
       ? (monthlyTargetUpdatedAt || new Date().toISOString())
       : monthlyTargetUpdatedAt;
     const hasImportedAnnualTarget = Object.prototype.hasOwnProperty.call(importedOverride, 'annualTarget');
-    const annualTarget = Number(merged.cardOverrides[card.id]?.annualTarget || base.cardOverrides[card.id]?.annualTarget || 0);
-    const defaultAnnualTarget = Number(base.cardOverrides[card.id]?.annualTarget || 0);
+    const annualTarget = Object.prototype.hasOwnProperty.call(merged.cardOverrides[card.id] || {}, 'annualTarget')
+      ? Number(merged.cardOverrides[card.id]?.annualTarget || 0)
+      : Number(baseOverride.annualTarget || 0);
+    const defaultAnnualTarget = Number(baseOverride.annualTarget || 0);
     const annualTargetUpdatedAt = String(merged.cardOverrides[card.id]?.annualTargetUpdatedAt || '');
     const annualTargetUserSet = merged.cardOverrides[card.id]?.annualTargetUserSet === true
       || Boolean(annualTargetUpdatedAt)
@@ -213,7 +224,7 @@ export function migrateState(state) {
       || Boolean(memoUpdatedAt)
       || Boolean(memo);
     merged.cardOverrides[card.id] = {
-      ...base.cardOverrides[card.id],
+      ...baseOverride,
       ...(merged.cardOverrides[card.id] || {}),
       prevMonthStatus: normalizePrevMonthStatus(merged.cardOverrides[card.id]?.prevMonthStatus),
       currentMonthSpend: Number(merged.cardOverrides[card.id]?.currentMonthSpend || 0),
@@ -231,7 +242,7 @@ export function migrateState(state) {
       annualFeeStartMonthUserSet,
       annualFeeStartMonthUpdatedAt,
       cycle: {
-        ...(base.cardOverrides[card.id]?.cycle || {}),
+        ...(baseOverride.cycle || {}),
         ...(card.defaultCycle || {}),
         ...(merged.cardOverrides[card.id]?.cycle || {}),
         annualFeeStartMonth
@@ -244,7 +255,8 @@ export function migrateState(state) {
   merged.monthlyCardUsage = sanitizeMonthlyCardUsage(merged.monthlyCardUsage, known);
   if (String(state.schemaVersion || '') !== SCHEMA_VERSION) {
     for (const [cardId, target] of Object.entries(MONTHLY_TARGET_MIGRATIONS)) {
-      if (Number(merged.cardOverrides[cardId]?.monthlyTarget || 0) === 0) {
+      const override = merged.cardOverrides[cardId];
+      if (override && Number(override.monthlyTarget || 0) === 0 && override.monthlyTargetUserSet !== true && !override.monthlyTargetUpdatedAt) {
         merged.cardOverrides[cardId].monthlyTarget = target;
         merged.cardOverrides[cardId].monthlyTargetUserSet = true;
         merged.cardOverrides[cardId].monthlyTargetUpdatedAt = merged.cardOverrides[cardId].monthlyTargetUpdatedAt || new Date().toISOString();
@@ -252,7 +264,7 @@ export function migrateState(state) {
     }
   }
   if (!state.monthlyCardUsage) {
-    merged.monthlyCardUsage[merged.selectedMonth] = Object.fromEntries(CARDS.map((card) => {
+    merged.monthlyCardUsage[merged.selectedMonth] = Object.fromEntries([...runtimeCardMap.values()].map((card) => {
       const override = merged.cardOverrides[card.id] || {};
       return [card.id, {
         prevMonthStatus: override.prevMonthStatus || 'manual',
@@ -275,6 +287,9 @@ export function exportState(state) {
     exportedAt,
     pointValues: state.settings?.pointValues || {},
     pointValuesUpdatedAt: state.settings?.pointValuesUpdatedAt || {},
+    ownedCardIds: state.ownedCardIds || [],
+    removedOwnedCardIds: state.removedOwnedCardIds || [],
+    ownedCatalogCards: state.ownedCatalogCards || {},
     cardOrder: state.cardOrder || [],
     cardOrderUpdatedAt: state.cardOrderUpdatedAt || '',
     hiddenCardIds: state.hiddenCardIds || [],
@@ -308,7 +323,7 @@ export function importState(text) {
   } catch {
     throw new Error('JSON 문법이 올바르지 않습니다. 이 앱에서 내보낸 백업 파일인지 확인해 주세요.');
   }
-  if (parsed.schemaVersion && !['1.0.0', '2.0.0', '2.0.1'].includes(String(parsed.schemaVersion))) {
+  if (parsed.schemaVersion && !['1.0.0', '2.0.0', '2.0.1', '2.1.0'].includes(String(parsed.schemaVersion))) {
     throw new Error(`지원하지 않는 schemaVersion(${parsed.schemaVersion})입니다. 최신 백업 파일인지 확인해 주세요.`);
   }
   if (!hasImportPayloadData(parsed)) {
@@ -328,7 +343,10 @@ export function resetState() {
 function sanitizePointValues(values = {}) {
   return Object.fromEntries(Object.entries(values)
     .filter(([key]) => POINT_KEYS.has(key))
-    .map(([key, value]) => [key, Number(value) || POINT_DEFAULTS[key] || 1]));
+    .map(([key, value]) => {
+      const numeric = Number(value);
+      return [key, Number.isFinite(numeric) && numeric >= 0 ? numeric : (POINT_DEFAULTS[key] || 1)];
+    }));
 }
 
 function sanitizePointValueTimestamps(values = {}) {
@@ -378,6 +396,9 @@ function hasImportPayloadData(parsed) {
     parsed.benefitUsage,
     parsed.notes,
     parsed.cardOrder,
+    parsed.ownedCardIds,
+    parsed.removedOwnedCardIds,
+    parsed.ownedCatalogCards,
     parsed.hiddenCardIds,
     parsed.settings,
     parsed.pointValues

@@ -4,6 +4,7 @@ import { CATEGORIES, CATEGORY_MAP, getSubcategories } from './data/categories.js
 import { APP_TITLE, ENABLE_CLOUD_SYNC, IS_PUBLIC_EDITION } from './lib/appEdition.js';
 import { CYCLE_LABELS, getCycle, getMonthKey, monthsInCycle } from './lib/cycles.js';
 import { APP_VERSION, exportState, importState, loadState, resetState, saveState } from './lib/storage.js';
+import { createDefaultCardOverride, createOwnedCatalogCard, getCatalogOwnershipId, getRuntimeCardById, getRuntimeCardMap } from './lib/ownedCards.js';
 import {
   calculateMonthlyCap,
   calculateRate,
@@ -223,7 +224,8 @@ function selectCard(cardId) {
   state = { ...state, selectedCardId: cardId };
   const main = document.querySelector('.detail-main');
   if (!main || state.selectedTab !== 'cards') { render(); return; }
-  const selected = CARD_MAP[cardId] || getOrderedCards(state)[0] || CARDS[0];
+  const selected = getRuntimeCardById(state, cardId) || getOrderedCards(state)[0];
+  if (!selected) { render(); return; }
   document.querySelectorAll('.card-picker-item').forEach((el) => el.classList.toggle('active', el.dataset.selectCard === cardId));
   main.innerHTML = renderCardDetailMain(selected);
   bindDetailMainEvents(main);
@@ -246,14 +248,14 @@ function render() {
   `;
   bindEvents();
   if (IS_PUBLIC_EDITION && state.selectedTab === 'catalog') {
-    if (publicCatalogView) publicCatalogView.bindPublicCatalogEvents(document.querySelector('.catalog-page'));
+    if (publicCatalogView) publicCatalogView.bindPublicCatalogEvents(document.querySelector('.catalog-page'), publicCatalogOptions());
     else void loadPublicCatalogView();
   }
   if (state.selectedTab === 'settings') prepareCloudSync();
 }
 
 function renderPublicCatalogTab() {
-  if (publicCatalogView) return publicCatalogView.renderPublicCatalog();
+  if (publicCatalogView) return publicCatalogView.renderPublicCatalog(publicCatalogOptions());
   return `
     <section class="catalog-page catalog-loading" aria-live="polite">
       <section class="page-head compact-head">
@@ -267,6 +269,14 @@ function renderPublicCatalogTab() {
         : '<div class="catalog-loading-bar"><span></span></div>'}
     </section>
   `;
+}
+
+function publicCatalogOptions() {
+  return {
+    ownedCardIds: state.ownedCardIds || [],
+    onAddCard: addCatalogCard,
+    onOpenOwnedCard: openOwnedCard
+  };
 }
 
 async function loadPublicCatalogView() {
@@ -289,6 +299,79 @@ async function loadPublicCatalogView() {
       publicCatalogLoadPromise = null;
     });
   return publicCatalogLoadPromise;
+}
+
+function addCatalogCard(catalogCard) {
+  const cardId = getCatalogOwnershipId(catalogCard);
+  if (!cardId) return;
+  const runtimeCard = CARD_MAP[cardId] || createOwnedCatalogCard(catalogCard);
+  if (!runtimeCard) return;
+  const ownedCardIds = [...new Set([...(state.ownedCardIds || []), cardId])];
+  const cardOrder = [...new Set([...(state.cardOrder || []), cardId])];
+  const hiddenCardIds = (state.hiddenCardIds || []).filter((id) => id !== cardId);
+  const ownedCatalogCards = CARD_MAP[cardId]
+    ? { ...(state.ownedCatalogCards || {}) }
+    : { ...(state.ownedCatalogCards || {}), [cardId]: runtimeCard };
+  const cardOverrides = {
+    ...(state.cardOverrides || {}),
+    [cardId]: state.cardOverrides?.[cardId] || createDefaultCardOverride(runtimeCard)
+  };
+  persistState({
+    ...state,
+    ownedCardIds,
+    removedOwnedCardIds: (state.removedOwnedCardIds || []).filter((id) => id !== cardId),
+    ownedCatalogCards,
+    cardOrder,
+    cardOrderUpdatedAt: new Date().toISOString(),
+    hiddenCardIds,
+    hiddenCardIdsUpdatedAt: new Date().toISOString(),
+    cardOverrides
+  });
+  render();
+}
+
+function openOwnedCard(catalogCard) {
+  const cardId = typeof catalogCard === 'string' ? catalogCard : getCatalogOwnershipId(catalogCard);
+  if (!(state.ownedCardIds || []).includes(cardId)) return;
+  setState({ selectedTab: 'cards', selectedCardId: cardId });
+}
+
+function removeOwnedCard(cardId) {
+  if (!IS_PUBLIC_EDITION || !(state.ownedCardIds || []).includes(cardId)) return;
+  const ownedCardIds = state.ownedCardIds.filter((id) => id !== cardId);
+  const cardOrder = (state.cardOrder || []).filter((id) => id !== cardId);
+  const hiddenCardIds = (state.hiddenCardIds || []).filter((id) => id !== cardId);
+  const selectedCardId = state.selectedCardId === cardId
+    ? (cardOrder.find((id) => !hiddenCardIds.includes(id)) || '')
+    : state.selectedCardId;
+  persistState({
+    ...state,
+    ownedCardIds,
+    removedOwnedCardIds: [...new Set([...(state.removedOwnedCardIds || []), cardId])],
+    cardOrder,
+    cardOrderUpdatedAt: new Date().toISOString(),
+    hiddenCardIds,
+    hiddenCardIdsUpdatedAt: new Date().toISOString(),
+    selectedCardId
+  });
+  render();
+}
+
+function restoreOwnedCard(cardId) {
+  const runtimeCard = getRuntimeCardById(state, cardId);
+  if (!IS_PUBLIC_EDITION || !runtimeCard) return;
+  const ownedCardIds = [...new Set([...(state.ownedCardIds || []), cardId])];
+  const cardOrder = [...new Set([...(state.cardOrder || []), cardId])];
+  persistState({
+    ...state,
+    ownedCardIds,
+    removedOwnedCardIds: (state.removedOwnedCardIds || []).filter((id) => id !== cardId),
+    cardOrder,
+    cardOrderUpdatedAt: new Date().toISOString(),
+    hiddenCardIds: (state.hiddenCardIds || []).filter((id) => id !== cardId),
+    hiddenCardIdsUpdatedAt: new Date().toISOString()
+  });
+  render();
 }
 
 function renderHeader() {
@@ -370,6 +453,13 @@ function renderDashboard() {
         <p>전월실적 충족과 이번달 실적 달성 현황을 한눈에 확인합니다.</p>
       </div>
     </section>
+    ${IS_PUBLIC_EDITION && !cards.length ? `
+      <section class="owned-card-empty">
+        <strong>먼저 사용하는 카드를 추가하세요.</strong>
+        <p>카드목록에서 카드를 선택하면 이곳에서 월 실적과 연간 실적을 관리할 수 있습니다.</p>
+        <button type="button" data-action="browse-cards">카드목록 열기</button>
+      </section>
+    ` : ''}
     <div class="summary-strip">
       <div class="summary-chip">
         <span>이번달 총 사용 금액</span>
@@ -619,10 +709,13 @@ function renderCardDetail() {
         <section class="page-head compact-head">
           <div>
             <h2>카드 상세</h2>
-            <p>표시 중인 카드가 없습니다. 설정의 카드 설정에서 카드를 다시 표시해 주세요.</p>
+            <p>${IS_PUBLIC_EDITION ? '카드목록에서 실제 사용하는 카드를 추가해 주세요.' : '설정의 카드 설정에서 카드를 다시 표시해 주세요.'}</p>
           </div>
         </section>
-        <div class="empty-note">표시 중인 카드가 없습니다.</div>
+        <div class="empty-note">
+          <strong>사용 중인 카드가 없습니다.</strong>
+          ${IS_PUBLIC_EDITION ? '<button type="button" data-action="browse-cards">카드목록에서 추가</button>' : ''}
+        </div>
       </section>
     `;
   }
@@ -681,7 +774,8 @@ function renderCardDetailMain(selected) {
   const monthlySpend = Number(override.currentMonthSpend || 0);
   const practicalBenefit = getMonthlyBenefitValue(state, selected, selectedMonthKey());
   const practicalRate = getEffectiveBenefitRate(monthlySpend, practicalBenefit);
-  const coreBenefits = selected.benefits.filter((benefit) => benefit.priority === 'core').slice(0, 6);
+  const benefits = selected.benefits || [];
+  const coreBenefits = benefits.filter((benefit) => benefit.priority === 'core').slice(0, 6);
   const prevDisplay = prevMonthDisplay(selected, override);
 
   return `
@@ -706,8 +800,9 @@ function renderCardDetailMain(selected) {
               </div>
             </div>
           </div>
-          <div class="benefit-chips prominent">
+          <div class="benefit-chips prominent ${coreBenefits.length ? '' : 'catalog-only'}">
             ${coreBenefits.map((benefit) => `<span>${escapeHtml(getBenefitHomeStatus(state, selected, benefit, selectedDate()))}</span>`).join('')}
+            ${selected.catalogOnly ? '<span>수동 실적 관리</span><span>추천 계산 미반영</span>' : ''}
           </div>
         </section>
 
@@ -716,15 +811,36 @@ function renderCardDetailMain(selected) {
           ${renderCardControls(selected, override, cycle)}
         </details>
 
-        <section class="benefit-list">
+        ${selected.catalogOnly ? renderCatalogCardBenefits(selected) : `<section class="benefit-list">
           <div class="section-head small">
             <div>
               <h3>혜택 상세 및 사용 관리</h3>
               <p>월 사용 체크/금액/횟수 입력은 선택한 월 기준으로 저장되고, 연간 횟수는 해당 주기 안에서 합산됩니다.</p>
             </div>
           </div>
-          ${selected.benefits.map((benefit) => renderBenefitEditor(selected, benefit)).join('')}
-        </section>
+          ${benefits.map((benefit) => renderBenefitEditor(selected, benefit)).join('')}
+        </section>`}
+  `;
+}
+
+function renderCatalogCardBenefits(card) {
+  const benefits = card.catalogSummaryBenefits || [];
+  return `
+    <section class="benefit-list catalog-benefit-readonly">
+      <div class="section-head small">
+        <div>
+          <h3>주요 혜택 안내</h3>
+          <p>공개 목록에서 확인한 요약 정보입니다. 공식 상품설명서 계산 검증 전에는 결제 추천과 혜택 금액 계산에 반영하지 않습니다.</p>
+        </div>
+      </div>
+      ${benefits.length ? `<div class="catalog-summary-benefit-list">${benefits.map((benefit) => `
+        <div>
+          <strong>${escapeHtml(benefit.title)}</strong>
+          <span>${escapeHtml((benefit.tags || []).join(' · ') || '상세 조건 확인 필요')}</span>
+        </div>
+      `).join('')}</div>` : '<div class="empty-note">등록된 요약 혜택이 없습니다. 카드사 공식 페이지에서 상세 조건을 확인해 주세요.</div>'}
+      ${card.source?.url ? `<a class="catalog-official-link" href="${escapeHtml(card.source.url)}" target="_blank" rel="noopener noreferrer">카드사 공식 정보 보기</a>` : ''}
+    </section>
   `;
 }
 
@@ -742,14 +858,18 @@ function renderCardControls(card, override, cycle) {
     <div class="settings-drawer">
       <div class="control-grid">
         <label>월 실적 목표
-          <select data-card-field="monthlyTarget" data-card-id="${card.id}">
-            ${[0, ...(card.monthlyTargets || [])].map((target) => option(String(target), target ? won(target) : '관리 안 함', String(override.monthlyTarget || 0))).join('')}
-          </select>
+          ${card.catalogOnly
+            ? `<input type="text" inputmode="numeric" data-money-input data-card-field="monthlyTarget" data-card-id="${card.id}" value="${formatNumberInput(override.monthlyTarget)}" placeholder="0이면 관리 안 함">`
+            : `<select data-card-field="monthlyTarget" data-card-id="${card.id}">
+                ${[0, ...(card.monthlyTargets || [])].map((target) => option(String(target), target ? won(target) : '관리 안 함', String(override.monthlyTarget || 0))).join('')}
+              </select>`}
         </label>
         <label>연간 실적 목표
-          <select data-card-field="annualTarget" data-card-id="${card.id}">
-            ${[0, ...(card.annualTargets || [])].map((target) => option(String(target), target ? won(target) : '관리 안 함', String(override.annualTarget || 0))).join('')}
-          </select>
+          ${card.catalogOnly
+            ? `<input type="text" inputmode="numeric" data-money-input data-card-field="annualTarget" data-card-id="${card.id}" value="${formatNumberInput(override.annualTarget)}" placeholder="0이면 관리 안 함">`
+            : `<select data-card-field="annualTarget" data-card-id="${card.id}">
+                ${[0, ...(card.annualTargets || [])].map((target) => option(String(target), target ? won(target) : '관리 안 함', String(override.annualTarget || 0))).join('')}
+              </select>`}
         </label>
         <label>연간 사용액 보정
           <input type="text" inputmode="numeric" data-money-input data-card-field="annualSpend" data-card-id="${card.id}" value="${formatNumberInput(state.cardOverrides?.[card.id]?.annualSpend)}">
@@ -1069,10 +1189,18 @@ function renderSettingsLegacy() {
 function renderCardSettingsBody() {
   const hidden = getHiddenCardIds(state);
   const cards = getAllOrderedCards(state);
+  const runtimeCardMap = getRuntimeCardMap(state);
+  const removedCards = (state.removedOwnedCardIds || []).map((id) => runtimeCardMap.get(id)).filter(Boolean);
   return `
-    <p>카드 표시 여부와 카드현황 표시 순서를 관리합니다. 숨김 카드는 카드현황, 카드상세, 결제추천, 합산 계산에서 제외되지만 입력 기록은 보존됩니다.</p>
-    <div class="order-list card-settings-list">
-      ${cards.map((card) => {
+    <p>${IS_PUBLIC_EDITION ? '실제로 사용하는 카드를 관리합니다. 체크 해제는 임시 숨김이며, 카드에서 제외해도 기존 실적과 설정은 보존되어 다시 추가하면 이어서 사용할 수 있습니다.' : '카드 표시 여부와 카드현황 표시 순서를 관리합니다. 숨김 카드는 카드현황, 카드상세, 결제추천, 합산 계산에서 제외되지만 입력 기록은 보존됩니다.'}</p>
+    ${IS_PUBLIC_EDITION ? `
+      <div class="owned-card-settings-head">
+        <strong>사용 중 ${cards.length}장</strong>
+        <button type="button" data-action="browse-cards">카드 추가</button>
+      </div>
+    ` : ''}
+    <div class="order-list card-settings-list ${IS_PUBLIC_EDITION ? 'owned-card-list' : ''}">
+      ${cards.length ? cards.map((card) => {
         const isHidden = hidden.has(card.id);
         return `
           <div class="${isHidden ? 'hidden-card' : ''}">
@@ -1085,10 +1213,24 @@ function renderCardSettingsBody() {
             </label>
             <button data-move-up="${card.id}">위</button>
             <button data-move-down="${card.id}">아래</button>
+            ${IS_PUBLIC_EDITION ? `<button class="danger subtle" data-remove-owned-card="${card.id}">제외</button>` : ''}
           </div>
         `;
-      }).join('')}
+      }).join('') : '<div class="empty-note">사용 중인 카드가 없습니다. 카드목록에서 카드를 추가해 주세요.</div>'}
     </div>
+    ${IS_PUBLIC_EDITION && removedCards.length ? `
+      <details class="removed-owned-cards">
+        <summary>제외한 카드 ${removedCards.length}장</summary>
+        <div class="removed-owned-list">
+          ${removedCards.map((card) => `
+            <div>
+              <span><strong>${escapeHtml(card.shortName)}</strong><em>기존 입력값 보존 중</em></span>
+              <button type="button" data-restore-owned-card="${card.id}">다시 추가</button>
+            </div>
+          `).join('')}
+        </div>
+      </details>
+    ` : ''}
   `;
 }
 
@@ -1250,6 +1392,9 @@ function bindEvents() {
     void loadPublicCatalogView();
     render();
   });
+  document.querySelectorAll('[data-action="browse-cards"]').forEach((button) => button.addEventListener('click', () => {
+    if (IS_PUBLIC_EDITION) setState({ selectedTab: 'catalog' });
+  }));
   document.querySelector('[data-action="toggle-sort"]')?.addEventListener('click', () => setState({ isSortingCards: !state.isSortingCards }));
   document.querySelectorAll('[data-month-move]').forEach((button) => {
     commitMonthlyInputBeforeAction(button);
@@ -1273,6 +1418,14 @@ function bindEvents() {
   document.querySelectorAll('[data-move-up]').forEach((el) => el.addEventListener('click', (event) => { event.stopPropagation(); moveCard(el.dataset.moveUp, -1); }));
   document.querySelectorAll('[data-move-down]').forEach((el) => el.addEventListener('click', (event) => { event.stopPropagation(); moveCard(el.dataset.moveDown, 1); }));
   document.querySelectorAll('[data-card-visible]').forEach((input) => input.addEventListener('change', () => setCardVisible(input.dataset.cardVisible, input.checked)));
+  document.querySelectorAll('[data-remove-owned-card]').forEach((button) => button.addEventListener('click', () => {
+    const card = getRuntimeCardById(state, button.dataset.removeOwnedCard);
+    if (!card || !confirm(`${card.shortName} 카드를 내 카드에서 제외할까요?\n\n기존 실적과 설정은 삭제되지 않습니다.`)) return;
+    removeOwnedCard(card.id);
+  }));
+  document.querySelectorAll('[data-restore-owned-card]').forEach((button) => button.addEventListener('click', () => {
+    restoreOwnedCard(button.dataset.restoreOwnedCard);
+  }));
 
   bindDetailMainEvents(document);
 
@@ -1585,7 +1738,8 @@ function setCardVisible(cardId, visible) {
   const hidden = new Set(state.hiddenCardIds || []);
   if (visible) hidden.delete(cardId);
   else hidden.add(cardId);
-  const nextHidden = [...hidden].filter((id) => CARD_MAP[id]);
+  const knownCardIds = new Set(getAllOrderedCards({ ...state, hiddenCardIds: [] }).map((card) => card.id));
+  const nextHidden = [...hidden].filter((id) => knownCardIds.has(id));
   const visibleCards = getAllOrderedCards({ ...state, hiddenCardIds: nextHidden }).filter((card) => !nextHidden.includes(card.id));
   const selectedCardId = nextHidden.includes(state.selectedCardId)
     ? (visibleCards[0]?.id || state.selectedCardId)

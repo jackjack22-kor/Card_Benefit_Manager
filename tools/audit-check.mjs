@@ -35,12 +35,14 @@ import {
   recommendCards
 } from '../src/lib/recommend.js';
 import { createInitialState, importState, migrateState } from '../src/lib/storage.js';
+import { createDefaultCardOverride, createOwnedCatalogCard, getRuntimeCardMap, sanitizeOwnedCatalogCards } from '../src/lib/ownedCards.js';
 
 const MONTH = '2026-07';
 const mainSource = readFileSync(new URL('../src/main.js', import.meta.url), 'utf8');
 const stylesSource = readFileSync(new URL('../src/styles.css', import.meta.url), 'utf8');
 const appEditionSource = readFileSync(new URL('../src/lib/appEdition.js', import.meta.url), 'utf8');
 const storageSource = readFileSync(new URL('../src/lib/storage.js', import.meta.url), 'utf8');
+const ownedCardsSource = readFileSync(new URL('../src/lib/ownedCards.js', import.meta.url), 'utf8');
 const publicCatalogViewSource = readFileSync(new URL('../src/lib/ui/publicCatalogView.js', import.meta.url), 'utf8');
 const lazySyncSource = readFileSync(new URL('../src/lib/sync/lazySync.js', import.meta.url), 'utf8');
 const syncManagerSource = readFileSync(new URL('../src/lib/sync/syncManager.js', import.meta.url), 'utf8');
@@ -352,6 +354,27 @@ assert.ok(hostingBuildSource.includes("'image', 'public-catalog'"), 'hosting bui
 assert.ok(verifyPublicDistSource.includes('117 publication images'), 'public dist verifier checks publication images');
 assert.ok(publicCatalogViewSource.includes('PUBLIC_CARD_PUBLICATION_CATALOG as PUBLIC_CARD_CATALOG'), 'public catalog UI uses the publication-safe catalog');
 assert.ok(publicCatalogViewSource.includes('발급 경로를 확인하지 못한 상품과 단종 상품은 제외'), 'public catalog UI explains issuance exclusions');
+for (const token of ['data-catalog-open', 'data-catalog-add', 'data-catalog-owned-detail', '카드상세로 이동']) {
+  assert.ok(publicCatalogViewSource.includes(token), `public catalog ownership flow includes ${token}`);
+}
+for (const token of ['ownedCardIds', 'removedOwnedCardIds', 'ownedCatalogCards', "SCHEMA_VERSION = '2.1.0'"]) {
+  assert.ok(storageSource.includes(token), `local storage owns public card field: ${token}`);
+}
+assert.ok(mainSource.includes('기존 실적과 설정은 삭제되지 않습니다'), 'removing an owned card explicitly preserves usage data');
+assert.ok(mainSource.includes('data-restore-owned-card'), 'removed owned cards can be restored from settings');
+assert.ok(mainSource.includes('renderCatalogCardBenefits'), 'catalog-only owned cards have a read-only detail view');
+assert.ok(ownedCardsSource.includes("calculationStatus: 'catalog_only'"), 'catalog-only cards stay outside recommendation calculations');
+const genericCatalogCandidate = PUBLIC_CARD_PUBLICATION_CATALOG.find((item) => !item.verification?.relatedCardModelId && item.summaryBenefits?.length);
+assert.ok(genericCatalogCandidate, 'a generic publication card is available for ownership modeling');
+const ownedCatalogCard = createOwnedCatalogCard(genericCatalogCandidate);
+assert.equal(ownedCatalogCard.id, genericCatalogCandidate.id, 'generic owned card keeps its stable catalog id');
+assert.equal(ownedCatalogCard.calculationStatus, 'catalog_only', 'generic owned card is not promoted to a calculation model');
+assert.equal(ownedCatalogCard.benefits.length, 0, 'generic owned card cannot enter benefit recommendation math');
+assert.ok(ownedCatalogCard.catalogSummaryBenefits.length > 0, 'generic owned card keeps read-only benefit summaries');
+assert.equal(createDefaultCardOverride(ownedCatalogCard).monthlyTarget, Number(genericCatalogCandidate.previousMonthSpend || 0), 'owned card starts from the catalog performance target');
+const sanitizedOwnedCatalogCards = sanitizeOwnedCatalogCards({ [ownedCatalogCard.id]: ownedCatalogCard });
+assert.equal(sanitizedOwnedCatalogCards[ownedCatalogCard.id].image, ownedCatalogCard.image, 'owned catalog snapshot preserves its local image');
+assert.equal(getRuntimeCardMap({ ownedCatalogCards: sanitizedOwnedCatalogCards }).get(ownedCatalogCard.id)?.name, ownedCatalogCard.name, 'owned catalog snapshot joins the runtime card registry');
 console.log(`ok - priority issuance verification gates passed: ${PUBLIC_CREDIT_CARD_ISSUANCE_VERIFICATIONS.length} records`);
 
 const hyundaiAmexPlatinum = card('hyundai-amex-platinum');
@@ -893,6 +916,18 @@ const migratedAceCatalogDefault = migrateState({
   monthlyCardUsage: { [MONTH]: {} }
 });
 assertEqual(migratedAceCatalogDefault.cardOverrides['shinhan-ace-blue'].monthlyTargetUserSet, false, 'catalog default monthly target is not treated as a user-set card setting');
+const migratedExplicitZeroMonthlyTarget = migrateState({
+  schemaVersion: '2.0.1',
+  cardOverrides: {
+    'kb-talktalk-my-point': {
+      monthlyTarget: 0,
+      monthlyTargetUserSet: true,
+      monthlyTargetUpdatedAt: '2026-07-09T12:00:00.000Z'
+    }
+  },
+  monthlyCardUsage: { [MONTH]: {} }
+});
+assertEqual(migratedExplicitZeroMonthlyTarget.cardOverrides['kb-talktalk-my-point'].monthlyTarget, 0, 'schema migration never replaces a user-set zero monthly target');
 const migratedHyundaiAnnualSettings = migrateState({
   schemaVersion: '2.0.1',
   cardOverrides: {
@@ -907,6 +942,18 @@ assertEqual(migratedHyundaiAnnualSettings.cardOverrides['hyundai-amex-platinum']
 assertEqual(migratedHyundaiAnnualSettings.cardOverrides['hyundai-amex-platinum'].annualTargetUserSet, true, 'migrated Hyundai Amex annual target is treated as user-set');
 assertEqual(migratedHyundaiAnnualSettings.cardOverrides['hyundai-amex-platinum'].cycle.annualFeeStartMonth, 7, 'migrated Hyundai Amex annual fee start month remains user setting');
 assertEqual(migratedHyundaiAnnualSettings.cardOverrides['hyundai-amex-platinum'].annualFeeStartMonthUserSet, true, 'migrated Hyundai Amex annual fee start month is treated as user-set');
+const migratedExplicitZeroAnnualTarget = migrateState({
+  schemaVersion: '2.0.1',
+  cardOverrides: {
+    'hyundai-amex-platinum': {
+      annualTarget: 0,
+      annualTargetUserSet: true,
+      annualTargetUpdatedAt: '2026-07-09T12:00:00.000Z'
+    }
+  },
+  monthlyCardUsage: { [MONTH]: {} }
+});
+assertEqual(migratedExplicitZeroAnnualTarget.cardOverrides['hyundai-amex-platinum'].annualTarget, 0, 'schema migration never replaces a user-set zero annual target');
 const migratedHyundaiAnnualDefaults = migrateState({
   schemaVersion: '2.0.1',
   cardOverrides: {
@@ -972,7 +1019,7 @@ const imported = importState(JSON.stringify({
   selectedTab: 'dashboard hacked',
   selectedCategory: 'travel',
   hiddenCardIds: ['kb-talktalk-my-point', 'unknown-card'],
-  pointValues: { koreanAir: 17, evil: '<img>' },
+  pointValues: { koreanAir: 17, myShinhan: 0, evil: '<img>' },
   monthlyCardUsage: {
     [MONTH]: {
       'kb-talktalk-my-point': { currentMonthSpend: '200000', prevMonthStatus: 'bad-class' },
@@ -983,6 +1030,7 @@ const imported = importState(JSON.stringify({
 assertEqual(imported.selectedTab, 'dashboard', 'import sanitizes selected tab');
 assert.deepEqual(imported.hiddenCardIds, ['kb-talktalk-my-point', ...DEFAULT_HIDDEN_CARD_IDS], 'import sanitizes hidden card ids and adds default-hidden optional cards');
 assertEqual(imported.settings.pointValues.koreanAir, 17, 'import keeps known point values');
+assertEqual(imported.settings.pointValues.myShinhan, 0, 'import preserves a user-set zero point value');
 assert.equal(imported.settings.pointValues.evil, undefined, 'import drops unknown point value keys');
 assertEqual(imported.monthlyCardUsage[MONTH]['kb-talktalk-my-point'].prevMonthStatus, 'manual', 'import sanitizes monthly status');
 assert.equal(imported.monthlyCardUsage[MONTH]['unknown-card'], undefined, 'import drops unknown monthly card ids');

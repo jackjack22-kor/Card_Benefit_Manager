@@ -19,7 +19,8 @@ const catalogState = {
   productType: '',
   network: '',
   status: '',
-  visibleLimit: PAGE_SIZE
+  visibleLimit: PAGE_SIZE,
+  openCardId: ''
 };
 
 const issuerOptions = uniqueSorted(PUBLIC_CARD_CATALOG.map((card) => card.issuer));
@@ -31,7 +32,7 @@ const searchIndex = new Map(PUBLIC_CARD_CATALOG.map((card) => [card.id, normaliz
   ...(card.summaryBenefits || []).flatMap((benefit) => [benefit.title, ...(benefit.tags || [])])
 ].join(' '))]));
 
-export function renderPublicCatalog() {
+export function renderPublicCatalog(options = {}) {
   const statusCounts = countBy(PUBLIC_CARD_CATALOG, (card) => card.collectionStatus);
   const creditCardCount = PUBLIC_CARD_CATALOG.filter((card) => card.productType === 'credit').length;
   const verifiedCount = Number(statusCounts.official_detail_verified || 0);
@@ -58,27 +59,32 @@ export function renderPublicCatalog() {
       </section>
       <p class="catalog-disclaimer">신용카드는 공식 신청 경로 또는 카드사 공식 목록이 확인된 상품만 공개합니다. 발급 경로를 확인하지 못한 상품과 단종 상품은 제외합니다. 체크카드는 운영후보로만 제공하며 혜택 계산과 추천에는 반영하지 않습니다.</p>
       ${renderCatalogFilters()}
-      <div data-catalog-results aria-live="polite">${renderCatalogResults()}</div>
+      <div data-catalog-results aria-live="polite">${renderCatalogResults(options)}</div>
     </section>
   `;
 }
 
-export function bindPublicCatalogEvents(root) {
+export function bindPublicCatalogEvents(root, options = {}) {
   if (!root) return;
   const queryInput = root.querySelector('[data-catalog-query]');
   queryInput?.addEventListener('input', () => {
     catalogState.query = queryInput.value;
     catalogState.visibleLimit = PAGE_SIZE;
-    updateCatalogResults(root);
+    updateCatalogResults(root, options);
   });
   for (const field of ['issuer', 'productType', 'network', 'status']) {
     root.querySelector(`[data-catalog-filter="${field}"]`)?.addEventListener('change', (event) => {
       catalogState[field] = event.target.value;
       catalogState.visibleLimit = PAGE_SIZE;
-      updateCatalogResults(root);
+      updateCatalogResults(root, options);
     });
   }
-  bindCatalogResultEvents(root);
+  root.addEventListener('keydown', (event) => {
+    if (event.key !== 'Escape' || !catalogState.openCardId) return;
+    catalogState.openCardId = '';
+    updateCatalogResults(root, options);
+  });
+  bindCatalogResultEvents(root, options);
 }
 
 function renderCatalogFilters() {
@@ -124,7 +130,7 @@ function renderCatalogFilters() {
   `;
 }
 
-function renderCatalogResults() {
+function renderCatalogResults(options = {}) {
   const cards = filteredCards();
   const visibleCards = cards.slice(0, catalogState.visibleLimit);
   if (!cards.length) {
@@ -141,24 +147,26 @@ function renderCatalogResults() {
       <span>${visibleCards.length.toLocaleString('ko-KR')}개 표시</span>
     </div>
     <section class="catalog-grid">
-      ${visibleCards.map(renderCatalogCard).join('')}
+      ${visibleCards.map((card) => renderCatalogCard(card, options)).join('')}
     </section>
     ${visibleCards.length < cards.length ? `
       <div class="catalog-load-more">
         <button type="button" class="ghost" data-catalog-more>카드 더 보기</button>
       </div>
     ` : ''}
+    ${renderCatalogDetail(options)}
   `;
 }
 
-function renderCatalogCard(card) {
+function renderCatalogCard(card, options = {}) {
   const status = ISSUANCE_STATUS_META[card.issuanceStatus] || STATUS_META[card.collectionStatus] || STATUS_META.candidate_index;
   const detailsUrl = card.officialUrl || card.referenceUrl || card.source?.url || '';
   const benefits = (card.summaryBenefits || []).slice(0, 3);
   const networkTags = card.networks?.length ? card.networks : ['국내전용'];
   const imageUrl = card.publicationImage || card.localImage || card.imageUrl;
+  const isOwned = ownedCardIdSet(options).has(getOwnershipId(card));
   return `
-    <article class="catalog-card">
+    <article class="catalog-card${isOwned ? ' is-owned' : ''}" data-catalog-open="${escapeHtml(card.id)}" tabindex="0" aria-label="${escapeHtml(card.name)} 상세 보기">
       <div class="catalog-card-media">
         ${imageUrl ? `<img src="${escapeHtml(imageUrl)}" alt="${escapeHtml(card.name)}" loading="lazy" decoding="async" referrerpolicy="no-referrer" data-catalog-image>` : ''}
         <span class="catalog-image-fallback${imageUrl ? '' : ' is-visible'}" aria-hidden="true">CARD</span>
@@ -180,10 +188,63 @@ function renderCatalogCard(card) {
         ${benefits.length ? `<ul class="catalog-benefits">${benefits.map((benefit) => `<li><strong>${escapeHtml(benefit.title)}</strong><span>${escapeHtml((benefit.tags || []).join(' · '))}</span></li>`).join('')}</ul>` : '<p class="catalog-benefit-empty">요약 혜택 확인 필요</p>'}
         <div class="catalog-card-footer">
           <span>${escapeHtml(card.verification?.verifiedAt ? `${card.source?.label || '공식 출처'} · ${card.verification.verifiedAt}` : (card.source?.label || '출처 확인 필요'))}</span>
-          ${detailsUrl ? `<a href="${escapeHtml(detailsUrl)}" target="_blank" rel="noopener noreferrer">출처 보기</a>` : ''}
+          <div class="catalog-card-actions">
+            <button type="button" class="ghost compact" data-catalog-preview="${escapeHtml(card.id)}">상세</button>
+            ${isOwned
+              ? `<button type="button" class="ghost compact" data-catalog-owned-detail="${escapeHtml(card.id)}">내 카드 보기</button>`
+              : `<button type="button" data-catalog-add="${escapeHtml(card.id)}">내 카드로 추가</button>`}
+            ${detailsUrl ? `<a href="${escapeHtml(detailsUrl)}" target="_blank" rel="noopener noreferrer">출처 보기</a>` : ''}
+          </div>
         </div>
       </div>
     </article>
+  `;
+}
+
+function renderCatalogDetail(options = {}) {
+  const card = PUBLIC_CARD_CATALOG.find((item) => item.id === catalogState.openCardId);
+  if (!card) return '';
+  const status = ISSUANCE_STATUS_META[card.issuanceStatus] || STATUS_META[card.collectionStatus] || STATUS_META.candidate_index;
+  const isOwned = ownedCardIdSet(options).has(getOwnershipId(card));
+  const imageUrl = card.publicationImage || card.localImage || card.imageUrl;
+  const detailsUrl = card.officialUrl || card.referenceUrl || card.source?.url || '';
+  const networkTags = card.networks?.length ? card.networks : ['국내전용'];
+  const benefits = card.summaryBenefits || [];
+  return `
+    <div class="catalog-detail-overlay" data-catalog-close-overlay>
+      <section class="catalog-detail-panel" role="dialog" aria-modal="true" aria-labelledby="catalog-detail-title">
+        <button type="button" class="catalog-detail-close" data-catalog-close aria-label="닫기">×</button>
+        <div class="catalog-detail-hero">
+          <div class="catalog-detail-image">
+            ${imageUrl ? `<img src="${escapeHtml(imageUrl)}" alt="${escapeHtml(card.name)}" data-catalog-image>` : '<span class="catalog-image-fallback is-visible">CARD</span>'}
+          </div>
+          <div>
+            <span class="catalog-issuer">${escapeHtml(card.issuer)} · ${card.productType === 'check' ? '체크카드' : '신용카드'}</span>
+            <h3 id="catalog-detail-title">${escapeHtml(card.name)}</h3>
+            <div class="catalog-network-row">${networkTags.map((network) => `<span>${escapeHtml(network)}</span>`).join('')}</div>
+            <span class="catalog-status ${status.className}">${status.label}</span>
+          </div>
+        </div>
+        <dl class="catalog-detail-meta">
+          <div><dt>연회비</dt><dd>${escapeHtml(card.annualFeeText || '확인 필요')}</dd></div>
+          <div><dt>전월실적</dt><dd>${card.previousMonthSpend ? `${compactWon(card.previousMonthSpend)} 이상` : '없음 또는 확인 필요'}</dd></div>
+          <div><dt>계산 지원</dt><dd>${card.calculationStatus === 'modeled' ? '혜택 계산 및 추천 지원' : '수동 실적 관리 지원 · 추천 계산 미반영'}</dd></div>
+        </dl>
+        <section class="catalog-detail-benefits">
+          <h4>주요 혜택</h4>
+          ${benefits.length ? benefits.map((benefit) => `
+            <div><strong>${escapeHtml(benefit.title)}</strong><span>${escapeHtml((benefit.tags || []).join(' · ') || '상세 조건 확인 필요')}</span></div>
+          `).join('') : '<p>등록된 요약 혜택이 없습니다.</p>'}
+        </section>
+        <p class="catalog-detail-note">카드를 추가하면 월 실적, 연간 실적, 연회비 시작월과 메모를 관리할 수 있습니다. 계산 모델이 검증된 카드만 결제 추천에 반영됩니다.</p>
+        <div class="catalog-detail-actions">
+          ${isOwned
+            ? `<button type="button" data-catalog-owned-detail="${escapeHtml(card.id)}">카드상세로 이동</button>`
+            : `<button type="button" data-catalog-add="${escapeHtml(card.id)}">내 카드로 추가</button>`}
+          ${detailsUrl ? `<a href="${escapeHtml(detailsUrl)}" target="_blank" rel="noopener noreferrer">카드사 공식 정보</a>` : ''}
+        </div>
+      </section>
+    </div>
   `;
 }
 
@@ -199,19 +260,19 @@ function filteredCards() {
   });
 }
 
-function updateCatalogResults(root) {
+function updateCatalogResults(root, options = {}) {
   const container = root.querySelector('[data-catalog-results]');
   if (!container) return;
-  container.innerHTML = renderCatalogResults();
-  bindCatalogResultEvents(root);
+  container.innerHTML = renderCatalogResults(options);
+  bindCatalogResultEvents(root, options);
 }
 
-function bindCatalogResultEvents(root) {
+function bindCatalogResultEvents(root, options = {}) {
   const container = root.querySelector('[data-catalog-results]');
   if (!container) return;
   container.querySelector('[data-catalog-more]')?.addEventListener('click', () => {
     catalogState.visibleLimit += PAGE_SIZE;
-    updateCatalogResults(root);
+    updateCatalogResults(root, options);
   });
   container.querySelector('[data-catalog-reset]')?.addEventListener('click', () => {
     Object.assign(catalogState, { query: '', issuer: '', productType: '', network: '', status: '', visibleLimit: PAGE_SIZE });
@@ -221,7 +282,42 @@ function bindCatalogResultEvents(root) {
       const select = root.querySelector(`[data-catalog-filter="${field}"]`);
       if (select) select.value = '';
     }
-    updateCatalogResults(root);
+    updateCatalogResults(root, options);
+  });
+  container.querySelectorAll('[data-catalog-open]').forEach((item) => {
+    const open = (event) => {
+      if (event.target.closest('button, a')) return;
+      if (event.type === 'keydown' && !['Enter', ' '].includes(event.key)) return;
+      event.preventDefault();
+      catalogState.openCardId = item.dataset.catalogOpen;
+      updateCatalogResults(root, options);
+    };
+    item.addEventListener('click', open);
+    item.addEventListener('keydown', open);
+  });
+  container.querySelectorAll('[data-catalog-add]').forEach((button) => button.addEventListener('click', (event) => {
+    event.stopPropagation();
+    const card = PUBLIC_CARD_CATALOG.find((item) => item.id === button.dataset.catalogAdd);
+    if (card) options.onAddCard?.(card);
+  }));
+  container.querySelectorAll('[data-catalog-preview]').forEach((button) => button.addEventListener('click', (event) => {
+    event.stopPropagation();
+    catalogState.openCardId = button.dataset.catalogPreview;
+    updateCatalogResults(root, options);
+  }));
+  container.querySelectorAll('[data-catalog-owned-detail]').forEach((button) => button.addEventListener('click', (event) => {
+    event.stopPropagation();
+    const card = PUBLIC_CARD_CATALOG.find((item) => item.id === button.dataset.catalogOwnedDetail);
+    if (card) options.onOpenOwnedCard?.(card);
+  }));
+  container.querySelector('[data-catalog-close]')?.addEventListener('click', () => {
+    catalogState.openCardId = '';
+    updateCatalogResults(root, options);
+  });
+  container.querySelector('[data-catalog-close-overlay]')?.addEventListener('click', (event) => {
+    if (event.target !== event.currentTarget) return;
+    catalogState.openCardId = '';
+    updateCatalogResults(root, options);
   });
   container.querySelectorAll('[data-catalog-image]').forEach((image) => {
     const showFallback = () => {
@@ -231,6 +327,14 @@ function bindCatalogResultEvents(root) {
     image.addEventListener('error', showFallback, { once: true });
     if (image.complete && image.naturalWidth === 0) showFallback();
   });
+}
+
+function getOwnershipId(card) {
+  return String(card?.verification?.relatedCardModelId || card?.id || '');
+}
+
+function ownedCardIdSet(options = {}) {
+  return new Set(Array.isArray(options.ownedCardIds) ? options.ownedCardIds : []);
 }
 
 function renderOption(value, label, selected) {

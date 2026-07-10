@@ -1,6 +1,8 @@
 import { CARDS } from '../data/cards.js';
 import { SUBCATEGORY_MAP } from '../data/categories.js';
+import { IS_PUBLIC_EDITION } from './appEdition.js';
 import { getMonthKey, getCycle, monthsInCycle } from './cycles.js';
+import { getRuntimeCardById, getRuntimeCardMap } from './ownedCards.js';
 
 export function getOrderedCards(state) {
   const hidden = getHiddenCardIds(state);
@@ -8,10 +10,12 @@ export function getOrderedCards(state) {
 }
 
 export function getAllOrderedCards(state) {
-  const map = new Map(CARDS.map((card) => [card.id, card]));
-  return (state.cardOrder || CARDS.map((card) => card.id))
+  const map = getRuntimeCardMap(state);
+  const owned = new Set(state.ownedCardIds || []);
+  const defaultOrder = IS_PUBLIC_EDITION ? [...owned] : CARDS.map((card) => card.id);
+  return [...new Set([...(state.cardOrder || defaultOrder), ...defaultOrder])]
     .map((id) => map.get(id))
-    .filter((card) => card && !card.operationalCandidate);
+    .filter((card) => card && !card.operationalCandidate && (!IS_PUBLIC_EDITION || owned.has(card.id)));
 }
 
 export function getHiddenCardIds(state) {
@@ -19,7 +23,7 @@ export function getHiddenCardIds(state) {
 }
 
 export function getCardOverride(state, cardId) {
-  const card = CARDS.find((item) => item.id === cardId);
+  const card = getRuntimeCardById(state, cardId);
   const override = state.cardOverrides?.[cardId] || {};
   const monthKey = selectedMonthKey(state);
   const monthly = state.monthlyCardUsage?.[monthKey]?.[cardId] || {};
