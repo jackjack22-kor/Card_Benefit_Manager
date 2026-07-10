@@ -26,6 +26,7 @@ const mainSource = readFileSync(new URL('../src/main.js', import.meta.url), 'utf
 const stylesSource = readFileSync(new URL('../src/styles.css', import.meta.url), 'utf8');
 const appEditionSource = readFileSync(new URL('../src/lib/appEdition.js', import.meta.url), 'utf8');
 const storageSource = readFileSync(new URL('../src/lib/storage.js', import.meta.url), 'utf8');
+const publicCatalogViewSource = readFileSync(new URL('../src/lib/ui/publicCatalogView.js', import.meta.url), 'utf8');
 const lazySyncSource = readFileSync(new URL('../src/lib/sync/lazySync.js', import.meta.url), 'utf8');
 const syncManagerSource = readFileSync(new URL('../src/lib/sync/syncManager.js', import.meta.url), 'utf8');
 const firebaseClientSource = readFileSync(new URL('../src/lib/sync/firebaseClient.js', import.meta.url), 'utf8');
@@ -279,9 +280,27 @@ assert.ok(packageJson.scripts['catalog:collect']?.includes('collect-public-card-
 assert.ok(appEditionSource.includes("rawEdition === 'public' ? 'public' : 'personal'"), 'unknown app editions must fall back to the personal edition');
 assert.ok(appEditionSource.includes("export const ENABLE_CLOUD_SYNC = !IS_PUBLIC_EDITION"), 'public edition must disable cloud sync centrally');
 assertContainsInOrder(appEditionSource, ["export const APP_STORAGE_KEY", "cardfit.public.v1", "cardBenefitManager.v1"], 'public and personal editions use separate local storage keys');
-assert.ok(storageSource.includes("import { APP_STORAGE_KEY } from './appEdition.js'"), 'storage layer must read the edition-aware storage key');
+assert.ok(storageSource.includes("import { APP_STORAGE_KEY, IS_PUBLIC_EDITION } from './appEdition.js'"), 'storage layer must read edition-aware storage and tab settings');
 assert.ok(storageSource.includes('export const STORAGE_KEY = APP_STORAGE_KEY'), 'storage key must be provided by app edition config');
+assert.ok(storageSource.includes("...(IS_PUBLIC_EDITION ? ['catalog'] : [])"), 'only the public edition may restore the catalog tab');
 assert.ok(mainSource.includes("import { APP_TITLE, ENABLE_CLOUD_SYNC, IS_PUBLIC_EDITION } from './lib/appEdition.js'"), 'main UI must read app edition flags');
+assert.ok(mainSource.includes("import('./lib/ui/publicCatalogView.js')"), 'public catalog UI must be loaded lazily');
+assertContainsInOrder(mainSource, ["import.meta.env.VITE_APP_EDITION === 'public'", "import('./lib/ui/publicCatalogView.js')", '() => Promise.resolve(null)'], 'personal build can tree-shake public catalog data');
+assert.ok(!mainSource.includes("from './data/publicCardCatalog.js'"), 'main UI must not eagerly import the large public catalog');
+assert.ok(mainSource.includes("...(IS_PUBLIC_EDITION ? [['catalog', '카드목록']] : [])"), 'catalog tab must only appear in the public edition');
+assert.ok(mainSource.includes("IS_PUBLIC_EDITION && state.selectedTab === 'catalog'"), 'catalog renderer must be edition-gated');
+assert.ok(publicCatalogViewSource.includes("from '../../data/publicCardCatalog.js'"), 'lazy catalog view must load the public catalog data');
+assert.ok(publicCatalogViewSource.includes('const PAGE_SIZE = 60'), 'catalog UI must cap initial rendered results');
+for (const catalogFilterToken of ['data-catalog-query', 'issuer', 'productType', 'network', 'status']) {
+  assert.ok(publicCatalogViewSource.includes(catalogFilterToken), `catalog UI must support ${catalogFilterToken} filtering`);
+}
+assert.ok(publicCatalogViewSource.includes("candidate_index: { label: '공식 검증 전'"), 'candidate catalog records must be labeled as unverified');
+assert.ok(publicCatalogViewSource.includes('혜택 계산과 추천에는 공식 상세 검증이 끝난 카드만 반영됩니다.'), 'catalog UI must explain calculation eligibility');
+for (const forbiddenCatalogMutationToken of ['localStorage', 'saveState(', 'cardOverrides', 'monthlyCardUsage', 'setBenefitUsage']) {
+  assert.ok(!publicCatalogViewSource.includes(forbiddenCatalogMutationToken), `catalog view must not mutate user data through ${forbiddenCatalogMutationToken}`);
+}
+assert.ok(stylesSource.includes('.catalog-grid'), 'public catalog must have a responsive result grid');
+assert.ok(stylesSource.includes('.tabs.public-tabs'), 'public edition must support five navigation tabs');
 assert.ok(mainSource.includes('ENABLE_CLOUD_SYNC ? renderCloudSyncCard() :'), 'public settings UI must hide cloud sync status card');
 assert.ok(mainSource.includes('ENABLE_CLOUD_SYNC ? renderSyncConflicts() :'), 'public settings UI must hide cloud sync conflict UI');
 assert.ok(mainSource.includes('IS_PUBLIC_EDITION ? renderPublicDataSafetyCard() :'), 'public settings UI must show a local-only data safety card');

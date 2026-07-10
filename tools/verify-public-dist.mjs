@@ -40,6 +40,18 @@ const jsAssets = assets.filter((name) => name.endsWith('.js'));
 assert.ok(jsAssets.length > 0, 'public dist must include a JS bundle');
 assert.ok(assets.some((name) => name.endsWith('.css')), 'public dist must include a CSS bundle');
 assert.equal(assets.some((name) => /^syncManager-.*\.js$/.test(name)), false, 'public dist must not emit a syncManager chunk');
+const catalogAssets = jsAssets.filter((name) => /^publicCatalogView-.*\.js$/.test(name));
+assert.equal(catalogAssets.length, 1, 'public dist must emit one lazy public catalog chunk');
+
+const catalogJsText = catalogAssets
+  .map((name) => readFileSync(join(assetsDir, name), 'utf8'))
+  .join('\n');
+const initialJsText = jsAssets
+  .filter((name) => !catalogAssets.includes(name))
+  .map((name) => readFileSync(join(assetsDir, name), 'utf8'))
+  .join('\n');
+assert.ok(catalogJsText.includes('cg-crd-2564'), 'lazy public catalog chunk must include collected card records');
+assert.ok(!initialJsText.includes('cg-crd-2564'), 'initial public bundle must not eagerly include collected card records');
 
 const jsText = jsAssets
   .map((name) => readFileSync(join(assetsDir, name), 'utf8'))

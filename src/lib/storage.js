@@ -1,6 +1,6 @@
 import { CARDS, DEFAULT_HIDDEN_CARD_IDS, POINT_DEFAULTS } from '../data/cards.js';
 import { CATEGORIES } from '../data/categories.js';
-import { APP_STORAGE_KEY } from './appEdition.js';
+import { APP_STORAGE_KEY, IS_PUBLIC_EDITION } from './appEdition.js';
 import { getMonthKey } from './cycles.js';
 
 export const STORAGE_KEY = APP_STORAGE_KEY;
@@ -12,7 +12,7 @@ const MONTHLY_TARGET_MIGRATIONS = {
   'shinhan-always-on': 10000
 };
 const UNMANAGED_MONTHLY_TARGET_REPAIRS = new Set(['marriott-best-shinhan']);
-const VALID_TABS = new Set(['dashboard', 'cards', 'recommend', 'settings']);
+const VALID_TABS = new Set(['dashboard', 'cards', 'recommend', ...(IS_PUBLIC_EDITION ? ['catalog'] : []), 'settings']);
 const CATEGORY_IDS = new Set(CATEGORIES.map((item) => item.id));
 const POINT_KEYS = new Set(Object.keys(POINT_DEFAULTS));
 

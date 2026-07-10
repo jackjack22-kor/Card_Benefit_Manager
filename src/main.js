@@ -46,6 +46,10 @@ import {
   requestCloudSyncNow
 } from './lib/sync/lazySync.js';
 
+const loadPublicCatalogModule = import.meta.env.VITE_APP_EDITION === 'public'
+  ? () => import('./lib/ui/publicCatalogView.js')
+  : () => Promise.resolve(null);
+
 let state = loadState();
 const app = document.querySelector('#app');
 let suppressNextOpen = false;
@@ -57,6 +61,9 @@ let syncStatus = getInitialSyncStatus();
 let suppressMonthlyInputRenderUntil = 0;
 let recommendationRenderTimer = 0;
 let storageErrorNotified = false;
+let publicCatalogView = null;
+let publicCatalogLoadPromise = null;
+let publicCatalogLoadError = '';
 
 window.addEventListener('cardfit-storage-error', (event) => {
   if (storageErrorNotified) return;
@@ -231,13 +238,57 @@ function render() {
         ${state.selectedTab === 'dashboard' ? renderDashboard() : ''}
         ${state.selectedTab === 'recommend' ? renderRecommend() : ''}
         ${state.selectedTab === 'cards' ? renderCardDetail() : ''}
+        ${IS_PUBLIC_EDITION && state.selectedTab === 'catalog' ? renderPublicCatalogTab() : ''}
         ${state.selectedTab === 'settings' ? renderSettings() : ''}
       </main>
       ${renderTabs()}
     </div>
   `;
   bindEvents();
+  if (IS_PUBLIC_EDITION && state.selectedTab === 'catalog') {
+    if (publicCatalogView) publicCatalogView.bindPublicCatalogEvents(document.querySelector('.catalog-page'));
+    else void loadPublicCatalogView();
+  }
   if (state.selectedTab === 'settings') prepareCloudSync();
+}
+
+function renderPublicCatalogTab() {
+  if (publicCatalogView) return publicCatalogView.renderPublicCatalog();
+  return `
+    <section class="catalog-page catalog-loading" aria-live="polite">
+      <section class="page-head compact-head">
+        <div>
+          <h2>카드 목록</h2>
+          <p>${publicCatalogLoadError ? '카드 목록을 불러오지 못했습니다.' : '카드 목록을 불러오는 중입니다.'}</p>
+        </div>
+      </section>
+      ${publicCatalogLoadError
+        ? `<div class="empty-note"><strong>잠시 후 다시 시도해 주세요.</strong><button type="button" class="ghost" data-action="retry-catalog">다시 불러오기</button></div>`
+        : '<div class="catalog-loading-bar"><span></span></div>'}
+    </section>
+  `;
+}
+
+async function loadPublicCatalogView() {
+  if (!IS_PUBLIC_EDITION || publicCatalogView || publicCatalogLoadPromise) return publicCatalogLoadPromise;
+  publicCatalogLoadError = '';
+  publicCatalogLoadPromise = loadPublicCatalogModule()
+    .then((module) => {
+      if (!module) return null;
+      publicCatalogView = module;
+      if (state.selectedTab === 'catalog') render();
+      return module;
+    })
+    .catch((error) => {
+      console.error('Failed to load public card catalog', error);
+      publicCatalogLoadError = error.message || '카드 목록 로딩 오류';
+      if (state.selectedTab === 'catalog') render();
+      return null;
+    })
+    .finally(() => {
+      publicCatalogLoadPromise = null;
+    });
+  return publicCatalogLoadPromise;
 }
 
 function renderHeader() {
@@ -278,15 +329,17 @@ function renderTabs() {
     dashboard: icon('<rect x="3" y="3" width="8" height="8" rx="2"></rect><rect x="13" y="3" width="8" height="8" rx="2"></rect><rect x="3" y="13" width="8" height="8" rx="2"></rect><rect x="13" y="13" width="8" height="8" rx="2"></rect>'),
     recommend: icon('<path d="M12 3l1.9 4.6L18.5 9l-4.6 1.9L12 15l-1.9-4.1L5.5 9l4.6-1.4z"></path><path d="M19 14l.8 2 .2.8.8.2-2 .8-.8 2-.8-2-2-.8 2-.8z"></path>'),
     cards: icon('<rect x="2.5" y="5" width="19" height="14" rx="3"></rect><path d="M2.5 9.5h19"></path><path d="M6 15h4"></path>'),
+    catalog: icon('<rect x="4" y="4" width="14" height="10" rx="2"></rect><path d="M7 8h8"></path><path d="M7 17h10"></path><circle cx="19" cy="17" r="2.5"></circle>'),
     settings: icon('<path d="M4 6h10"></path><path d="M18 6h2"></path><circle cx="16" cy="6" r="2"></circle><path d="M4 12h2"></path><path d="M10 12h10"></path><circle cx="8" cy="12" r="2"></circle><path d="M4 18h10"></path><path d="M18 18h2"></path><circle cx="16" cy="18" r="2"></circle>')
   };
   const tabs = [
     ['dashboard', '카드현황'],
     ['cards', '카드상세'],
     ['recommend', '결제추천'],
+    ...(IS_PUBLIC_EDITION ? [['catalog', '카드목록']] : []),
     ['settings', '설정']
   ];
-  return `<nav class="tabs">${tabs.map(([id, label]) => `<button class="tab ${state.selectedTab === id ? 'active' : ''}" data-tab="${id}">${icons[id]}<span>${label}</span></button>`).join('')}</nav>`;
+  return `<nav class="tabs${IS_PUBLIC_EDITION ? ' public-tabs' : ''}">${tabs.map(([id, label]) => `<button class="tab ${state.selectedTab === id ? 'active' : ''}" data-tab="${id}">${icons[id]}<span>${label}</span></button>`).join('')}</nav>`;
 }
 
 function renderDashboard() {
@@ -1192,6 +1245,11 @@ function bindEvents() {
     });
   });
   document.querySelector('[data-action="toggle-dark"]')?.addEventListener('click', () => updateSettings({ darkMode: !state.settings.darkMode }));
+  document.querySelector('[data-action="retry-catalog"]')?.addEventListener('click', () => {
+    publicCatalogLoadError = '';
+    void loadPublicCatalogView();
+    render();
+  });
   document.querySelector('[data-action="toggle-sort"]')?.addEventListener('click', () => setState({ isSortingCards: !state.isSortingCards }));
   document.querySelectorAll('[data-month-move]').forEach((button) => {
     commitMonthlyInputBeforeAction(button);
