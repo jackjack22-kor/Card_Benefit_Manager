@@ -5,6 +5,7 @@ const PAGE_SIZE = 60;
 const STATUS_META = {
   candidate_index: { label: '공식 검증 전', className: 'candidate' },
   official_catalog: { label: '카드사 공식 목록', className: 'official' },
+  operational_candidate: { label: '체크카드 운영후보', className: 'candidate' },
   official_detail_verified: { label: '공식 상세 검증', className: 'verified' }
 };
 
@@ -28,8 +29,9 @@ const searchIndex = new Map(PUBLIC_CARD_CATALOG.map((card) => [card.id, normaliz
 
 export function renderPublicCatalog() {
   const statusCounts = countBy(PUBLIC_CARD_CATALOG, (card) => card.collectionStatus);
+  const creditCardCount = PUBLIC_CARD_CATALOG.filter((card) => card.productType === 'credit').length;
   const verifiedCount = Number(statusCounts.official_detail_verified || 0);
-  const verificationRate = (verifiedCount / PUBLIC_CARD_CATALOG.length) * 100;
+  const verificationRate = (verifiedCount / creditCardCount) * 100;
   return `
     <section class="catalog-page">
       <section class="page-head compact-head catalog-head">
@@ -43,12 +45,13 @@ export function renderPublicCatalog() {
         <strong>${PUBLIC_CARD_CATALOG.length.toLocaleString('ko-KR')}개 카드</strong>
         <span>카드사 공식 목록 ${Number(statusCounts.official_catalog || 0).toLocaleString('ko-KR')}</span>
         <span>공식 상세 검증 ${Number(statusCounts.official_detail_verified || 0).toLocaleString('ko-KR')}</span>
+        <span>체크카드 운영후보 ${Number(statusCounts.operational_candidate || 0).toLocaleString('ko-KR')}</span>
       </section>
       <section class="catalog-verification-progress" aria-label="공식 상세 검증 진행률">
-        <div><strong>공식 상세 검증</strong><span>${verifiedCount.toLocaleString('ko-KR')} / ${PUBLIC_CARD_CATALOG.length.toLocaleString('ko-KR')}</span></div>
-        <progress value="${verifiedCount}" max="${PUBLIC_CARD_CATALOG.length}">${verificationRate.toFixed(1)}%</progress>
+        <div><strong>신용카드 공식 상세 검증</strong><span>${verifiedCount.toLocaleString('ko-KR')} / ${creditCardCount.toLocaleString('ko-KR')}</span></div>
+        <progress value="${verifiedCount}" max="${creditCardCount}">${verificationRate.toFixed(1)}%</progress>
       </section>
-      <p class="catalog-disclaimer">‘공식 검증 전’ 정보는 비교를 위한 후보 자료입니다. 혜택 계산과 추천에는 공식 상세 검증이 끝난 카드만 반영됩니다.</p>
+      <p class="catalog-disclaimer">공식 상세 검증은 신용카드부터 진행합니다. 체크카드는 운영후보로만 제공하며 혜택 계산과 추천에는 반영하지 않습니다.</p>
       ${renderCatalogFilters()}
       <div data-catalog-results aria-live="polite">${renderCatalogResults()}</div>
     </section>
@@ -108,6 +111,7 @@ function renderCatalogFilters() {
           ${renderOption('', '전체 상태', catalogState.status)}
           ${renderOption('official_detail_verified', '공식 상세 검증', catalogState.status)}
           ${renderOption('official_catalog', '카드사 공식 목록', catalogState.status)}
+          ${renderOption('operational_candidate', '체크카드 운영후보', catalogState.status)}
           ${renderOption('candidate_index', '공식 검증 전', catalogState.status)}
         </select>
       </label>

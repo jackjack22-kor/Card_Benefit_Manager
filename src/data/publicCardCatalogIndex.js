@@ -1,14 +1,15 @@
 import {
   PUBLIC_CARD_CATALOG as RAW_PUBLIC_CARD_CATALOG,
   PUBLIC_CARD_CATALOG_CHECKED_AT as RAW_PUBLIC_CARD_CATALOG_CHECKED_AT,
-  PUBLIC_CARD_CATALOG_STATUSES
+  PUBLIC_CARD_CATALOG_STATUSES as RAW_PUBLIC_CARD_CATALOG_STATUSES
 } from './publicCardCatalog.js';
 import { PUBLIC_CARD_VERIFICATION_OVERLAYS } from './publicCardVerificationOverlays.js';
 
 const STATUS_ORDER = {
   official_detail_verified: 0,
   official_catalog: 1,
-  candidate_index: 2
+  operational_candidate: 2,
+  candidate_index: 3
 };
 const DUPLICATE_CANDIDATE_IDS = new Set(
   Object.values(PUBLIC_CARD_VERIFICATION_OVERLAYS).flatMap((overlay) => overlay.candidateAliases || [])
@@ -16,12 +17,18 @@ const DUPLICATE_CANDIDATE_IDS = new Set(
 
 function applyVerificationOverlay(card) {
   const overlay = PUBLIC_CARD_VERIFICATION_OVERLAYS[card.id];
-  if (!overlay) return card;
-  return {
+  const merged = overlay ? {
     ...card,
     ...overlay,
     source: { ...card.source, ...overlay.source },
     verification: { ...(card.verification || {}), ...(overlay.verification || {}) }
+  } : card;
+  if (card.productType !== 'check') return merged;
+  return {
+    ...merged,
+    collectionStatus: 'operational_candidate',
+    calculationStatus: 'catalog_only',
+    verification: undefined
   };
 }
 
@@ -37,10 +44,12 @@ export const PUBLIC_CARD_CATALOG = RAW_PUBLIC_CARD_CATALOG
 
 export const PUBLIC_CARD_CATALOG_CHECKED_AT = [
   RAW_PUBLIC_CARD_CATALOG_CHECKED_AT,
-  ...Object.values(PUBLIC_CARD_VERIFICATION_OVERLAYS).map((overlay) => overlay.verification?.verifiedAt || '')
+  ...Object.values(PUBLIC_CARD_VERIFICATION_OVERLAYS).map((overlay) => overlay.verification?.verifiedAt || overlay.source?.checkedAt || '')
 ].sort().at(-1);
 
-export { PUBLIC_CARD_CATALOG_STATUSES, RAW_PUBLIC_CARD_CATALOG, RAW_PUBLIC_CARD_CATALOG_CHECKED_AT };
+export const PUBLIC_CARD_CATALOG_STATUSES = [...RAW_PUBLIC_CARD_CATALOG_STATUSES, 'operational_candidate'];
+
+export { RAW_PUBLIC_CARD_CATALOG, RAW_PUBLIC_CARD_CATALOG_CHECKED_AT };
 
 export const PUBLIC_CARD_CATALOG_DUPLICATE_IDS = [...DUPLICATE_CANDIDATE_IDS];
 

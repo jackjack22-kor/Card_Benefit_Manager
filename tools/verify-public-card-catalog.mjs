@@ -7,9 +7,23 @@ import { PUBLIC_CARD_VERIFICATION_OVERLAYS } from '../src/data/publicCardVerific
 const rawIds = new Set(RAW_PUBLIC_CARD_CATALOG.map((card) => card.id));
 const calculationCardIds = new Set(CARDS.map((card) => card.id));
 const requiredVerifiedFields = ['annualFee', 'networks', 'previousMonthSpend', 'benefits', 'exclusions'];
+const overlayEntries = Object.entries(PUBLIC_CARD_VERIFICATION_OVERLAYS);
 
-for (const [cardId, overlay] of Object.entries(PUBLIC_CARD_VERIFICATION_OVERLAYS)) {
+for (const [cardId, overlay] of overlayEntries) {
   assert.ok(rawIds.has(cardId), `verification overlay points to an unknown card: ${cardId}`);
+  const rawCard = RAW_PUBLIC_CARD_CATALOG.find((card) => card.id === cardId);
+  for (const aliasId of overlay.candidateAliases || []) {
+    assert.ok(rawIds.has(aliasId), `candidate alias points to an unknown card: ${cardId}:${aliasId}`);
+    assert.notEqual(aliasId, cardId, `candidate alias cannot point to itself: ${cardId}`);
+  }
+  if (overlay.collectionStatus === 'operational_candidate') {
+    assert.equal(rawCard?.productType, 'check', `operational candidate must be a check card: ${cardId}`);
+    assert.equal(overlay.calculationStatus, 'catalog_only', `operational candidate cannot enable calculation: ${cardId}`);
+    assert.equal(overlay.verification, undefined, `operational candidate cannot claim official verification: ${cardId}`);
+    continue;
+  }
+
+  assert.equal(rawCard?.productType, 'credit', `official verification is limited to credit cards: ${cardId}`);
   assert.equal(overlay.collectionStatus, 'official_detail_verified', `overlay status must be verified: ${cardId}`);
   assert.ok(/^https:\/\//.test(overlay.officialUrl || PUBLIC_CARD_CATALOG_BY_ID.get(cardId)?.officialUrl || ''), `official URL is required: ${cardId}`);
   assert.ok(/^\d{4}-\d{2}-\d{2}$/.test(overlay.verification?.verifiedAt || ''), `verifiedAt is required: ${cardId}`);
@@ -33,15 +47,16 @@ for (const [cardId, overlay] of Object.entries(PUBLIC_CARD_VERIFICATION_OVERLAYS
   } else {
     assert.equal(overlay.verification?.relatedCardModelId, undefined, `catalog-only card must not claim a calculation model: ${cardId}`);
   }
-  for (const aliasId of overlay.candidateAliases || []) {
-    assert.ok(rawIds.has(aliasId), `candidate alias points to an unknown card: ${cardId}:${aliasId}`);
-    assert.notEqual(aliasId, cardId, `candidate alias cannot point to itself: ${cardId}`);
-  }
 }
 
 const verified = [...PUBLIC_CARD_CATALOG_BY_ID.values()].filter((card) => card.collectionStatus === 'official_detail_verified');
-assert.equal(verified.length, Object.keys(PUBLIC_CARD_VERIFICATION_OVERLAYS).length, 'effective verified count must match overlays');
+const verifiedOverlays = overlayEntries.filter(([, overlay]) => overlay.collectionStatus === 'official_detail_verified');
+const operationalCheckCards = [...PUBLIC_CARD_CATALOG_BY_ID.values()].filter((card) => card.productType === 'check');
+assert.equal(verified.length, verifiedOverlays.length, 'effective verified count must match credit-card verification overlays');
+assert.ok(verified.every((card) => card.productType === 'credit'), 'only credit cards may be officially verified');
+assert.ok(operationalCheckCards.every((card) => card.collectionStatus === 'operational_candidate'), 'all check cards must remain operational candidates');
 assert.equal(new Set(PUBLIC_CARD_CATALOG_DUPLICATE_IDS).size, PUBLIC_CARD_CATALOG_DUPLICATE_IDS.length, 'candidate aliases must be unique');
 
 console.log(`ok - verified public card overlays: ${verified.length}`);
+console.log(`ok - operational check-card candidates: ${operationalCheckCards.length}`);
 for (const card of verified) console.log(`- ${card.id} | ${card.issuer} | ${card.name} | ${card.verification.verifiedAt}`);

@@ -21,7 +21,7 @@ function priorityScore(card) {
 }
 
 const queue = PUBLIC_CARD_CATALOG
-  .filter((card) => card.collectionStatus !== 'official_detail_verified')
+  .filter((card) => card.productType === 'credit' && card.collectionStatus !== 'official_detail_verified')
   .map((card) => ({ ...card, priorityScore: priorityScore(card) }))
   .sort((left, right) => right.priorityScore - left.priorityScore || left.issuer.localeCompare(right.issuer, 'ko-KR') || left.name.localeCompare(right.name, 'ko-KR'));
 
@@ -30,8 +30,10 @@ for (const card of queue) byIssuer.set(card.issuer, (byIssuer.get(card.issuer) |
 
 console.log('# Card Verification Queue');
 console.log('');
+console.log('Scope: credit cards only');
 console.log(`Pending: ${queue.length}`);
-console.log(`Verified: ${PUBLIC_CARD_CATALOG.length - queue.length}`);
+console.log(`Verified credit cards: ${PUBLIC_CARD_CATALOG.filter((card) => card.productType === 'credit' && card.collectionStatus === 'official_detail_verified').length}`);
+console.log(`Operational check-card candidates: ${PUBLIC_CARD_CATALOG.filter((card) => card.productType === 'check').length}`);
 console.log('');
 console.log('## Pending By Issuer');
 for (const [issuer, count] of [...byIssuer.entries()].sort((left, right) => right[1] - left[1] || left[0].localeCompare(right[0], 'ko-KR'))) {

@@ -105,8 +105,8 @@ export const PUBLIC_CARD_VERIFICATION_OVERLAYS = {
     }
   },
   'kb-07964': {
-    collectionStatus: 'official_detail_verified',
-    calculationStatus: 'modeled',
+    collectionStatus: 'operational_candidate',
+    calculationStatus: 'catalog_only',
     localImage: 'image/clean/kb-nori2-check.png',
     officialDocumentUrls: [],
     networks: ['VISA', 'Mastercard'],
@@ -124,19 +124,16 @@ export const PUBLIC_CARD_VERIFICATION_OVERLAYS = {
       { title: '생활 할인', tags: ['구독·배달', '통신·영화', '놀이공원'] },
       { title: 'KB Pay', tags: ['온·오프라인 2% 추가', '전월 30만원', '통합한도 적용'] }
     ],
-    verification: {
-      verifiedAt: '2026-07-10',
-      method: 'official_product_page',
-      fields: ['annualFee', 'networks', 'previousMonthSpend', 'benefits', 'monthlyCaps', 'exclusions'],
-      relatedCardModelId: 'kb-nori2-check',
-      note: 'KB국민카드 공식 상세 페이지에서 일상·KB Pay 혜택의 서로 다른 실적 조건과 월 통합한도를 확인했습니다.'
+    operations: {
+      reviewedAt: '2026-07-10',
+      note: '체크카드는 공개 초기 운영후보로만 유지하며 공식 검증·계산 승격 대상에서는 제외합니다.'
     },
     source: {
-      type: 'official_issuer_detail',
-      label: 'KB국민카드 공식 상품 상세',
+      type: 'official_issuer_catalog',
+      label: '체크카드 운영후보 참고 자료',
       url: 'https://card.kbcard.com/CRD/DVIEW/HCAMCXPRICAC0076?mainCC=a&cooperationcode=07964',
       checkedAt: '2026-07-10',
-      note: '카드사 공식 상세 페이지 기준 상세 검증 완료.'
+      note: '운영후보 참고 자료이며 공개판 공식 상세 검증 또는 혜택 계산 완료를 의미하지 않습니다.'
     }
   }
 };

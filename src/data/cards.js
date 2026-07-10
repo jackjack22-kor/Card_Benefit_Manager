@@ -1211,18 +1211,19 @@ export const CARDS = [
     image: 'image/clean/kb-nori2-check.png',
     annualFee: 0,
     defaultHidden: true,
+    operationalCandidate: true,
     defaultCycle: { type: 'calendar', startMonth: 1 },
     monthlyTargets: [200000, 300000, 400000, 600000, 800000],
     defaultMonthlyTarget: 200000,
     annualTargets: [],
     tags: ['체크', '커피', 'KB Pay', '생활', '기본숨김'],
-    sourceNote: 'KB국민카드 공식 상품 상세 07964, 2026-07-10 확인.',
-    source: sourceOfficial({
+    sourceNote: '체크카드 운영후보. 공식 검증·계산 승격 대상에서 제외.',
+    source: sourceNeedsRecheck({
       checkedAt: '2026-07-10',
       url: 'https://card.kbcard.com/CRD/DVIEW/HCAMCXPRICAC0076?mainCC=a&cooperationcode=07964',
       officialEntryUrl: 'https://card.kbcard.com/CRD/DVIEW/HCAMCXPRICAC0076?mainCC=a&cooperationcode=07964',
       recheckBatch: 'kb-2026-07',
-      note: '공식 상세 페이지에서 연회비 없음, 일상 20만원·KB Pay 30만원의 별도 실적 조건, 2~5만원 통합 월 할인한도와 혜택별 한도를 확인.'
+      note: '체크카드 운영후보로 보존하며 공개 초기에는 공식 검증·계산 대상에서 제외.'
     }),
     networks: [
       { name: 'VISA', annualFee: 0, services: [], note: '연회비 없음' },

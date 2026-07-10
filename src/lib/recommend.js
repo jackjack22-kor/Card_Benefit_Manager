@@ -9,7 +9,9 @@ export function getOrderedCards(state) {
 
 export function getAllOrderedCards(state) {
   const map = new Map(CARDS.map((card) => [card.id, card]));
-  return (state.cardOrder || CARDS.map((card) => card.id)).map((id) => map.get(id)).filter(Boolean);
+  return (state.cardOrder || CARDS.map((card) => card.id))
+    .map((id) => map.get(id))
+    .filter((card) => card && !card.operationalCandidate);
 }
 
 export function getHiddenCardIds(state) {

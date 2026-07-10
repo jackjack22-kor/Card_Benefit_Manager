@@ -48,6 +48,11 @@ for (const card of verifiedCards) {
 }
 console.log('');
 
+const operationalCandidates = PUBLIC_CARD_CATALOG.filter((card) => card.collectionStatus === 'operational_candidate');
+console.log('## Operational Check-card Candidates');
+console.log(`- total: ${operationalCandidates.length}`);
+console.log('');
+
 const candidateSample = PUBLIC_CARD_CATALOG.filter((card) => card.collectionStatus === 'candidate_index').slice(0, 20);
 console.log('## Candidate Sample');
 for (const card of candidateSample) {

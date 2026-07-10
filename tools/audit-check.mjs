@@ -147,7 +147,7 @@ assert.ok(publicCardVerificationOverlaysSource.includes('official_product_page_a
 for (const requiredVerificationToken of ['requiredVerifiedFields', 'official_issuer_detail', 'effective verified count']) {
   assert.ok(verifyPublicCardCatalogSource.includes(requiredVerificationToken), `catalog verification gate must include ${requiredVerificationToken}`);
 }
-for (const requiredQueueToken of ['priorityScore', 'Pending By Issuer', 'Next 100']) {
+for (const requiredQueueToken of ['priorityScore', "card.productType === 'credit'", 'Scope: credit cards only', 'Pending By Issuer', 'Next 100']) {
   assert.ok(cardVerificationQueueSource.includes(requiredQueueToken), `catalog verification queue must include ${requiredQueueToken}`);
 }
 for (const item of CARDS) {
@@ -253,10 +253,13 @@ const effectiveStatusCounts = new Map();
 for (const item of PUBLIC_CARD_CATALOG) effectiveStatusCounts.set(item.collectionStatus, (effectiveStatusCounts.get(item.collectionStatus) || 0) + 1);
 assert.equal(PUBLIC_CARD_CATALOG.length, RAW_PUBLIC_CARD_CATALOG.length - 3, 'effective catalog removes known duplicate candidates');
 assert.equal(PUBLIC_CARD_CATALOG_DUPLICATE_IDS.length, 3, 'known candidate duplicate count');
-assert.equal(effectiveStatusCounts.get('official_detail_verified'), 4, 'first official detail verification batch size');
-assert.equal(Object.keys(PUBLIC_CARD_VERIFICATION_OVERLAYS).length, 4, 'verification overlay registry size');
+assert.equal(effectiveStatusCounts.get('official_detail_verified'), 3, 'credit-card official detail verification batch size');
+assert.equal(effectiveStatusCounts.get('operational_candidate'), 456, 'all effective check cards remain operational candidates');
+assert.equal(effectiveStatusCounts.get('official_catalog'), 8, 'credit-card official catalog seeds remain queued');
+assert.equal(effectiveStatusCounts.get('candidate_index'), 1121, 'unverified credit-card candidates remain queued');
+assert.equal(Object.values(PUBLIC_CARD_VERIFICATION_OVERLAYS).filter((overlay) => overlay.collectionStatus === 'official_detail_verified').length, 3, 'credit-card verification overlay count');
 assert.equal(PUBLIC_CARD_CATALOG_CHECKED_AT, '2026-07-10', 'effective catalog date follows latest verification');
-for (const verifiedId of ['cg-crd-2280', 'kb-07964', 'kb-09922', 'kb-09297']) {
+for (const verifiedId of ['cg-crd-2280', 'kb-09922', 'kb-09297']) {
   const verifiedCard = PUBLIC_CARD_CATALOG.find((item) => item.id === verifiedId);
   assert.equal(verifiedCard?.collectionStatus, 'official_detail_verified', `effective catalog promotes verified card: ${verifiedId}`);
   assert.equal(verifiedCard?.source?.type, 'official_issuer_detail', `verified card uses official detail source: ${verifiedId}`);
@@ -264,10 +267,15 @@ for (const verifiedId of ['cg-crd-2280', 'kb-07964', 'kb-09922', 'kb-09297']) {
   assert.ok(['catalog_only', 'modeled'].includes(verifiedCard?.calculationStatus), `verified card tracks calculation readiness: ${verifiedId}`);
 }
 assert.equal(PUBLIC_CARD_CATALOG.find((item) => item.id === 'cg-crd-2280')?.calculationStatus, 'modeled', 'Hyundai verified catalog record links to the calculation model');
-for (const [catalogId, modelId] of [['cg-crd-2280', 'hyundai-amex-platinum'], ['kb-09297', 'kb-wesh-all-plus'], ['kb-09922', 'kb-all'], ['kb-07964', 'kb-nori2-check']]) {
+for (const [catalogId, modelId] of [['cg-crd-2280', 'hyundai-amex-platinum'], ['kb-09297', 'kb-wesh-all-plus'], ['kb-09922', 'kb-all']]) {
   assert.equal(PUBLIC_CARD_CATALOG.find((item) => item.id === catalogId)?.calculationStatus, 'modeled', `verified catalog card is calculation-ready: ${catalogId}`);
   assert.equal(PUBLIC_CARD_CATALOG.find((item) => item.id === catalogId)?.verification?.relatedCardModelId, modelId, `verified catalog card links to model: ${catalogId}`);
 }
+const noriOperationalCandidate = PUBLIC_CARD_CATALOG.find((item) => item.id === 'kb-07964');
+assert.equal(noriOperationalCandidate?.collectionStatus, 'operational_candidate', 'KB Nori2 remains an operational check-card candidate');
+assert.equal(noriOperationalCandidate?.calculationStatus, 'catalog_only', 'KB Nori2 does not enable benefit calculation');
+assert.equal(noriOperationalCandidate?.verification, undefined, 'KB Nori2 does not claim official detail verification');
+assert.ok(PUBLIC_CARD_CATALOG.filter((item) => item.productType === 'check').every((item) => item.collectionStatus === 'operational_candidate'), 'every check card is restricted to operational-candidate status');
 assert.equal(RAW_PUBLIC_CARD_CATALOG.find((item) => item.id === 'cg-crd-2280')?.collectionStatus, 'candidate_index', 'raw candidate remains replaceable without losing verification overlay');
 for (const duplicateId of ['cg-crd-2837', 'cg-crd-2440', 'cg-chk-2422']) {
   assert.equal(PUBLIC_CARD_CATALOG.some((item) => item.id === duplicateId), false, `effective catalog hides duplicate candidate: ${duplicateId}`);
@@ -293,7 +301,10 @@ assert.equal(card('kb-skypass-platinum').networks[0].name, 'Mastercard', 'KB Sky
 assert.equal(card('lotte-amex-skypass').networks[0].name, 'American Express', 'Lotte Amex Skypass network is explicit');
 assert.ok(card('samsung-the1-skypass').networks[0].services.includes('American Express PLATINUM ELITE'), 'Samsung THE 1 tracks AMEX Platinum Elite service tier');
 
-assertEqual(getOrderedCards(baseState()).length, CARDS.length, 'all cards are orderable');
+const operationalCalculationCandidates = CARDS.filter((item) => item.operationalCandidate);
+assert.deepEqual(operationalCalculationCandidates.map((item) => item.id), ['kb-nori2-check'], 'check-card calculation model remains dormant for saved-data preservation');
+assert.equal(card('kb-nori2-check').source.status, 'needs_official_recheck', 'dormant check-card model does not claim official verification');
+assertEqual(getOrderedCards(baseState()).length, CARDS.length - operationalCalculationCandidates.length, 'only active credit-card models are orderable');
 assert.deepEqual(createInitialState().hiddenCardIds, DEFAULT_HIDDEN_CARD_IDS, 'new optional cards are hidden by default for fresh installs');
 const oldStateWithoutNewCards = migrateState({
   schemaVersion: '2.0.1',
@@ -309,7 +320,25 @@ const userUnhiddenOptionalCards = migrateState({
 });
 assert.deepEqual(userUnhiddenOptionalCards.hiddenCardIds, [], 'visible optional cards stay visible after the user enables them');
 const hiddenCardState = withSpend('kb-talktalk-my-point', 200000, { hiddenCardIds: ['kb-talktalk-my-point'] });
-assertEqual(getAllOrderedCards(hiddenCardState).length, CARDS.length, 'all ordered cards still include hidden cards for settings');
+assertEqual(getAllOrderedCards(hiddenCardState).length, CARDS.length - operationalCalculationCandidates.length, 'settings exclude dormant operational candidates');
+assertEqual(getAllOrderedCards(baseState()).some((item) => item.id === 'kb-nori2-check'), false, 'operational check-card candidate is excluded from active settings');
+assert.ok(createInitialState().cardOverrides['kb-nori2-check'], 'operational check-card saved-data slot remains preserved');
+const dormantNoriSavedState = migrateState({
+  schemaVersion: '2.0.1',
+  cardOrder: CARDS.map((item) => item.id),
+  cardOverrides: {
+    'kb-nori2-check': { monthlyTarget: 300000, monthlyTargetUserSet: true, monthlyTargetUpdatedAt: '2026-07-10T10:00:00.000Z' }
+  },
+  monthlyCardUsage: {
+    [MONTH]: { 'kb-nori2-check': { currentMonthSpend: 123456, currentMonthSpendUpdatedAt: '2026-07-10T10:00:00.000Z' } }
+  },
+  usage: {
+    'kb-nori2-coffee': { [MONTH]: { usedAmount: 30000, manualAmountOverride: true } }
+  }
+});
+assert.equal(dormantNoriSavedState.cardOverrides['kb-nori2-check'].monthlyTarget, 300000, 'dormant check-card user target remains stored');
+assert.equal(dormantNoriSavedState.monthlyCardUsage[MONTH]['kb-nori2-check'].currentMonthSpend, 123456, 'dormant check-card monthly usage remains stored');
+assert.equal(dormantNoriSavedState.usage['kb-nori2-coffee'][MONTH].usedAmount, 30000, 'dormant check-card benefit usage remains stored');
 assertEqual(getOrderedCards(hiddenCardState).some((item) => item.id === 'kb-talktalk-my-point'), false, 'hidden card is excluded from visible ordered cards');
 assertEqual(recommendCards({ ...hiddenCardState, selectedCategory: 'simplepay', recommendationAmount: 10000 }, 'simplepay', 10000).some((item) => item.card.id === 'kb-talktalk-my-point'), false, 'hidden card is excluded from recommendations');
 assertEqual(getTotalMonthlyBenefitValue(hiddenCardState, getOrderedCards(hiddenCardState), MONTH), 0, 'hidden card is excluded from visible benefit totals');
@@ -347,7 +376,9 @@ for (const catalogFilterToken of ['data-catalog-query', 'issuer', 'productType',
   assert.ok(publicCatalogViewSource.includes(catalogFilterToken), `catalog UI must support ${catalogFilterToken} filtering`);
 }
 assert.ok(publicCatalogViewSource.includes("candidate_index: { label: '공식 검증 전'"), 'candidate catalog records must be labeled as unverified');
-assert.ok(publicCatalogViewSource.includes('혜택 계산과 추천에는 공식 상세 검증이 끝난 카드만 반영됩니다.'), 'catalog UI must explain calculation eligibility');
+assert.ok(publicCatalogViewSource.includes("operational_candidate: { label: '체크카드 운영후보'"), 'check cards must be labeled as operational candidates');
+assert.ok(publicCatalogViewSource.includes('공식 상세 검증은 신용카드부터 진행합니다.'), 'catalog UI must explain credit-card-first verification policy');
+assert.ok(publicCatalogViewSource.includes('체크카드는 운영후보로만 제공하며 혜택 계산과 추천에는 반영하지 않습니다.'), 'catalog UI must explain check-card calculation exclusion');
 for (const forbiddenCatalogMutationToken of ['localStorage', 'saveState(', 'cardOverrides', 'monthlyCardUsage', 'setBenefitUsage']) {
   assert.ok(!publicCatalogViewSource.includes(forbiddenCatalogMutationToken), `catalog view must not mutate user data through ${forbiddenCatalogMutationToken}`);
 }
@@ -403,10 +434,10 @@ assertContainsInOrder(cardVerificationPipeline, ['publicCardCatalog.js', 'public
 assert.ok(cardVerificationPipeline.includes('calculationStatus: catalog_only'), 'card verification pipeline separates catalog verification from calculation readiness');
 assert.ok(cardVerificationPipeline.includes('cardOverrides'), 'card verification pipeline documents user data isolation');
 assert.ok(cardSourceReportSource.includes('batchLabel(source)'), 'source report includes recheck batch labels');
-for (const requiredSourceReportToken of ['Card Source Recheck Queue', 'byIssuer', 'source.status', 'source.checkedAt', 'source.note']) {
+for (const requiredSourceReportToken of ['Card Source Recheck Queue', 'operationalCandidates', 'Excluded From Recheck Queue', 'byIssuer', 'source.status', 'source.checkedAt', 'source.note']) {
   assert.ok(cardSourceReportSource.includes(requiredSourceReportToken), `card source report must include ${requiredSourceReportToken}`);
 }
-for (const requiredCatalogReportToken of ['Public Card Catalog', 'By Status', 'By Issuer', 'Official Catalog Seeds', 'Candidate Sample']) {
+for (const requiredCatalogReportToken of ['Public Card Catalog', 'By Status', 'By Issuer', 'Official Catalog Seeds', 'Operational Check-card Candidates', 'Candidate Sample']) {
   assert.ok(cardCatalogReportSource.includes(requiredCatalogReportToken), `card catalog report must include ${requiredCatalogReportToken}`);
 }
 for (const requiredCatalogCollectorToken of ['CardGorilla card search API', 'KB_OFFICIAL_CARDS', 'official_catalog', 'candidate_index']) {
@@ -460,46 +491,6 @@ assertEqual(monthlyValue('lotte-hilton-amex', 300000), 200, 'Hilton Amex base po
 assertEqual(monthlyValue('kb-wesh-all-plus', 1000000), 10000, 'KB WE:SH All+ domestic 1 percent follows monthly spend');
 assertEqual(monthlyValue('kb-wesh-all-plus', 1000000, { overrides: { 'kb-wesh-all-plus': { prevMonthStatus: 'unmet' } } }), 0, 'KB WE:SH All+ automatic benefit stops when previous-month spend is unmet');
 assertEqual(monthlyValue('kb-all', 1000000, { overrides: { 'kb-all': { prevMonthStatus: 'unmet', monthlyTarget: 0 } } }), 10000, 'KB ALL no-spend-requirement domestic discount remains active');
-
-const noriPoolUsage = {
-  'kb-nori2-coffee': { [MONTH]: { usedAmount: 30000, manualAmountOverride: true } },
-  'kb-nori2-mobile': { [MONTH]: { usedAmount: 50000, manualAmountOverride: true } },
-  'kb-nori2-culture': { [MONTH]: { usedAmount: 70000, manualAmountOverride: true } },
-  'kb-nori2-beauty': { [MONTH]: { usedAmount: 40000, manualAmountOverride: true } },
-  'kb-nori2-convenience': { [MONTH]: { usedAmount: 40000, manualAmountOverride: true } },
-  'kb-nori2-kbpay-offline': { [MONTH]: { usedAmount: 150000, manualAmountOverride: true } }
-};
-const noriPoolState = withSpend('kb-nori2-check', 0, {
-  overrides: { 'kb-nori2-check': { prevMonthStatus: 'met', prevMonthSpend: 300000, monthlyTarget: 200000 } },
-  usage: noriPoolUsage
-});
-assertEqual(getMonthlyBenefitValue(noriPoolState, card('kb-nori2-check'), MONTH), 20000, 'KB Nori2 benefits stay within the 200k unified monthly cap');
-assertEqual(
-  getMonthlyBenefitValueForBenefit(noriPoolState, card('kb-nori2-check'), card('kb-nori2-check').benefits.find((item) => item.id === 'kb-nori2-kbpay-offline'), MONTH),
-  1000,
-  'KB Nori2 later benefit uses only remaining unified cap'
-);
-const noriUnmetState = withSpend('kb-nori2-check', 0, {
-  overrides: { 'kb-nori2-check': { prevMonthStatus: 'unmet', monthlyTarget: 200000 } },
-  usage: {
-    'kb-nori2-coffee': { [MONTH]: { usedAmount: 30000, manualAmountOverride: true } },
-    'kb-nori2-mobile': { [MONTH]: { usedAmount: 50000, manualAmountOverride: true } }
-  }
-});
-assertEqual(getMonthlyBenefitValue(noriUnmetState, card('kb-nori2-check'), MONTH), 3000, 'KB Nori2 keeps only no-spend-requirement coffee benefit when unmet');
-const noriSplitTargetState = withSpend('kb-nori2-check', 0, {
-  overrides: { 'kb-nori2-check': { prevMonthStatus: 'met', prevMonthSpend: 250000, monthlyTarget: 200000 } },
-  usage: {
-    'kb-nori2-mobile': { [MONTH]: { usedAmount: 50000, manualAmountOverride: true } },
-    'kb-nori2-kbpay-offline': { [MONTH]: { usedAmount: 100000, manualAmountOverride: true } }
-  }
-});
-assertEqual(getMonthlyBenefitValue(noriSplitTargetState, card('kb-nori2-check'), MONTH), 5000, 'KB Nori2 applies daily benefits but blocks KB Pay below 300k previous-month spend');
-const noriPrevMonthCapState = withSpend('kb-nori2-check', 800000, {
-  overrides: { 'kb-nori2-check': { prevMonthStatus: 'met', prevMonthSpend: 300000, monthlyTarget: 200000 } },
-  usage: noriPoolUsage
-});
-assertEqual(getMonthlyBenefitValue(noriPrevMonthCapState, card('kb-nori2-check'), MONTH), 20000, 'KB Nori2 unified cap uses previous-month spend instead of current-month spend');
 
 function benefit(cardId, benefitId) {
   const found = card(cardId).benefits.find((item) => item.id === benefitId);
