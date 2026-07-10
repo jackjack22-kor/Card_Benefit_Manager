@@ -3,6 +3,7 @@ import { existsSync } from 'node:fs';
 import { CARDS } from '../src/data/cards.js';
 import { PUBLIC_CARD_CATALOG_BY_ID, PUBLIC_CARD_CATALOG_DUPLICATE_IDS, RAW_PUBLIC_CARD_CATALOG } from '../src/data/publicCardCatalogIndex.js';
 import { PUBLIC_CARD_VERIFICATION_OVERLAYS } from '../src/data/publicCardVerificationOverlays.js';
+import { PRIORITY_CREDIT_CARD_BATCH } from '../src/data/publicCreditCardPriorityBatch.js';
 
 const rawIds = new Set(RAW_PUBLIC_CARD_CATALOG.map((card) => card.id));
 const calculationCardIds = new Set(CARDS.map((card) => card.id));
@@ -52,11 +53,21 @@ for (const [cardId, overlay] of overlayEntries) {
 const verified = [...PUBLIC_CARD_CATALOG_BY_ID.values()].filter((card) => card.collectionStatus === 'official_detail_verified');
 const verifiedOverlays = overlayEntries.filter(([, overlay]) => overlay.collectionStatus === 'official_detail_verified');
 const operationalCheckCards = [...PUBLIC_CARD_CATALOG_BY_ID.values()].filter((card) => card.productType === 'check');
+const discontinuedVerified = verified.filter((card) => card.isDiscontinued === true);
+const currentlyIssuablePriorityCards = PRIORITY_CREDIT_CARD_BATCH.filter((card) => card.availabilityStatus === 'officially_issuable');
 assert.equal(verified.length, verifiedOverlays.length, 'effective verified count must match credit-card verification overlays');
 assert.ok(verified.every((card) => card.productType === 'credit'), 'only credit cards may be officially verified');
 assert.ok(operationalCheckCards.every((card) => card.collectionStatus === 'operational_candidate'), 'all check cards must remain operational candidates');
+assert.ok(PRIORITY_CREDIT_CARD_BATCH.every((card) => card.isDiscontinued !== true), 'priority verification batch must exclude discontinued cards');
+assert.ok(currentlyIssuablePriorityCards.every((card) => card.collectionStatus === 'official_detail_verified'), 'officially issuable priority cards require official detail verification');
+assert.ok(discontinuedVerified.every((card) => !PRIORITY_CREDIT_CARD_BATCH.some((candidate) => candidate.id === card.id)), 'discontinued verified cards must stay outside the priority batch');
 assert.equal(new Set(PUBLIC_CARD_CATALOG_DUPLICATE_IDS).size, PUBLIC_CARD_CATALOG_DUPLICATE_IDS.length, 'candidate aliases must be unique');
 
-console.log(`ok - verified public card overlays: ${verified.length}`);
+console.log(`ok - official detail verification records: ${verified.length}`);
+console.log(`ok - currently issuable priority cards: ${currentlyIssuablePriorityCards.length}`);
+console.log(`ok - discontinued cards retained as verification history only: ${discontinuedVerified.length}`);
 console.log(`ok - operational check-card candidates: ${operationalCheckCards.length}`);
-for (const card of verified) console.log(`- ${card.id} | ${card.issuer} | ${card.name} | ${card.verification.verifiedAt}`);
+for (const card of verified) {
+  const scope = card.isDiscontinued ? 'historical/discontinued' : 'priority issuable';
+  console.log(`- ${card.id} | ${card.issuer} | ${card.name} | ${scope} | ${card.verification.verifiedAt}`);
+}

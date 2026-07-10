@@ -8,6 +8,12 @@ import {
 } from '../src/data/publicCardCatalog.js';
 import { PUBLIC_CARD_CATALOG, PUBLIC_CARD_CATALOG_CHECKED_AT, PUBLIC_CARD_CATALOG_DUPLICATE_IDS } from '../src/data/publicCardCatalogIndex.js';
 import { PUBLIC_CARD_VERIFICATION_OVERLAYS } from '../src/data/publicCardVerificationOverlays.js';
+import {
+  PRIORITY_CREDIT_CARD_BATCH,
+  PRIORITY_CREDIT_CARD_BATCH_BY_ISSUER,
+  PRIORITY_CREDIT_CARD_ISSUERS,
+  PRIORITY_CREDIT_CARD_TARGET_PER_ISSUER
+} from '../src/data/publicCreditCardPriorityBatch.js';
 import { CATEGORIES } from '../src/data/categories.js';
 import {
   getAnnualUsageCount,
@@ -49,6 +55,7 @@ const cardCatalogReportSource = readFileSync(new URL('../tools/card-catalog-repo
 const collectPublicCardCatalogSource = readFileSync(new URL('../tools/collect-public-card-catalog.mjs', import.meta.url), 'utf8');
 const publicCatalogIndexSource = readFileSync(new URL('../src/data/publicCardCatalogIndex.js', import.meta.url), 'utf8');
 const publicCardVerificationOverlaysSource = readFileSync(new URL('../src/data/publicCardVerificationOverlays.js', import.meta.url), 'utf8');
+const publicCreditCardPriorityBatchSource = readFileSync(new URL('../src/data/publicCreditCardPriorityBatch.js', import.meta.url), 'utf8');
 const verifyPublicCardCatalogSource = readFileSync(new URL('../tools/verify-public-card-catalog.mjs', import.meta.url), 'utf8');
 const cardVerificationQueueSource = readFileSync(new URL('../tools/card-verification-queue.mjs', import.meta.url), 'utf8');
 const firebaseHostingWorkflow = readFileSync(new URL('../.github/workflows/firebase-hosting.yml', import.meta.url), 'utf8');
@@ -59,6 +66,7 @@ const cardDataResearchGuide = readFileSync(new URL('../docs/CARD_DATA_RESEARCH_G
 const cardDataSourceMatrix = readFileSync(new URL('../docs/CARD_DATA_SOURCE_MATRIX.md', import.meta.url), 'utf8');
 const publicCardCatalogCollection = readFileSync(new URL('../docs/PUBLIC_CARD_CATALOG_COLLECTION.md', import.meta.url), 'utf8');
 const cardVerificationPipeline = readFileSync(new URL('../docs/CARD_VERIFICATION_PIPELINE.md', import.meta.url), 'utf8');
+const creditCardPriorityBatchPlan = readFileSync(new URL('../docs/CREDIT_CARD_PRIORITY_BATCH.md', import.meta.url), 'utf8');
 
 function card(id) {
   const item = CARDS.find((candidate) => candidate.id === id);
@@ -144,11 +152,14 @@ const allowedNetworkNames = new Set(['VISA', 'Mastercard', 'American Express', '
 assert.ok(publicCatalogIndexSource.includes('PUBLIC_CARD_VERIFICATION_OVERLAYS'), 'effective catalog applies durable verification overlays');
 assert.ok(publicCatalogIndexSource.includes('official_detail_verified: 0'), 'effective catalog sorts verified records first');
 assert.ok(publicCardVerificationOverlaysSource.includes('official_product_page_and_documents'), 'verification overlay records official document methodology');
-for (const requiredVerificationToken of ['requiredVerifiedFields', 'official_issuer_detail', 'effective verified count']) {
+for (const requiredVerificationToken of ['requiredVerifiedFields', 'official_issuer_detail', 'effective verified count', 'discontinued verified cards must stay outside the priority batch']) {
   assert.ok(verifyPublicCardCatalogSource.includes(requiredVerificationToken), `catalog verification gate must include ${requiredVerificationToken}`);
 }
-for (const requiredQueueToken of ['priorityScore', "card.productType === 'credit'", 'Scope: credit cards only', 'Pending By Issuer', 'Next 100']) {
+for (const requiredQueueToken of ['PRIORITY_CREDIT_CARD_BATCH', 'Excluded discontinued credit cards', 'official issuance check pending', 'CardGorilla issuer ranking is a popularity signal']) {
   assert.ok(cardVerificationQueueSource.includes(requiredQueueToken), `catalog verification queue must include ${requiredQueueToken}`);
+}
+for (const requiredPriorityToken of ['card.isDiscontinued !== true', "card.productType === 'credit'", 'pending_official_check', 'PRIORITY_PREMIUM_TARGET_PER_ISSUER']) {
+  assert.ok(publicCreditCardPriorityBatchSource.includes(requiredPriorityToken), `priority credit-card batch must include ${requiredPriorityToken}`);
 }
 for (const item of CARDS) {
   assert.ok(/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(item.id), `card id must be stable kebab-case: ${item.id}`);
@@ -280,6 +291,22 @@ assert.equal(RAW_PUBLIC_CARD_CATALOG.find((item) => item.id === 'cg-crd-2280')?.
 for (const duplicateId of ['cg-crd-2837', 'cg-crd-2440', 'cg-chk-2422']) {
   assert.equal(PUBLIC_CARD_CATALOG.some((item) => item.id === duplicateId), false, `effective catalog hides duplicate candidate: ${duplicateId}`);
 }
+
+assert.equal(PRIORITY_CREDIT_CARD_ISSUERS.length, 10, 'priority batch covers the ten primary credit-card issuers');
+assert.equal(PRIORITY_CREDIT_CARD_BATCH.length, PRIORITY_CREDIT_CARD_ISSUERS.length * PRIORITY_CREDIT_CARD_TARGET_PER_ISSUER, 'priority batch contains twenty cards per issuer');
+assert.equal(new Set(PRIORITY_CREDIT_CARD_BATCH.map((item) => item.id)).size, PRIORITY_CREDIT_CARD_BATCH.length, 'priority batch card ids are unique');
+assert.ok(PRIORITY_CREDIT_CARD_BATCH.every((item) => item.productType === 'credit'), 'priority batch contains credit cards only');
+assert.ok(PRIORITY_CREDIT_CARD_BATCH.every((item) => item.isDiscontinued !== true), 'priority batch excludes discontinued cards');
+assert.ok(PRIORITY_CREDIT_CARD_BATCH.every((item) => ['officially_issuable', 'officially_listed', 'pending_official_check'].includes(item.availabilityStatus)), 'priority batch separates official issuance status from popularity');
+for (const config of PRIORITY_CREDIT_CARD_ISSUERS) {
+  const issuerBatch = PRIORITY_CREDIT_CARD_BATCH_BY_ISSUER[config.issuer];
+  assert.equal(issuerBatch.length, PRIORITY_CREDIT_CARD_TARGET_PER_ISSUER, `priority batch size: ${config.issuer}`);
+  assert.ok(issuerBatch.every((item) => item.issuer === config.issuer), `priority batch issuer ownership: ${config.issuer}`);
+  assert.equal(issuerBatch.filter((item) => item.selectionReason === 'popular_rank').length, 5, `priority batch includes five popularity-ranked cards: ${config.issuer}`);
+  assert.ok(issuerBatch.filter((item) => item.premium).length <= 8, `priority batch limits premium allocation: ${config.issuer}`);
+  assert.ok(issuerBatch.every((item) => item.popularitySourceUrl === `https://www.card-gorilla.com/team/detail/${config.cardGorillaTeamId}`), `priority batch tracks popularity source: ${config.issuer}`);
+}
+console.log(`ok - priority credit-card verification batch gates passed: ${PRIORITY_CREDIT_CARD_BATCH.length} records`);
 
 const hyundaiAmexPlatinum = card('hyundai-amex-platinum');
 assert.equal(hyundaiAmexPlatinum.source.status, 'official_verified', 'Hyundai Amex official source verification is promoted');
@@ -433,6 +460,9 @@ assert.ok(publicCardCatalogCollection.includes('사용자가 입력한 설정값
 assertContainsInOrder(cardVerificationPipeline, ['publicCardCatalog.js', 'publicCardVerificationOverlays.js', 'publicCardCatalogIndex.js', 'cards.js'], 'card verification pipeline documents staged data flow');
 assert.ok(cardVerificationPipeline.includes('calculationStatus: catalog_only'), 'card verification pipeline separates catalog verification from calculation readiness');
 assert.ok(cardVerificationPipeline.includes('cardOverrides'), 'card verification pipeline documents user data isolation');
+for (const requiredPriorityPlanToken of ['총 200종', 'pending_official_check', 'officially_listed', 'officially_issuable', '신규 발급 중단', '기존 사용자의 설정·실적을 초기화하지 않는다']) {
+  assert.ok(creditCardPriorityBatchPlan.includes(requiredPriorityPlanToken), `priority credit-card plan must include ${requiredPriorityPlanToken}`);
+}
 assert.ok(cardSourceReportSource.includes('batchLabel(source)'), 'source report includes recheck batch labels');
 for (const requiredSourceReportToken of ['Card Source Recheck Queue', 'operationalCandidates', 'Excluded From Recheck Queue', 'byIssuer', 'source.status', 'source.checkedAt', 'source.note']) {
   assert.ok(cardSourceReportSource.includes(requiredSourceReportToken), `card source report must include ${requiredSourceReportToken}`);
