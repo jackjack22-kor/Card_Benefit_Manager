@@ -1,4 +1,9 @@
-import { PUBLIC_CARD_CATALOG, PUBLIC_CARD_CATALOG_CHECKED_AT } from '../src/data/publicCardCatalog.js';
+import {
+  PUBLIC_CARD_CATALOG,
+  PUBLIC_CARD_CATALOG_CHECKED_AT,
+  PUBLIC_CARD_CATALOG_DUPLICATE_IDS,
+  RAW_PUBLIC_CARD_CATALOG
+} from '../src/data/publicCardCatalogIndex.js';
 
 const byIssuer = new Map();
 const byStatus = new Map();
@@ -22,6 +27,8 @@ console.log('# Public Card Catalog');
 console.log('');
 console.log(`Checked at: ${PUBLIC_CARD_CATALOG_CHECKED_AT}`);
 console.log(`Total records: ${PUBLIC_CARD_CATALOG.length}`);
+console.log(`Raw collected records: ${RAW_PUBLIC_CARD_CATALOG.length}`);
+console.log(`Hidden duplicate candidates: ${PUBLIC_CARD_CATALOG_DUPLICATE_IDS.length}`);
 console.log('');
 printCounts('By Status', byStatus);
 printCounts('By Product Type', byType);
@@ -31,6 +38,13 @@ const officialCards = PUBLIC_CARD_CATALOG.filter((card) => card.collectionStatus
 console.log('## Official Catalog Seeds');
 for (const card of officialCards) {
   console.log(`- ${card.id} | ${card.issuer} | ${card.name} | ${card.productType} | ${card.source.url}`);
+}
+console.log('');
+
+const verifiedCards = PUBLIC_CARD_CATALOG.filter((card) => card.collectionStatus === 'official_detail_verified');
+console.log('## Official Detail Verified');
+for (const card of verifiedCards) {
+  console.log(`- ${card.id} | ${card.issuer} | ${card.name} | ${card.verification.verifiedAt} | ${card.source.url}`);
 }
 console.log('');
 

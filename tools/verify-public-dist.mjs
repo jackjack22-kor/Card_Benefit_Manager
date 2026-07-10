@@ -51,6 +51,7 @@ const initialJsText = jsAssets
   .map((name) => readFileSync(join(assetsDir, name), 'utf8'))
   .join('\n');
 assert.ok(catalogJsText.includes('cg-crd-2564'), 'lazy public catalog chunk must include collected card records');
+assert.ok(catalogJsText.includes('official_product_page_and_documents'), 'lazy public catalog chunk must include official verification overlays');
 assert.ok(!initialJsText.includes('cg-crd-2564'), 'initial public bundle must not eagerly include collected card records');
 
 const jsText = jsAssets

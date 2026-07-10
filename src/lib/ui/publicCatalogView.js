@@ -1,4 +1,4 @@
-import { PUBLIC_CARD_CATALOG, PUBLIC_CARD_CATALOG_CHECKED_AT } from '../../data/publicCardCatalog.js';
+import { PUBLIC_CARD_CATALOG, PUBLIC_CARD_CATALOG_CHECKED_AT } from '../../data/publicCardCatalogIndex.js';
 import { compactWon, escapeHtml } from '../format.js';
 
 const PAGE_SIZE = 60;
@@ -28,6 +28,8 @@ const searchIndex = new Map(PUBLIC_CARD_CATALOG.map((card) => [card.id, normaliz
 
 export function renderPublicCatalog() {
   const statusCounts = countBy(PUBLIC_CARD_CATALOG, (card) => card.collectionStatus);
+  const verifiedCount = Number(statusCounts.official_detail_verified || 0);
+  const verificationRate = (verifiedCount / PUBLIC_CARD_CATALOG.length) * 100;
   return `
     <section class="catalog-page">
       <section class="page-head compact-head catalog-head">
@@ -41,6 +43,10 @@ export function renderPublicCatalog() {
         <strong>${PUBLIC_CARD_CATALOG.length.toLocaleString('ko-KR')}개 카드</strong>
         <span>카드사 공식 목록 ${Number(statusCounts.official_catalog || 0).toLocaleString('ko-KR')}</span>
         <span>공식 상세 검증 ${Number(statusCounts.official_detail_verified || 0).toLocaleString('ko-KR')}</span>
+      </section>
+      <section class="catalog-verification-progress" aria-label="공식 상세 검증 진행률">
+        <div><strong>공식 상세 검증</strong><span>${verifiedCount.toLocaleString('ko-KR')} / ${PUBLIC_CARD_CATALOG.length.toLocaleString('ko-KR')}</span></div>
+        <progress value="${verifiedCount}" max="${PUBLIC_CARD_CATALOG.length}">${verificationRate.toFixed(1)}%</progress>
       </section>
       <p class="catalog-disclaimer">‘공식 검증 전’ 정보는 비교를 위한 후보 자료입니다. 혜택 계산과 추천에는 공식 상세 검증이 끝난 카드만 반영됩니다.</p>
       ${renderCatalogFilters()}
@@ -141,11 +147,12 @@ function renderCatalogCard(card) {
   const detailsUrl = card.officialUrl || card.referenceUrl || card.source?.url || '';
   const benefits = (card.summaryBenefits || []).slice(0, 3);
   const networkTags = card.networks?.length ? card.networks : ['국내전용'];
+  const imageUrl = card.localImage || card.imageUrl;
   return `
     <article class="catalog-card">
       <div class="catalog-card-media">
-        ${card.imageUrl ? `<img src="${escapeHtml(card.imageUrl)}" alt="${escapeHtml(card.name)}" loading="lazy" decoding="async" referrerpolicy="no-referrer" data-catalog-image>` : ''}
-        <span class="catalog-image-fallback${card.imageUrl ? '' : ' is-visible'}" aria-hidden="true">CARD</span>
+        ${imageUrl ? `<img src="${escapeHtml(imageUrl)}" alt="${escapeHtml(card.name)}" loading="lazy" decoding="async" referrerpolicy="no-referrer" data-catalog-image>` : ''}
+        <span class="catalog-image-fallback${imageUrl ? '' : ' is-visible'}" aria-hidden="true">CARD</span>
       </div>
       <div class="catalog-card-body">
         <div class="catalog-card-heading">
@@ -156,13 +163,14 @@ function renderCatalogCard(card) {
           <span class="catalog-status ${status.className}">${status.label}</span>
         </div>
         <div class="catalog-network-row">${networkTags.map((network) => `<span>${escapeHtml(network)}</span>`).join('')}</div>
+        ${card.collectionStatus === 'official_detail_verified' ? `<span class="catalog-model-status ${card.calculationStatus === 'modeled' ? 'modeled' : 'catalog-only'}">${card.calculationStatus === 'modeled' ? '혜택 계산 반영' : '공식 정보 확인 · 계산 모델 준비 중'}</span>` : ''}
         <dl class="catalog-card-meta">
           <div><dt>연회비</dt><dd>${escapeHtml(card.annualFeeText || '확인 필요')}</dd></div>
           <div><dt>전월실적</dt><dd>${card.previousMonthSpend ? `${compactWon(card.previousMonthSpend)} 이상` : '없음 또는 확인 필요'}</dd></div>
         </dl>
         ${benefits.length ? `<ul class="catalog-benefits">${benefits.map((benefit) => `<li><strong>${escapeHtml(benefit.title)}</strong><span>${escapeHtml((benefit.tags || []).join(' · '))}</span></li>`).join('')}</ul>` : '<p class="catalog-benefit-empty">요약 혜택 확인 필요</p>'}
         <div class="catalog-card-footer">
-          <span>${escapeHtml(card.source?.label || '출처 확인 필요')}</span>
+          <span>${escapeHtml(card.verification?.verifiedAt ? `${card.source?.label || '공식 출처'} · ${card.verification.verifiedAt}` : (card.source?.label || '출처 확인 필요'))}</span>
           ${detailsUrl ? `<a href="${escapeHtml(detailsUrl)}" target="_blank" rel="noopener noreferrer">출처 보기</a>` : ''}
         </div>
       </div>

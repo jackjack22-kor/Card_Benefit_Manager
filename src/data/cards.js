@@ -30,6 +30,13 @@ function sourceNeedsRecheck(details) {
   };
 }
 
+function sourceOfficial(details) {
+  return {
+    status: 'official_verified',
+    ...details
+  };
+}
+
 export const CARDS = [
   {
     id: 'shinhan-ace-blue',
@@ -454,11 +461,14 @@ export const CARDS = [
     defaultMonthlyTarget: 500000,
     annualTargets: [1000000, 36000000],
     tags: ['MR', '아티제', '백미당', 'Be My Guest', '호텔', '공항'],
-    sourceNote: '업로드 PDF: 현대 아멕스 플래티넘 가이드북 및 현대카드 앱 Amex Member 캡처/텍스트.',
-    source: sourceNeedsRecheck({
-      pdf: '현대 아멕스 플래티넘 가이드북',
-      appCapture: '현대카드 앱 Amex Member 캡처/텍스트',
-      note: '공개판 확장 전 현대카드 공식 상품 페이지와 최신 상품설명서 PDF로 FHR/THC/BMG 대상점과 연간 MR 조건 재확인 필요'
+    sourceNote: '현대카드 공식 상품 페이지와 2026년 3월 상품설명서, 2026년 AMEX 서비스 가이드 기준.',
+    source: sourceOfficial({
+      checkedAt: '2026-07-10',
+      url: 'https://www.hyundaicard.com/cpc/cr/CPCCR0201_01.hc?cardWcd=AMPT&cardflag=&eventCode=00000',
+      officialEntryUrl: 'https://www.hyundaicard.com/cpc/cr/CPCCR0201_01.hc?cardWcd=AMPT&cardflag=&eventCode=00000',
+      pdf: 'https://www.hyundaicard.com/upload/card/AMEX_Ed1_The%20Platinum_2603.pdf',
+      recheckBatch: 'hyundai-2026-07',
+      note: '공식 상품 페이지와 상품설명서에서 연회비 100만원, 기본 1.5MR, 특별 3/4.5MR, 첫해 100만원·2차년도 3,600만원의 연간 10만MR 조건을 확인. 변동 가능한 AMEX 제휴처는 이용 전 최신 서비스 가이드 확인 필요.'
     }),
     networks: [
       {

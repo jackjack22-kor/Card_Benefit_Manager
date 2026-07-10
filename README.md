@@ -164,7 +164,7 @@ Cloudflare Pages와 고정 도메인으로 운영하는 공개 배포판은 `VIT
 npm run build:public
 ```
 
-공개판 전체 구현 방향과 단계별 실행 순서는 `docs/PUBLIC_PRODUCT_IMPLEMENTATION_PLAN.md`를 기준으로 관리합니다. 운영 절차는 `docs/PUBLIC_DISTRIBUTION_PLAN.md`, 카드 데이터 확장과 공식 출처 검증 기준은 `docs/CARD_DATA_RESEARCH_GUIDE.md`, 현재 카드별 출처 추적은 `docs/CARD_DATA_SOURCE_MATRIX.md`를 기준으로 관리합니다.
+공개판 전체 구현 방향과 단계별 실행 순서는 `docs/PUBLIC_PRODUCT_IMPLEMENTATION_PLAN.md`를 기준으로 관리합니다. 운영 절차는 `docs/PUBLIC_DISTRIBUTION_PLAN.md`, 카드 데이터 확장과 공식 출처 검증 기준은 `docs/CARD_DATA_RESEARCH_GUIDE.md`, 현재 카드별 출처 추적은 `docs/CARD_DATA_SOURCE_MATRIX.md`, 대량 카탈로그의 공식 검증·계산 승격 절차는 `docs/CARD_VERIFICATION_PIPELINE.md`를 기준으로 관리합니다.
 
 ## 카드 추가 방법
 

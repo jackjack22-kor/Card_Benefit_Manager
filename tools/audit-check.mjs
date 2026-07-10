@@ -1,7 +1,13 @@
 import assert from 'node:assert/strict';
 import { existsSync, readFileSync } from 'node:fs';
 import { CARDS, DEFAULT_HIDDEN_CARD_IDS, POINT_DEFAULTS } from '../src/data/cards.js';
-import { PUBLIC_CARD_CATALOG, PUBLIC_CARD_CATALOG_CHECKED_AT, PUBLIC_CARD_CATALOG_STATUSES } from '../src/data/publicCardCatalog.js';
+import {
+  PUBLIC_CARD_CATALOG as RAW_PUBLIC_CARD_CATALOG,
+  PUBLIC_CARD_CATALOG_CHECKED_AT as RAW_PUBLIC_CARD_CATALOG_CHECKED_AT,
+  PUBLIC_CARD_CATALOG_STATUSES
+} from '../src/data/publicCardCatalog.js';
+import { PUBLIC_CARD_CATALOG, PUBLIC_CARD_CATALOG_CHECKED_AT, PUBLIC_CARD_CATALOG_DUPLICATE_IDS } from '../src/data/publicCardCatalogIndex.js';
+import { PUBLIC_CARD_VERIFICATION_OVERLAYS } from '../src/data/publicCardVerificationOverlays.js';
 import { CATEGORIES } from '../src/data/categories.js';
 import {
   getAnnualUsageCount,
@@ -41,6 +47,10 @@ const verifyPublicDistSource = readFileSync(new URL('../tools/verify-public-dist
 const cardSourceReportSource = readFileSync(new URL('../tools/card-source-report.mjs', import.meta.url), 'utf8');
 const cardCatalogReportSource = readFileSync(new URL('../tools/card-catalog-report.mjs', import.meta.url), 'utf8');
 const collectPublicCardCatalogSource = readFileSync(new URL('../tools/collect-public-card-catalog.mjs', import.meta.url), 'utf8');
+const publicCatalogIndexSource = readFileSync(new URL('../src/data/publicCardCatalogIndex.js', import.meta.url), 'utf8');
+const publicCardVerificationOverlaysSource = readFileSync(new URL('../src/data/publicCardVerificationOverlays.js', import.meta.url), 'utf8');
+const verifyPublicCardCatalogSource = readFileSync(new URL('../tools/verify-public-card-catalog.mjs', import.meta.url), 'utf8');
+const cardVerificationQueueSource = readFileSync(new URL('../tools/card-verification-queue.mjs', import.meta.url), 'utf8');
 const firebaseHostingWorkflow = readFileSync(new URL('../.github/workflows/firebase-hosting.yml', import.meta.url), 'utf8');
 const githubPagesWorkflow = readFileSync(new URL('../.github/workflows/pages.yml', import.meta.url), 'utf8');
 const publicProductImplementationPlan = readFileSync(new URL('../docs/PUBLIC_PRODUCT_IMPLEMENTATION_PLAN.md', import.meta.url), 'utf8');
@@ -48,6 +58,7 @@ const publicDistributionPlan = readFileSync(new URL('../docs/PUBLIC_DISTRIBUTION
 const cardDataResearchGuide = readFileSync(new URL('../docs/CARD_DATA_RESEARCH_GUIDE.md', import.meta.url), 'utf8');
 const cardDataSourceMatrix = readFileSync(new URL('../docs/CARD_DATA_SOURCE_MATRIX.md', import.meta.url), 'utf8');
 const publicCardCatalogCollection = readFileSync(new URL('../docs/PUBLIC_CARD_CATALOG_COLLECTION.md', import.meta.url), 'utf8');
+const cardVerificationPipeline = readFileSync(new URL('../docs/CARD_VERIFICATION_PIPELINE.md', import.meta.url), 'utf8');
 
 function card(id) {
   const item = CARDS.find((candidate) => candidate.id === id);
@@ -130,6 +141,15 @@ const allowedBenefitPriorities = new Set(['core', 'normal']);
 const allowedCycleTypes = new Set(['calendar', 'anniversary', 'issueMonth']);
 const allowedSourceStatuses = new Set(['official_verified', 'needs_official_recheck']);
 const allowedNetworkNames = new Set(['VISA', 'Mastercard', 'American Express', 'UnionPay', 'BC', 'Private Label']);
+assert.ok(publicCatalogIndexSource.includes('PUBLIC_CARD_VERIFICATION_OVERLAYS'), 'effective catalog applies durable verification overlays');
+assert.ok(publicCatalogIndexSource.includes('official_detail_verified: 0'), 'effective catalog sorts verified records first');
+assert.ok(publicCardVerificationOverlaysSource.includes('official_product_page_and_documents'), 'verification overlay records official document methodology');
+for (const requiredVerificationToken of ['requiredVerifiedFields', 'official_issuer_detail', 'effective verified count']) {
+  assert.ok(verifyPublicCardCatalogSource.includes(requiredVerificationToken), `catalog verification gate must include ${requiredVerificationToken}`);
+}
+for (const requiredQueueToken of ['priorityScore', 'Pending By Issuer', 'Next 100']) {
+  assert.ok(cardVerificationQueueSource.includes(requiredQueueToken), `catalog verification queue must include ${requiredQueueToken}`);
+}
 for (const item of CARDS) {
   assert.ok(/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(item.id), `card id must be stable kebab-case: ${item.id}`);
   assert.ok(!cardIds.has(item.id), `duplicate card id: ${item.id}`);
@@ -194,7 +214,7 @@ const publicCatalogIds = new Set();
 const publicCatalogStatuses = new Set(PUBLIC_CARD_CATALOG_STATUSES);
 const publicCatalogProductTypes = new Set(['credit', 'check']);
 const publicCatalogStatusCounts = new Map();
-for (const item of PUBLIC_CARD_CATALOG) {
+for (const item of RAW_PUBLIC_CARD_CATALOG) {
   assert.ok(/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(item.id), `public catalog id must be stable kebab-case: ${item.id}`);
   assert.ok(!publicCatalogIds.has(item.id), `duplicate public catalog id: ${item.id}`);
   publicCatalogIds.add(item.id);
@@ -204,7 +224,7 @@ for (const item of PUBLIC_CARD_CATALOG) {
   assert.ok(publicCatalogStatuses.has(item.collectionStatus), `public catalog status is invalid: ${item.id}`);
   assert.ok(item.imageUrl && /^https:\/\//.test(item.imageUrl), `public catalog image URL must be https: ${item.id}`);
   assert.ok(item.source?.url && /^https:\/\//.test(item.source.url), `public catalog source URL must be https: ${item.id}`);
-  assert.ok(item.source.checkedAt === PUBLIC_CARD_CATALOG_CHECKED_AT, `public catalog checkedAt must match batch date: ${item.id}`);
+  assert.ok(item.source.checkedAt === RAW_PUBLIC_CARD_CATALOG_CHECKED_AT, `public catalog checkedAt must match batch date: ${item.id}`);
   assert.ok(item.source.note, `public catalog source note is required: ${item.id}`);
   publicCatalogStatusCounts.set(item.collectionStatus, (publicCatalogStatusCounts.get(item.collectionStatus) || 0) + 1);
   if (item.collectionStatus === 'official_catalog') {
@@ -218,16 +238,38 @@ for (const item of PUBLIC_CARD_CATALOG) {
     assert.equal(item.source.type, 'third_party_index', `candidate index source type is required: ${item.id}`);
   }
 }
-assert.ok(PUBLIC_CARD_CATALOG.length >= 1500, 'public catalog must include the large candidate batch');
+assert.ok(RAW_PUBLIC_CARD_CATALOG.length >= 1500, 'public catalog must include the large candidate batch');
 assert.ok((publicCatalogStatusCounts.get('official_catalog') || 0) >= 15, 'public catalog must include official KB seed records');
 assert.ok((publicCatalogStatusCounts.get('candidate_index') || 0) >= 1500, 'public catalog must include bulk candidate records');
-assert.ok(PUBLIC_CARD_CATALOG.some((item) => item.id === 'kb-09297' && item.collectionStatus === 'official_catalog'), 'public catalog includes KB WE:SH All+ official seed');
-assert.ok(PUBLIC_CARD_CATALOG.some((item) => item.id === 'cg-crd-13' && item.collectionStatus === 'candidate_index'), 'public catalog includes CardGorilla candidate sample');
-console.log(`ok - public card catalog gates passed: ${PUBLIC_CARD_CATALOG.length} records`);
+assert.ok(RAW_PUBLIC_CARD_CATALOG.some((item) => item.id === 'kb-09297' && item.collectionStatus === 'official_catalog'), 'public catalog includes KB WE:SH All+ official seed');
+assert.ok(RAW_PUBLIC_CARD_CATALOG.some((item) => item.id === 'cg-crd-13' && item.collectionStatus === 'candidate_index'), 'public catalog includes CardGorilla candidate sample');
+console.log(`ok - public card catalog gates passed: ${RAW_PUBLIC_CARD_CATALOG.length} records`);
+
+const effectiveStatusCounts = new Map();
+for (const item of PUBLIC_CARD_CATALOG) effectiveStatusCounts.set(item.collectionStatus, (effectiveStatusCounts.get(item.collectionStatus) || 0) + 1);
+assert.equal(PUBLIC_CARD_CATALOG.length, RAW_PUBLIC_CARD_CATALOG.length - 3, 'effective catalog removes known duplicate candidates');
+assert.equal(PUBLIC_CARD_CATALOG_DUPLICATE_IDS.length, 3, 'known candidate duplicate count');
+assert.equal(effectiveStatusCounts.get('official_detail_verified'), 4, 'first official detail verification batch size');
+assert.equal(Object.keys(PUBLIC_CARD_VERIFICATION_OVERLAYS).length, 4, 'verification overlay registry size');
+assert.equal(PUBLIC_CARD_CATALOG_CHECKED_AT, '2026-07-10', 'effective catalog date follows latest verification');
+for (const verifiedId of ['cg-crd-2280', 'kb-07964', 'kb-09922', 'kb-09297']) {
+  const verifiedCard = PUBLIC_CARD_CATALOG.find((item) => item.id === verifiedId);
+  assert.equal(verifiedCard?.collectionStatus, 'official_detail_verified', `effective catalog promotes verified card: ${verifiedId}`);
+  assert.equal(verifiedCard?.source?.type, 'official_issuer_detail', `verified card uses official detail source: ${verifiedId}`);
+  assert.ok(verifiedCard?.verification?.fields?.includes('benefits'), `verified card tracks verified fields: ${verifiedId}`);
+  assert.ok(['catalog_only', 'modeled'].includes(verifiedCard?.calculationStatus), `verified card tracks calculation readiness: ${verifiedId}`);
+}
+assert.equal(PUBLIC_CARD_CATALOG.find((item) => item.id === 'cg-crd-2280')?.calculationStatus, 'modeled', 'Hyundai verified catalog record links to the calculation model');
+assert.equal(PUBLIC_CARD_CATALOG.find((item) => item.id === 'kb-09297')?.calculationStatus, 'catalog_only', 'verified KB card does not claim unfinished calculation support');
+assert.equal(RAW_PUBLIC_CARD_CATALOG.find((item) => item.id === 'cg-crd-2280')?.collectionStatus, 'candidate_index', 'raw candidate remains replaceable without losing verification overlay');
+for (const duplicateId of ['cg-crd-2837', 'cg-crd-2440', 'cg-chk-2422']) {
+  assert.equal(PUBLIC_CARD_CATALOG.some((item) => item.id === duplicateId), false, `effective catalog hides duplicate candidate: ${duplicateId}`);
+}
 
 const hyundaiAmexPlatinum = card('hyundai-amex-platinum');
-assert.equal(hyundaiAmexPlatinum.source.status, 'needs_official_recheck', 'Hyundai Amex keeps structured source recheck status');
-assert.equal(hyundaiAmexPlatinum.source.checkedAt, '2026-07-09', 'Hyundai Amex source check date is tracked');
+assert.equal(hyundaiAmexPlatinum.source.status, 'official_verified', 'Hyundai Amex official source verification is promoted');
+assert.equal(hyundaiAmexPlatinum.source.checkedAt, '2026-07-10', 'Hyundai Amex official verification date is tracked');
+assert.ok(hyundaiAmexPlatinum.source.url.includes('hyundaicard.com'), 'Hyundai Amex uses a product-specific official URL');
 assert.deepEqual(hyundaiAmexPlatinum.networks.map((item) => item.name), ['American Express'], 'Hyundai Amex network model is explicit');
 assert.equal(hyundaiAmexPlatinum.networks[0].annualFee, hyundaiAmexPlatinum.annualFee, 'Hyundai Amex network annual fee matches card annual fee');
 
@@ -277,6 +319,8 @@ assert.ok(packageJson.scripts['verify:public']?.includes('verify-public-dist.mjs
 assert.ok(packageJson.scripts['source:report']?.includes('card-source-report.mjs'), 'card source report must be runnable directly');
 assert.ok(packageJson.scripts['catalog:report']?.includes('card-catalog-report.mjs'), 'public catalog report must be runnable directly');
 assert.ok(packageJson.scripts['catalog:collect']?.includes('collect-public-card-catalog.mjs'), 'public catalog collector must be runnable directly');
+assert.ok(packageJson.scripts['catalog:verify']?.includes('verify-public-card-catalog.mjs'), 'public catalog verification gate must be runnable directly');
+assert.ok(packageJson.scripts['catalog:queue']?.includes('card-verification-queue.mjs'), 'public catalog queue must be runnable directly');
 assert.ok(appEditionSource.includes("rawEdition === 'public' ? 'public' : 'personal'"), 'unknown app editions must fall back to the personal edition');
 assert.ok(appEditionSource.includes("export const ENABLE_CLOUD_SYNC = !IS_PUBLIC_EDITION"), 'public edition must disable cloud sync centrally');
 assertContainsInOrder(appEditionSource, ["export const APP_STORAGE_KEY", "cardfit.public.v1", "cardBenefitManager.v1"], 'public and personal editions use separate local storage keys');
@@ -289,7 +333,8 @@ assertContainsInOrder(mainSource, ["import.meta.env.VITE_APP_EDITION === 'public
 assert.ok(!mainSource.includes("from './data/publicCardCatalog.js'"), 'main UI must not eagerly import the large public catalog');
 assert.ok(mainSource.includes("...(IS_PUBLIC_EDITION ? [['catalog', '카드목록']] : [])"), 'catalog tab must only appear in the public edition');
 assert.ok(mainSource.includes("IS_PUBLIC_EDITION && state.selectedTab === 'catalog'"), 'catalog renderer must be edition-gated');
-assert.ok(publicCatalogViewSource.includes("from '../../data/publicCardCatalog.js'"), 'lazy catalog view must load the public catalog data');
+assert.ok(publicCatalogViewSource.includes("from '../../data/publicCardCatalogIndex.js'"), 'lazy catalog view must load the effective verified catalog data');
+assert.ok(publicCatalogViewSource.includes('catalog-verification-progress'), 'catalog UI must display official verification progress');
 assert.ok(publicCatalogViewSource.includes('const PAGE_SIZE = 60'), 'catalog UI must cap initial rendered results');
 for (const catalogFilterToken of ['data-catalog-query', 'issuer', 'productType', 'network', 'status']) {
   assert.ok(publicCatalogViewSource.includes(catalogFilterToken), `catalog UI must support ${catalogFilterToken} filtering`);
@@ -323,6 +368,7 @@ for (const requiredPublicVerifierToken of ['cardfit.public.v1', 'syncManager', '
 assert.ok(readmeSource.includes('docs/PUBLIC_DISTRIBUTION_PLAN.md'), 'README links the public distribution plan');
 assert.ok(readmeSource.includes('docs/PUBLIC_PRODUCT_IMPLEMENTATION_PLAN.md'), 'README links the public product implementation plan');
 assert.ok(readmeSource.includes('docs/CARD_DATA_RESEARCH_GUIDE.md'), 'README links the card data research guide');
+assert.ok(readmeSource.includes('docs/CARD_VERIFICATION_PIPELINE.md'), 'README links the card verification pipeline');
 assertContainsInOrder(
   publicProductImplementationPlan,
   ['개인용 서비스는 현재 Firebase Hosting', '공개판은 Cloudflare Pages', '사용자가 최종 입력한 값', 'npm run audit:check'],
@@ -346,6 +392,9 @@ assert.ok(cardDataSourceMatrix.includes('npm run source:report'), 'card data sou
 assert.ok(publicCardCatalogCollection.includes('candidate_index'), 'public catalog collection guide documents candidate status');
 assert.ok(publicCardCatalogCollection.includes('official_detail_verified'), 'public catalog collection guide documents official detail promotion');
 assert.ok(publicCardCatalogCollection.includes('사용자가 입력한 설정값'), 'public catalog collection guide documents user data precedence');
+assertContainsInOrder(cardVerificationPipeline, ['publicCardCatalog.js', 'publicCardVerificationOverlays.js', 'publicCardCatalogIndex.js', 'cards.js'], 'card verification pipeline documents staged data flow');
+assert.ok(cardVerificationPipeline.includes('calculationStatus: catalog_only'), 'card verification pipeline separates catalog verification from calculation readiness');
+assert.ok(cardVerificationPipeline.includes('cardOverrides'), 'card verification pipeline documents user data isolation');
 assert.ok(cardSourceReportSource.includes('batchLabel(source)'), 'source report includes recheck batch labels');
 for (const requiredSourceReportToken of ['Card Source Recheck Queue', 'byIssuer', 'source.status', 'source.checkedAt', 'source.note']) {
   assert.ok(cardSourceReportSource.includes(requiredSourceReportToken), `card source report must include ${requiredSourceReportToken}`);

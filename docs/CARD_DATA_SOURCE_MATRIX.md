@@ -39,7 +39,7 @@ npm run source:report
 | `shinhan-ace-blue` | 신한 The ACE 블루라벨 | 신한카드 | 7 | 코드 반영, 출처 메모 있음 | 공식 PDF 최신본, Gift Option, 라운지/호텔 서비스 |
 | `marriott-best-shinhan` | 신한 메리어트 본보이 더 베스트 | 신한카드 | 8 | 코드 반영, 출처 메모 있음 | 연간 무료숙박권/보너스 포인트, 실적 제외 항목 |
 | `marriott-classic-shinhan` | 신한 메리어트 본보이 더 클래식 | 신한카드 | 8 | 코드 반영, 출처 메모 있음 | 연간 기프트, 라운지, 메리어트 적립 제외 조건 |
-| `hyundai-amex-platinum` | American Express The Platinum Card | 현대카드 | 14 | 코드 반영, 출처 메모 있음 | 연회비 시작월, 10만 MR 조건, FHR/THC/BMG 최신 대상점 |
+| `hyundai-amex-platinum` | American Express The Platinum Card | 현대카드 | 14 | 공식 검증 완료(2026-07-10), 계산 반영 | 변동 가능한 FHR/THC/BMG 대상점은 이용 전 최신 AMEX 가이드 확인 |
 | `samsung-the-o-asiana` | 삼성 THE O 아시아나 | 삼성카드 | 10 | 코드 반영, 출처 메모 있음 | 단종/신규발급 여부, 기프트 조건, 호텔/다이닝 대상점 |
 | `samsung-the1-skypass` | 삼성 THE 1 스카이패스 | 삼성카드 | 22 | 코드 반영, 출처 메모 있음 | AMEX PLATINUM ELITE 서비스, 특별 적립 월 한도 |
 | `woori-point-main` | 카드의정석 POINT 주거래 | 우리카드 | 6 | 코드 반영, 출처 메모 있음 | 통합 포인트 한도, 간편결제 대상, 주거래 조건 |

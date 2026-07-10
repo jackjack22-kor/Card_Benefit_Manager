@@ -448,6 +448,13 @@ code { color: var(--accent); background: var(--surface-2); padding: 2px 6px; bor
 .catalog-checked-at { color: var(--muted); font-size: 12px; font-weight: 800; white-space: nowrap; }
 .catalog-summary { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 18px; border-block: 1px solid var(--line); padding: 13px 2px; color: var(--muted); font-size: 13px; }
 .catalog-summary strong { color: var(--text); font-size: 16px; }
+.catalog-verification-progress { display: grid; gap: 7px; margin: 12px 0; }
+.catalog-verification-progress div { display: flex; justify-content: space-between; gap: 12px; font-size: 12px; }
+.catalog-verification-progress span { color: var(--muted); }
+.catalog-verification-progress progress { width: 100%; height: 7px; overflow: hidden; border: 0; border-radius: var(--r-pill); background: var(--surface-2); }
+.catalog-verification-progress progress::-webkit-progress-bar { background: var(--surface-2); }
+.catalog-verification-progress progress::-webkit-progress-value { background: var(--good); }
+.catalog-verification-progress progress::-moz-progress-bar { background: var(--good); }
 .catalog-disclaimer { margin: 12px 0; border-left: 3px solid var(--warn); padding: 4px 0 4px 12px; font-size: 12px; }
 .catalog-controls { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; margin: 16px 0 20px; padding: 14px; border: 1px solid var(--line); background: var(--surface); border-radius: var(--r-card); box-shadow: var(--shadow-card); }
 .catalog-controls label { display: grid; align-content: start; gap: 7px; min-width: 0; color: var(--muted); font-size: 12px; font-weight: 800; }
@@ -474,6 +481,9 @@ code { color: var(--accent); background: var(--surface-2); padding: 2px 6px; bor
 .catalog-status.verified { color: var(--good); border-color: color-mix(in srgb, var(--good) 38%, var(--line)); background: color-mix(in srgb, var(--good) 10%, transparent); }
 .catalog-network-row { display: flex; flex-wrap: wrap; gap: 5px; margin: 9px 0 8px; }
 .catalog-network-row span { border: 1px solid var(--line); border-radius: var(--r-pill); padding: 3px 7px; color: var(--muted); font-size: 10px; font-weight: 800; }
+.catalog-model-status { align-self: flex-start; margin: 0 0 8px; color: var(--muted); font-size: 10px; font-weight: 900; }
+.catalog-model-status.modeled { color: var(--good); }
+.catalog-model-status.catalog-only { color: var(--accent-2); }
 .catalog-card-meta { display: grid; gap: 5px; margin: 0; padding-top: 8px; border-top: 1px solid var(--line); }
 .catalog-card-meta div { display: grid; grid-template-columns: 54px minmax(0, 1fr); gap: 6px; font-size: 11px; line-height: 1.35; }
 .catalog-card-meta dt { color: var(--muted); font-weight: 800; }
