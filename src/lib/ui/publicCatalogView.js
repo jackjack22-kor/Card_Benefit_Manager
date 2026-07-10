@@ -1,4 +1,4 @@
-import { PUBLIC_CARD_CATALOG, PUBLIC_CARD_CATALOG_CHECKED_AT } from '../../data/publicCardCatalogIndex.js';
+import { PUBLIC_CARD_PUBLICATION_CATALOG as PUBLIC_CARD_CATALOG, PUBLIC_CARD_CATALOG_CHECKED_AT } from '../../data/publicCardCatalogIndex.js';
 import { compactWon, escapeHtml } from '../format.js';
 
 const PAGE_SIZE = 60;
@@ -7,6 +7,10 @@ const STATUS_META = {
   official_catalog: { label: '카드사 공식 목록', className: 'official' },
   operational_candidate: { label: '체크카드 운영후보', className: 'candidate' },
   official_detail_verified: { label: '공식 상세 검증', className: 'verified' }
+};
+const ISSUANCE_STATUS_META = {
+  official_application_reachable: { label: '공식 신청 경로 확인', className: 'verified' },
+  official_application_url_verified: { label: '공식 신청 URL 확인', className: 'official' }
 };
 
 const catalogState = {
@@ -43,6 +47,7 @@ export function renderPublicCatalog() {
       </section>
       <section class="catalog-summary" aria-label="카드 카탈로그 현황">
         <strong>${PUBLIC_CARD_CATALOG.length.toLocaleString('ko-KR')}개 카드</strong>
+        <span>공개 후보 신용카드 ${creditCardCount.toLocaleString('ko-KR')}</span>
         <span>카드사 공식 목록 ${Number(statusCounts.official_catalog || 0).toLocaleString('ko-KR')}</span>
         <span>공식 상세 검증 ${Number(statusCounts.official_detail_verified || 0).toLocaleString('ko-KR')}</span>
         <span>체크카드 운영후보 ${Number(statusCounts.operational_candidate || 0).toLocaleString('ko-KR')}</span>
@@ -51,7 +56,7 @@ export function renderPublicCatalog() {
         <div><strong>신용카드 공식 상세 검증</strong><span>${verifiedCount.toLocaleString('ko-KR')} / ${creditCardCount.toLocaleString('ko-KR')}</span></div>
         <progress value="${verifiedCount}" max="${creditCardCount}">${verificationRate.toFixed(1)}%</progress>
       </section>
-      <p class="catalog-disclaimer">공식 상세 검증은 신용카드부터 진행합니다. 체크카드는 운영후보로만 제공하며 혜택 계산과 추천에는 반영하지 않습니다.</p>
+      <p class="catalog-disclaimer">신용카드는 공식 신청 경로 또는 카드사 공식 목록이 확인된 상품만 공개합니다. 발급 경로를 확인하지 못한 상품과 단종 상품은 제외합니다. 체크카드는 운영후보로만 제공하며 혜택 계산과 추천에는 반영하지 않습니다.</p>
       ${renderCatalogFilters()}
       <div data-catalog-results aria-live="polite">${renderCatalogResults()}</div>
     </section>
@@ -147,11 +152,11 @@ function renderCatalogResults() {
 }
 
 function renderCatalogCard(card) {
-  const status = STATUS_META[card.collectionStatus] || STATUS_META.candidate_index;
+  const status = ISSUANCE_STATUS_META[card.issuanceStatus] || STATUS_META[card.collectionStatus] || STATUS_META.candidate_index;
   const detailsUrl = card.officialUrl || card.referenceUrl || card.source?.url || '';
   const benefits = (card.summaryBenefits || []).slice(0, 3);
   const networkTags = card.networks?.length ? card.networks : ['국내전용'];
-  const imageUrl = card.localImage || card.imageUrl;
+  const imageUrl = card.publicationImage || card.localImage || card.imageUrl;
   return `
     <article class="catalog-card">
       <div class="catalog-card-media">

@@ -2,6 +2,7 @@ import {
   PUBLIC_CARD_CATALOG,
   PUBLIC_CARD_CATALOG_CHECKED_AT,
   PUBLIC_CARD_CATALOG_DUPLICATE_IDS,
+  PUBLIC_CARD_PUBLICATION_CATALOG,
   RAW_PUBLIC_CARD_CATALOG
 } from '../src/data/publicCardCatalogIndex.js';
 
@@ -29,6 +30,8 @@ console.log(`Checked at: ${PUBLIC_CARD_CATALOG_CHECKED_AT}`);
 console.log(`Total records: ${PUBLIC_CARD_CATALOG.length}`);
 console.log(`Raw collected records: ${RAW_PUBLIC_CARD_CATALOG.length}`);
 console.log(`Hidden duplicate candidates: ${PUBLIC_CARD_CATALOG_DUPLICATE_IDS.length}`);
+console.log(`Publication-safe records: ${PUBLIC_CARD_PUBLICATION_CATALOG.length}`);
+console.log(`Publication-safe credit cards: ${PUBLIC_CARD_PUBLICATION_CATALOG.filter((card) => card.productType === 'credit').length}`);
 console.log('');
 printCounts('By Status', byStatus);
 printCounts('By Product Type', byType);

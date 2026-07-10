@@ -56,6 +56,8 @@ npm run audit:check
 
 우선 배치의 인기·프리미엄 선정 규칙과 신규 발급 가능 상태 판정은 `docs/CREDIT_CARD_PRIORITY_BATCH.md`를 따른다.
 
+`npm run catalog:verify-priority`는 고정된 후보 190종의 상세 데이터와 공식 신청 경로를 다시 확인하고, 상세 조사 원본 `publicCreditCardIssuanceVerification.js`, 공개용 경량 인덱스 `publicCreditCardIssuanceIndex.js`, 결과 보고서 `PRIORITY_CREDIT_CARD_VERIFICATION_RESULTS.md`를 함께 생성한다. 공식 신청 경로가 확인되지 않은 신용카드는 원본 조사 기록만 보존하고 공개 목록에는 포함하지 않는다.
+
 ## 승격 규칙
 
 1. 대상이 신용카드인지 확인한다. 체크카드는 `operational_candidate`에서 승격하지 않는다.

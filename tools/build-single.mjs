@@ -30,6 +30,7 @@ function rewriteInlinedDynamicImports(source) {
 
 await mkdir(distDir, { recursive: true });
 await cp(join(root, 'image', 'clean'), join(distDir, 'image', 'clean'), { recursive: true, force: true });
+await cp(join(root, 'image', 'public-catalog'), join(distDir, 'image', 'public-catalog'), { recursive: true, force: true });
 
 const html = await readFile(indexPath, 'utf8');
 const cssTagPattern = /<link\b(?=[^>]*rel="stylesheet")[^>]*>/;

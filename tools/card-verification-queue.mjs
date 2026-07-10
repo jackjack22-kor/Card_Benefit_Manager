@@ -10,12 +10,18 @@ import {
 const statusLabels = {
   officially_issuable: 'official detail verified',
   officially_listed: 'official catalog listed; detail pending',
+  official_application_reachable: 'official application page reachable',
+  official_application_url_verified: 'official application URL verified; site probe blocked',
+  official_application_not_confirmed: 'official application not confirmed; excluded from publication',
   pending_official_check: 'official issuance check pending'
 };
 
 const creditCards = PUBLIC_CARD_CATALOG.filter((card) => card.productType === 'credit');
 const discontinuedCreditCards = creditCards.filter((card) => card.isDiscontinued === true);
 const pendingOfficialCheck = PRIORITY_CREDIT_CARD_BATCH.filter((card) => card.availabilityStatus === 'pending_official_check');
+const applicationReachable = PRIORITY_CREDIT_CARD_BATCH.filter((card) => card.availabilityStatus === 'official_application_reachable');
+const applicationUrlVerified = PRIORITY_CREDIT_CARD_BATCH.filter((card) => card.availabilityStatus === 'official_application_url_verified');
+const applicationNotConfirmed = PRIORITY_CREDIT_CARD_BATCH.filter((card) => card.availabilityStatus === 'official_application_not_confirmed');
 
 console.log('# Priority Credit Card Verification Batch');
 console.log('');
@@ -24,6 +30,9 @@ console.log(`Scope: ${PRIORITY_CREDIT_CARD_ISSUERS.length} issuers x ${PRIORITY_
 console.log(`Selected: ${PRIORITY_CREDIT_CARD_BATCH.length}`);
 console.log(`Officially issuable: ${PRIORITY_CREDIT_CARD_BATCH.filter((card) => card.availabilityStatus === 'officially_issuable').length}`);
 console.log(`Officially listed, detail pending: ${PRIORITY_CREDIT_CARD_BATCH.filter((card) => card.availabilityStatus === 'officially_listed').length}`);
+console.log(`Official application page reachable: ${applicationReachable.length}`);
+console.log(`Official application URL verified, probe blocked: ${applicationUrlVerified.length}`);
+console.log(`Official application not confirmed, publication excluded: ${applicationNotConfirmed.length}`);
 console.log(`Official issuance check pending: ${pendingOfficialCheck.length}`);
 console.log(`Excluded discontinued credit cards: ${discontinuedCreditCards.length}`);
 console.log(`Operational check-card candidates outside this batch: ${PUBLIC_CARD_CATALOG.filter((card) => card.productType === 'check').length}`);

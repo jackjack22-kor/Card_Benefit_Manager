@@ -1,4 +1,5 @@
 import { PUBLIC_CARD_CATALOG } from './publicCardCatalogIndex.js';
+import { PUBLIC_CREDIT_CARD_ISSUANCE_INDEX } from './publicCreditCardIssuanceIndex.js';
 
 export const PRIORITY_CREDIT_CARD_BATCH_CHECKED_AT = '2026-07-10';
 export const PRIORITY_CREDIT_CARD_TARGET_PER_ISSUER = 20;
@@ -126,6 +127,7 @@ function representativeScore(card, config) {
 function availabilityStatus(card) {
   if (card.collectionStatus === 'official_detail_verified') return 'officially_issuable';
   if (card.collectionStatus === 'official_catalog') return 'officially_listed';
+  if (card.issuanceStatus) return card.issuanceStatus;
   return 'pending_official_check';
 }
 
@@ -154,6 +156,27 @@ function selectIssuerBatch(config, catalog) {
       popularitySourceUrl: `https://www.card-gorilla.com/team/detail/${config.cardGorillaTeamId}`
     });
   };
+
+  const frozenCandidateIds = PUBLIC_CREDIT_CARD_ISSUANCE_INDEX
+    .filter((record) => record.issuer === config.issuer)
+    .map((record) => record.cardId);
+  if (frozenCandidateIds.length) {
+    let premiumSelectionCount = 0;
+    for (const cardId of frozenCandidateIds) {
+      const card = candidates.find((candidate) => candidate.id === cardId);
+      if (!card) continue;
+      let reason = card.popularityRank ? 'popular_rank' : 'representative_candidate';
+      if (card.popularityRank && card.premium) premiumSelectionCount += 1;
+      if (!card.popularityRank && card.premium && premiumSelectionCount < PRIORITY_PREMIUM_TARGET_PER_ISSUER) {
+        reason = 'premium_line';
+        premiumSelectionCount += 1;
+      }
+      add(card, reason);
+    }
+    candidates.filter((card) => card.collectionStatus === 'official_detail_verified').forEach((card) => add(card, 'official_detail_verified'));
+    candidates.filter((card) => card.collectionStatus === 'official_catalog').forEach((card) => add(card, 'official_catalog'));
+    return selected;
+  }
 
   candidates.filter((card) => card.popularityRank).sort((left, right) => left.popularityRank - right.popularityRank).forEach((card) => add(card, 'popular_rank'));
   candidates.filter((card) => card.collectionStatus === 'official_detail_verified').forEach((card) => add(card, 'official_detail_verified'));

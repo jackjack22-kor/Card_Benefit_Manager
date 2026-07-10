@@ -3,11 +3,13 @@ import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { CARDS } from '../src/data/cards.js';
+import { PUBLIC_CARD_PUBLICATION_IMAGES } from '../src/data/publicCardPublicationImages.js';
 
 const root = dirname(dirname(fileURLToPath(import.meta.url)));
 const distDir = join(root, 'dist');
 const assetsDir = join(distDir, 'assets');
 const imageDir = join(distDir, 'image', 'clean');
+const publicationImageDir = join(distDir, 'image', 'public-catalog');
 
 function distFile(relativePath) {
   return join(distDir, relativePath);
@@ -68,5 +70,10 @@ for (const card of CARDS) {
   const fileName = card.image.split('/').pop();
   assert.ok(distImages.has(fileName), `public dist must include card image: ${card.id}`);
 }
+assert.ok(existsSync(publicationImageDir), 'dist/image/public-catalog must exist');
+assert.equal(Object.keys(PUBLIC_CARD_PUBLICATION_IMAGES).length, 117, 'publication image manifest must cover all published credit cards');
+for (const [cardId, imagePath] of Object.entries(PUBLIC_CARD_PUBLICATION_IMAGES)) {
+  assert.ok(existsSync(distFile(imagePath)), `public dist must include publication card image: ${cardId}`);
+}
 
-console.log(`ok - public dist verified: ${jsAssets.length} JS bundle(s), ${CARDS.length} card images`);
+console.log(`ok - public dist verified: ${jsAssets.length} JS bundle(s), ${CARDS.length} modeled card images, 117 publication images`);

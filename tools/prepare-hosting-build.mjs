@@ -7,5 +7,6 @@ const distDir = join(root, 'dist');
 
 await mkdir(join(distDir, 'image'), { recursive: true });
 await cp(join(root, 'image', 'clean'), join(distDir, 'image', 'clean'), { recursive: true, force: true });
+await cp(join(root, 'image', 'public-catalog'), join(distDir, 'image', 'public-catalog'), { recursive: true, force: true });
 
 console.log('Prepared Firebase Hosting build assets');

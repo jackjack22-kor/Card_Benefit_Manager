@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { existsSync } from 'node:fs';
 import { CARDS } from '../src/data/cards.js';
-import { PUBLIC_CARD_CATALOG_BY_ID, PUBLIC_CARD_CATALOG_DUPLICATE_IDS, RAW_PUBLIC_CARD_CATALOG } from '../src/data/publicCardCatalogIndex.js';
+import { PUBLIC_CARD_CATALOG_BY_ID, PUBLIC_CARD_CATALOG_DUPLICATE_IDS, PUBLIC_CARD_PUBLICATION_CATALOG, RAW_PUBLIC_CARD_CATALOG } from '../src/data/publicCardCatalogIndex.js';
 import { PUBLIC_CARD_VERIFICATION_OVERLAYS } from '../src/data/publicCardVerificationOverlays.js';
 import { PRIORITY_CREDIT_CARD_BATCH } from '../src/data/publicCreditCardPriorityBatch.js';
 
@@ -55,16 +55,30 @@ const verifiedOverlays = overlayEntries.filter(([, overlay]) => overlay.collecti
 const operationalCheckCards = [...PUBLIC_CARD_CATALOG_BY_ID.values()].filter((card) => card.productType === 'check');
 const discontinuedVerified = verified.filter((card) => card.isDiscontinued === true);
 const currentlyIssuablePriorityCards = PRIORITY_CREDIT_CARD_BATCH.filter((card) => card.availabilityStatus === 'officially_issuable');
+const reachablePriorityCards = PRIORITY_CREDIT_CARD_BATCH.filter((card) => card.availabilityStatus === 'official_application_reachable');
+const verifiedUrlPriorityCards = PRIORITY_CREDIT_CARD_BATCH.filter((card) => card.availabilityStatus === 'official_application_url_verified');
+const unconfirmedPriorityCards = PRIORITY_CREDIT_CARD_BATCH.filter((card) => card.availabilityStatus === 'official_application_not_confirmed');
+const publishedCreditCards = PUBLIC_CARD_PUBLICATION_CATALOG.filter((card) => card.productType === 'credit');
 assert.equal(verified.length, verifiedOverlays.length, 'effective verified count must match credit-card verification overlays');
 assert.ok(verified.every((card) => card.productType === 'credit'), 'only credit cards may be officially verified');
 assert.ok(operationalCheckCards.every((card) => card.collectionStatus === 'operational_candidate'), 'all check cards must remain operational candidates');
 assert.ok(PRIORITY_CREDIT_CARD_BATCH.every((card) => card.isDiscontinued !== true), 'priority verification batch must exclude discontinued cards');
 assert.ok(currentlyIssuablePriorityCards.every((card) => card.collectionStatus === 'official_detail_verified'), 'officially issuable priority cards require official detail verification');
 assert.ok(discontinuedVerified.every((card) => !PRIORITY_CREDIT_CARD_BATCH.some((candidate) => candidate.id === card.id)), 'discontinued verified cards must stay outside the priority batch');
+assert.equal(reachablePriorityCards.length, 94, 'all reachable official application pages are tracked');
+assert.equal(verifiedUrlPriorityCards.length, 13, 'blocked official application URLs are tracked separately');
+assert.equal(unconfirmedPriorityCards.length, 83, 'unconfirmed application records remain excluded');
+assert.equal(publishedCreditCards.length, 117, 'publication catalog includes 107 issuance-confirmed candidates and 10 official records');
+assert.ok(publishedCreditCards.every((card) => card.isDiscontinued !== true), 'publication credit cards exclude discontinued products');
+assert.ok(publishedCreditCards.every((card) => card.issuanceStatus !== 'official_application_not_confirmed'), 'publication credit cards exclude unconfirmed application records');
 assert.equal(new Set(PUBLIC_CARD_CATALOG_DUPLICATE_IDS).size, PUBLIC_CARD_CATALOG_DUPLICATE_IDS.length, 'candidate aliases must be unique');
 
 console.log(`ok - official detail verification records: ${verified.length}`);
 console.log(`ok - currently issuable priority cards: ${currentlyIssuablePriorityCards.length}`);
+console.log(`ok - official application pages reachable: ${reachablePriorityCards.length}`);
+console.log(`ok - official application URLs verified, probe blocked: ${verifiedUrlPriorityCards.length}`);
+console.log(`ok - official application not confirmed, publication excluded: ${unconfirmedPriorityCards.length}`);
+console.log(`ok - published credit-card candidates: ${publishedCreditCards.length}`);
 console.log(`ok - discontinued cards retained as verification history only: ${discontinuedVerified.length}`);
 console.log(`ok - operational check-card candidates: ${operationalCheckCards.length}`);
 for (const card of verified) {
