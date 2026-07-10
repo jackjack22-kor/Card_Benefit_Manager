@@ -40,7 +40,7 @@ export const PUBLIC_CARD_VERIFICATION_OVERLAYS = {
   },
   'kb-09297': {
     collectionStatus: 'official_detail_verified',
-    calculationStatus: 'catalog_only',
+    calculationStatus: 'modeled',
     localImage: 'image/clean/kb-wesh-all-plus.png',
     officialDocumentUrls: [],
     networks: ['Mastercard'],
@@ -60,6 +60,7 @@ export const PUBLIC_CARD_VERIFICATION_OVERLAYS = {
       verifiedAt: '2026-07-10',
       method: 'official_product_page',
       fields: ['annualFee', 'networks', 'previousMonthSpend', 'quarterlySpend', 'benefits', 'exclusions'],
+      relatedCardModelId: 'kb-wesh-all-plus',
       note: 'KB국민카드 공식 상세 페이지에서 연회비, 전월·분기 실적, 할인율, 한도와 제외 항목을 확인했습니다.'
     },
     source: {
@@ -72,7 +73,7 @@ export const PUBLIC_CARD_VERIFICATION_OVERLAYS = {
   },
   'kb-09922': {
     collectionStatus: 'official_detail_verified',
-    calculationStatus: 'catalog_only',
+    calculationStatus: 'modeled',
     localImage: 'image/clean/kb-all-card.png',
     officialDocumentUrls: [],
     networks: ['VISA'],
@@ -92,6 +93,7 @@ export const PUBLIC_CARD_VERIFICATION_OVERLAYS = {
       verifiedAt: '2026-07-10',
       method: 'official_product_page',
       fields: ['annualFee', 'networks', 'previousMonthSpend', 'benefits', 'exclusions'],
+      relatedCardModelId: 'kb-all',
       note: 'KB국민카드 공식 상세 페이지에서 무실적 기본 할인과 전월 40만원 자동납부 혜택을 구분해 확인했습니다.'
     },
     source: {
@@ -104,7 +106,7 @@ export const PUBLIC_CARD_VERIFICATION_OVERLAYS = {
   },
   'kb-07964': {
     collectionStatus: 'official_detail_verified',
-    calculationStatus: 'catalog_only',
+    calculationStatus: 'modeled',
     localImage: 'image/clean/kb-nori2-check.png',
     officialDocumentUrls: [],
     networks: ['VISA', 'Mastercard'],
@@ -126,6 +128,7 @@ export const PUBLIC_CARD_VERIFICATION_OVERLAYS = {
       verifiedAt: '2026-07-10',
       method: 'official_product_page',
       fields: ['annualFee', 'networks', 'previousMonthSpend', 'benefits', 'monthlyCaps', 'exclusions'],
+      relatedCardModelId: 'kb-nori2-check',
       note: 'KB국민카드 공식 상세 페이지에서 일상·KB Pay 혜택의 서로 다른 실적 조건과 월 통합한도를 확인했습니다.'
     },
     source: {

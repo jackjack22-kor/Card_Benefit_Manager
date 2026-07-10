@@ -187,6 +187,7 @@ for (const item of CARDS) {
   assert.ok(imageInfo.width >= imageInfo.height, `card image must be landscape: ${item.id}`);
   assert.ok(imageInfo.width >= 250 && imageInfo.height >= 150, `card image is too small: ${item.id}`);
   assert.ok(Array.isArray(item.benefits) && item.benefits.length > 0, `card benefits are required: ${item.id}`);
+  const cardBenefitIds = new Set(item.benefits.map((benefit) => benefit.id));
   for (const benefit of item.benefits || []) {
     assert.ok(/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(benefit.id), `benefit id must be stable kebab-case: ${item.id}:${benefit.id}`);
     assert.ok(!benefitIds.has(benefit.id), `duplicate benefit id: ${benefit.id}`);
@@ -198,6 +199,9 @@ for (const item of CARDS) {
     assert.ok(benefit.summary, `benefit summary is required: ${item.id}:${benefit.id}`);
     assert.ok(benefit.homeLabel, `benefit homeLabel is required: ${item.id}:${benefit.id}`);
     if (benefit.cycleType) assert.ok(allowedCycleTypes.has(benefit.cycleType), `benefit cycle type is invalid: ${item.id}:${benefit.id}`);
+    if (benefit.minPrevSpend !== undefined) assert.ok(Number.isFinite(Number(benefit.minPrevSpend)) && Number(benefit.minPrevSpend) >= 0, `benefit minPrevSpend must be non-negative: ${item.id}:${benefit.id}`);
+    if (benefit.capBasis !== undefined) assert.equal(benefit.capBasis, 'previous_month', `benefit capBasis is invalid: ${item.id}:${benefit.id}`);
+    if (benefit.capPoolId) assert.ok(cardBenefitIds.has(benefit.capPoolId), `benefit capPoolId must reference the same card: ${item.id}:${benefit.id}`);
     for (const categoryId of benefit.categories || []) {
       if (!categoryIds.has(categoryId)) unknownCategories.push(`${item.id}:${benefit.id}:${categoryId}`);
     }
@@ -260,7 +264,10 @@ for (const verifiedId of ['cg-crd-2280', 'kb-07964', 'kb-09922', 'kb-09297']) {
   assert.ok(['catalog_only', 'modeled'].includes(verifiedCard?.calculationStatus), `verified card tracks calculation readiness: ${verifiedId}`);
 }
 assert.equal(PUBLIC_CARD_CATALOG.find((item) => item.id === 'cg-crd-2280')?.calculationStatus, 'modeled', 'Hyundai verified catalog record links to the calculation model');
-assert.equal(PUBLIC_CARD_CATALOG.find((item) => item.id === 'kb-09297')?.calculationStatus, 'catalog_only', 'verified KB card does not claim unfinished calculation support');
+for (const [catalogId, modelId] of [['cg-crd-2280', 'hyundai-amex-platinum'], ['kb-09297', 'kb-wesh-all-plus'], ['kb-09922', 'kb-all'], ['kb-07964', 'kb-nori2-check']]) {
+  assert.equal(PUBLIC_CARD_CATALOG.find((item) => item.id === catalogId)?.calculationStatus, 'modeled', `verified catalog card is calculation-ready: ${catalogId}`);
+  assert.equal(PUBLIC_CARD_CATALOG.find((item) => item.id === catalogId)?.verification?.relatedCardModelId, modelId, `verified catalog card links to model: ${catalogId}`);
+}
 assert.equal(RAW_PUBLIC_CARD_CATALOG.find((item) => item.id === 'cg-crd-2280')?.collectionStatus, 'candidate_index', 'raw candidate remains replaceable without losing verification overlay');
 for (const duplicateId of ['cg-crd-2837', 'cg-crd-2440', 'cg-chk-2422']) {
   assert.equal(PUBLIC_CARD_CATALOG.some((item) => item.id === duplicateId), false, `effective catalog hides duplicate candidate: ${duplicateId}`);
@@ -450,6 +457,49 @@ assertEqual(monthlyValue('marriott-classic-shinhan', 300000), 3000, 'Marriott Cl
 assertEqual(monthlyValue('bc-goat-card', 1200000), 17000, 'BC GOAT domestic Paybook tiered reward');
 assertEqual(monthlyValue('all-woori-infinite', 300000), 4186, 'ALL Woori base reward uses official ALL point value');
 assertEqual(monthlyValue('lotte-hilton-amex', 300000), 200, 'Hilton Amex base point value reflects monthly spend');
+assertEqual(monthlyValue('kb-wesh-all-plus', 1000000), 10000, 'KB WE:SH All+ domestic 1 percent follows monthly spend');
+assertEqual(monthlyValue('kb-wesh-all-plus', 1000000, { overrides: { 'kb-wesh-all-plus': { prevMonthStatus: 'unmet' } } }), 0, 'KB WE:SH All+ automatic benefit stops when previous-month spend is unmet');
+assertEqual(monthlyValue('kb-all', 1000000, { overrides: { 'kb-all': { prevMonthStatus: 'unmet', monthlyTarget: 0 } } }), 10000, 'KB ALL no-spend-requirement domestic discount remains active');
+
+const noriPoolUsage = {
+  'kb-nori2-coffee': { [MONTH]: { usedAmount: 30000, manualAmountOverride: true } },
+  'kb-nori2-mobile': { [MONTH]: { usedAmount: 50000, manualAmountOverride: true } },
+  'kb-nori2-culture': { [MONTH]: { usedAmount: 70000, manualAmountOverride: true } },
+  'kb-nori2-beauty': { [MONTH]: { usedAmount: 40000, manualAmountOverride: true } },
+  'kb-nori2-convenience': { [MONTH]: { usedAmount: 40000, manualAmountOverride: true } },
+  'kb-nori2-kbpay-offline': { [MONTH]: { usedAmount: 150000, manualAmountOverride: true } }
+};
+const noriPoolState = withSpend('kb-nori2-check', 0, {
+  overrides: { 'kb-nori2-check': { prevMonthStatus: 'met', prevMonthSpend: 300000, monthlyTarget: 200000 } },
+  usage: noriPoolUsage
+});
+assertEqual(getMonthlyBenefitValue(noriPoolState, card('kb-nori2-check'), MONTH), 20000, 'KB Nori2 benefits stay within the 200k unified monthly cap');
+assertEqual(
+  getMonthlyBenefitValueForBenefit(noriPoolState, card('kb-nori2-check'), card('kb-nori2-check').benefits.find((item) => item.id === 'kb-nori2-kbpay-offline'), MONTH),
+  1000,
+  'KB Nori2 later benefit uses only remaining unified cap'
+);
+const noriUnmetState = withSpend('kb-nori2-check', 0, {
+  overrides: { 'kb-nori2-check': { prevMonthStatus: 'unmet', monthlyTarget: 200000 } },
+  usage: {
+    'kb-nori2-coffee': { [MONTH]: { usedAmount: 30000, manualAmountOverride: true } },
+    'kb-nori2-mobile': { [MONTH]: { usedAmount: 50000, manualAmountOverride: true } }
+  }
+});
+assertEqual(getMonthlyBenefitValue(noriUnmetState, card('kb-nori2-check'), MONTH), 3000, 'KB Nori2 keeps only no-spend-requirement coffee benefit when unmet');
+const noriSplitTargetState = withSpend('kb-nori2-check', 0, {
+  overrides: { 'kb-nori2-check': { prevMonthStatus: 'met', prevMonthSpend: 250000, monthlyTarget: 200000 } },
+  usage: {
+    'kb-nori2-mobile': { [MONTH]: { usedAmount: 50000, manualAmountOverride: true } },
+    'kb-nori2-kbpay-offline': { [MONTH]: { usedAmount: 100000, manualAmountOverride: true } }
+  }
+});
+assertEqual(getMonthlyBenefitValue(noriSplitTargetState, card('kb-nori2-check'), MONTH), 5000, 'KB Nori2 applies daily benefits but blocks KB Pay below 300k previous-month spend');
+const noriPrevMonthCapState = withSpend('kb-nori2-check', 800000, {
+  overrides: { 'kb-nori2-check': { prevMonthStatus: 'met', prevMonthSpend: 300000, monthlyTarget: 200000 } },
+  usage: noriPoolUsage
+});
+assertEqual(getMonthlyBenefitValue(noriPrevMonthCapState, card('kb-nori2-check'), MONTH), 20000, 'KB Nori2 unified cap uses previous-month spend instead of current-month spend');
 
 function benefit(cardId, benefitId) {
   const found = card(cardId).benefits.find((item) => item.id === benefitId);

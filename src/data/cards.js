@@ -17,7 +17,10 @@ export const POINT_DEFAULTS = {
 export const DEFAULT_HIDDEN_CARD_IDS = [
   'bc-goat-card',
   'all-woori-infinite',
-  'lotte-hilton-amex'
+  'lotte-hilton-amex',
+  'kb-wesh-all-plus',
+  'kb-all',
+  'kb-nori2-check'
 ];
 
 const SOURCE_RECHECK_DATE = '2026-07-09';
@@ -1132,6 +1135,113 @@ export const CARDS = [
         conditions: 'AMEX 브랜드 카드 발급 및 지난달 이용금액 50만원 이상',
         homeLabel: '라운지'
       }
+    ]
+  },
+  {
+    id: 'kb-wesh-all-plus',
+    issuer: 'KB국민카드',
+    name: 'WE:SH All+ 카드',
+    shortName: 'KB WE:SH All+',
+    theme: 'yellow',
+    image: 'image/clean/kb-wesh-all-plus.png',
+    annualFee: 55000,
+    defaultHidden: true,
+    defaultCycle: { type: 'calendar', startMonth: 1 },
+    monthlyTargets: [400000],
+    defaultMonthlyTarget: 400000,
+    annualTargets: [],
+    tags: ['생활', '해외', '자동납부', 'Mastercard', '기본숨김'],
+    sourceNote: 'KB국민카드 공식 상품 상세 09297, 2026-07-10 확인.',
+    source: sourceOfficial({
+      checkedAt: '2026-07-10',
+      url: 'https://card.kbcard.com/CRD/DVIEW/HCAMCXPRICAC0076?mainCC=a&cooperationcode=09297',
+      officialEntryUrl: 'https://card.kbcard.com/CRD/DVIEW/HCAMCXPRICAC0076?mainCC=a&cooperationcode=09297',
+      recheckBatch: 'kb-2026-07',
+      note: '공식 상세 페이지에서 연회비, 전월 40만원, 국내 1%·해외 2%, 자동납부 통합 월 5천원, 분기 400만원 보너스를 확인.'
+    }),
+    networks: [{ name: 'Mastercard', annualFee: 55000, services: ['Titanium'], note: '국내전용과 Mastercard 일반 연회비 동일' }],
+    benefits: [
+      { id: 'kb-wesh-base', name: '국내 가맹점 1% 할인', type: 'amount_cap', priority: 'core', categories: ['other'], rate: 0.01, minPrevSpend: 400000, deriveFromMonthlySpend: true, summary: '국내 가맹점 1% 할인, 한도 없음', targets: '국내 KB국민카드 가맹점', exclusions: '공식 할인 제외 대상 및 실적 제외 이용건', conditions: '전월 이용실적 40만원 이상. 최초 사용등록 다음달 말까지 실적 유예.', homeLabel: '국내 1%' },
+      { id: 'kb-wesh-overseas', name: '해외 가맹점 추가 1% 할인', type: 'amount_cap', priority: 'core', categories: ['overseas'], rate: 0.01, minPrevSpend: 400000, summary: '기본 1%에 해외 추가 1%를 더해 총 2% 할인', targets: 'Mastercard 해외 가맹점', exclusions: '국내외겸용 카드만 제공, 해외 원화결제 및 공식 제외 대상 유의', conditions: '전월 이용실적 40만원 이상. 해외 이용금액을 별도 입력하면 추가 1%만 계산.', homeLabel: '해외 +1%' },
+      { id: 'kb-wesh-autopay-cap', name: '자동납부 통합 월 할인한도', type: 'amount_cap', priority: 'core', categories: ['other'], monthlyCapBySpend: [{ min: 400000, cap: 5000 }], capBasis: 'previous_month', cycleType: 'calendar', summary: '쇼핑 멤버십·OTT·이동통신 통합 월 5천원', targets: '전월 40만원 이상', exclusions: '한도 이월 없음', conditions: '전월 이용실적 40만원 이상', homeLabel: '자동납부 한도' },
+      { id: 'kb-wesh-membership', name: '쇼핑 멤버십 50% 할인', type: 'amount_cap_pool', priority: 'core', categories: ['shopping'], rate: 0.5, minPrevSpend: 400000, capPoolId: 'kb-wesh-autopay-cap', summary: '네이버플러스·쿠팡 로켓와우 정기결제 50% 할인', targets: '공식 홈페이지 정기결제', exclusions: '간편결제·인앱결제 제외', conditions: '전월 40만원 이상, 자동납부 통합한도 적용', homeLabel: '멤버십' },
+      { id: 'kb-wesh-ott', name: 'OTT 10% 할인', type: 'amount_cap_pool', priority: 'core', categories: ['ott'], rate: 0.1, minPrevSpend: 400000, capPoolId: 'kb-wesh-autopay-cap', summary: '넷플릭스·유튜브 프리미엄·웨이브·티빙·디즈니플러스 10%', targets: '공식 홈페이지 정기결제', exclusions: '간편결제·인앱결제 제외', conditions: '전월 40만원 이상, 자동납부 통합한도 적용', homeLabel: 'OTT' },
+      { id: 'kb-wesh-telecom', name: '이동통신 5% 할인', type: 'amount_cap_pool', priority: 'core', categories: ['telecom'], rate: 0.05, minPrevSpend: 400000, capPoolId: 'kb-wesh-autopay-cap', summary: 'SKT·KT·LG U+·Liiv M 자동납부 5%', targets: '이동통신요금 자동납부', exclusions: '인터넷·IPTV 결합상품 제외', conditions: '전월 40만원 이상, 자동납부 통합한도 적용', homeLabel: '통신' },
+      { id: 'kb-wesh-quarterly', name: '분기 보너스 1만점', type: 'info_check', priority: 'normal', categories: ['premiumgift'], cycleType: 'calendar', summary: '분기 이용실적 400만원 이상 시 포인트리 1만점, 연 최대 4만점', targets: '1~3월, 4~6월, 7~9월, 10~12월 각 분기', exclusions: '공식 분기 실적 제외 대상', conditions: '분기별 400만원 이상. 분기 종료 다음달 말 적립.', homeLabel: '분기 보너스' }
+    ]
+  },
+  {
+    id: 'kb-all',
+    issuer: 'KB국민카드',
+    name: 'ALL 카드',
+    shortName: 'KB ALL',
+    theme: 'blue',
+    image: 'image/clean/kb-all-card.png',
+    annualFee: 20000,
+    defaultHidden: true,
+    defaultCycle: { type: 'calendar', startMonth: 1 },
+    monthlyTargets: [0, 400000],
+    defaultMonthlyTarget: 0,
+    annualTargets: [],
+    tags: ['무실적', '생활', '해외', '자동납부', '기본숨김'],
+    sourceNote: 'KB국민카드 공식 상품 상세 09922, 2026-07-10 확인.',
+    source: sourceOfficial({
+      checkedAt: '2026-07-10',
+      url: 'https://card.kbcard.com/CRD/DVIEW/HCAMCXPRICAC0076?mainCC=a&cooperationcode=09922',
+      officialEntryUrl: 'https://card.kbcard.com/CRD/DVIEW/HCAMCXPRICAC0076?mainCC=a&cooperationcode=09922',
+      recheckBatch: 'kb-2026-07',
+      note: '공식 상세 페이지에서 무실적 국내 1%, 해외 2% 월 4만원, 전월 40만원 자동납부 통합 월 3천원과 연회비를 확인.'
+    }),
+    networks: [{ name: 'VISA', annualFee: 20000, services: [], note: '국내전용과 VISA 일반 연회비 동일' }],
+    benefits: [
+      { id: 'kb-all-domestic', name: '국내 가맹점 1% 할인', type: 'amount_cap', priority: 'core', categories: ['other'], rate: 0.01, deriveFromMonthlySpend: true, summary: '전월실적과 할인한도 없이 국내 가맹점 1% 할인', targets: '국내 KB국민카드 가맹점', exclusions: '무이자할부, 세금·공과금, 관리비, 상품권 등 공식 제외 대상', conditions: '전월실적 관계없음. 이번달 사용액은 국내 이용금액 기준으로 입력.', homeLabel: '국내 1%' },
+      { id: 'kb-all-overseas', name: '해외 가맹점 2% 할인', type: 'amount_cap', priority: 'core', categories: ['overseas'], rate: 0.02, monthlyCap: 40000, summary: '해외 가맹점 2% 할인, 월 4만원 한도', targets: 'VISA 해외 가맹점', exclusions: '공식 할인 제외 대상 및 해외 수수료 제외', conditions: '전월실적 관계없음. 해외 이용금액 별도 입력.', homeLabel: '해외 2%' },
+      { id: 'kb-all-autopay-cap', name: '자동납부 통합 월 할인한도', type: 'amount_cap', priority: 'core', categories: ['other'], monthlyCapBySpend: [{ min: 400000, cap: 3000 }], capBasis: 'previous_month', cycleType: 'calendar', summary: '쇼핑 멤버십·OTT·이동통신 통합 월 3천원', targets: '전월 40만원 이상', exclusions: '한도 이월 없음', conditions: '전월 이용실적 40만원 이상', homeLabel: '자동납부 한도' },
+      { id: 'kb-all-membership', name: '쇼핑 멤버십 50% 할인', type: 'amount_cap_pool', priority: 'core', categories: ['shopping'], rate: 0.5, minPrevSpend: 400000, capPoolId: 'kb-all-autopay-cap', summary: '네이버플러스·쿠팡 로켓와우 정기결제 50%', targets: '공식 홈페이지 정기결제', exclusions: '간편결제·인앱결제 제외', conditions: '전월 40만원 이상, 자동납부 통합한도 적용', homeLabel: '멤버십' },
+      { id: 'kb-all-ott', name: 'OTT 10% 할인', type: 'amount_cap_pool', priority: 'core', categories: ['ott'], rate: 0.1, minPrevSpend: 400000, capPoolId: 'kb-all-autopay-cap', summary: '넷플릭스 등 지정 OTT 정기결제 10%', targets: '지정 OTT 공식 홈페이지 정기결제', exclusions: '간편결제·인앱결제 제외', conditions: '전월 40만원 이상, 자동납부 통합한도 적용', homeLabel: 'OTT' },
+      { id: 'kb-all-telecom', name: '이동통신 5% 할인', type: 'amount_cap_pool', priority: 'core', categories: ['telecom'], rate: 0.05, minPrevSpend: 400000, capPoolId: 'kb-all-autopay-cap', summary: 'SKT·KT·LG U+·Liiv M 자동납부 5%', targets: '이동통신요금 자동납부', exclusions: '인터넷·IPTV 결합상품 제외', conditions: '전월 40만원 이상, 자동납부 통합한도 적용', homeLabel: '통신' }
+    ]
+  },
+  {
+    id: 'kb-nori2-check',
+    issuer: 'KB국민카드',
+    name: '노리2 체크카드(KB Pay)',
+    shortName: 'KB 노리2 체크',
+    theme: 'cyan',
+    image: 'image/clean/kb-nori2-check.png',
+    annualFee: 0,
+    defaultHidden: true,
+    defaultCycle: { type: 'calendar', startMonth: 1 },
+    monthlyTargets: [200000, 300000, 400000, 600000, 800000],
+    defaultMonthlyTarget: 200000,
+    annualTargets: [],
+    tags: ['체크', '커피', 'KB Pay', '생활', '기본숨김'],
+    sourceNote: 'KB국민카드 공식 상품 상세 07964, 2026-07-10 확인.',
+    source: sourceOfficial({
+      checkedAt: '2026-07-10',
+      url: 'https://card.kbcard.com/CRD/DVIEW/HCAMCXPRICAC0076?mainCC=a&cooperationcode=07964',
+      officialEntryUrl: 'https://card.kbcard.com/CRD/DVIEW/HCAMCXPRICAC0076?mainCC=a&cooperationcode=07964',
+      recheckBatch: 'kb-2026-07',
+      note: '공식 상세 페이지에서 연회비 없음, 일상 20만원·KB Pay 30만원의 별도 실적 조건, 2~5만원 통합 월 할인한도와 혜택별 한도를 확인.'
+    }),
+    networks: [
+      { name: 'VISA', annualFee: 0, services: [], note: '연회비 없음' },
+      { name: 'Mastercard', annualFee: 0, services: [], note: '연회비 없음' }
+    ],
+    benefits: [
+      { id: 'kb-nori2-monthly-cap', name: '월간 통합 할인한도', type: 'amount_cap', priority: 'core', categories: ['other'], monthlyCapBySpend: [{ min: 0, cap: 3000 }, { min: 200000, cap: 20000 }, { min: 400000, cap: 30000 }, { min: 600000, cap: 40000 }, { min: 800000, cap: 50000 }], capBasis: 'previous_month', cycleType: 'calendar', summary: '전월 20/40/60/80만원 이상 시 월 2/3/4/5만원 통합한도, 커피 무실적 한도 3천원', targets: '일상·KB Pay 혜택 통합', exclusions: '잔여한도 이월 없음', conditions: '커피는 전월실적 관계없음. 다른 일상혜택은 20만원, KB Pay는 30만원 이상.', homeLabel: '월한도' },
+      { id: 'kb-nori2-coffee', name: '스타벅스·커피빈 10% 할인', type: 'amount_cap_pool', priority: 'core', categories: ['coffee'], rate: 0.1, monthlyCap: 3000, capPoolId: 'kb-nori2-monthly-cap', summary: '스타벅스·커피빈 10%, 월 3천원', targets: '스타벅스, 커피빈', exclusions: '상품권·선불충전, 입점매장 제외', conditions: '전월실적 관계없음. 통합 월 할인한도 적용.', homeLabel: '커피' },
+      { id: 'kb-nori2-mobile', name: '구글플레이·앱스토어 10%', type: 'amount_cap_pool', priority: 'core', categories: ['shopping'], rate: 0.1, monthlyCap: 5000, minPrevSpend: 200000, capPoolId: 'kb-nori2-monthly-cap', summary: '구글플레이스토어·앱스토어 10%, 월 5천원', targets: '지정 모바일 스토어', exclusions: '가맹점명 등록 기준', conditions: '전월 20만원 이상. 통합 월 할인한도 적용.', homeLabel: '모바일' },
+      { id: 'kb-nori2-culture', name: '인터파크 티켓 10%', type: 'amount_cap_pool', priority: 'core', categories: ['movie'], rate: 0.1, monthlyCap: 7000, minPrevSpend: 200000, capPoolId: 'kb-nori2-monthly-cap', summary: '인터파크 공연 티켓 10%, 월 7천원', targets: '인터파크 티켓 공연 예매', exclusions: '공연 외 이용 제외', conditions: '전월 20만원 이상. 통합 월 할인한도 적용.', homeLabel: '문화' },
+      { id: 'kb-nori2-beauty', name: '올리브영·미용실 5%', type: 'amount_cap_pool', priority: 'normal', categories: ['shopping'], rate: 0.05, monthlyCap: 2000, minPrevSpend: 200000, capPoolId: 'kb-nori2-monthly-cap', summary: '올리브영·미용실 업종 5%, 월 2천원', targets: '올리브영, 미용실 업종', exclusions: 'KB국민카드 업종 분류 기준', conditions: '전월 20만원 이상. 통합 월 할인한도 적용.', homeLabel: '뷰티' },
+      { id: 'kb-nori2-convenience', name: 'GS25·CU 5%', type: 'amount_cap_pool', priority: 'normal', categories: ['small'], rate: 0.05, monthlyCap: 2000, minPrevSpend: 200000, capPoolId: 'kb-nori2-monthly-cap', summary: 'GS25·CU 5%, 월 2천원', targets: 'GS25, CU', exclusions: '상품권·선불충전 제외', conditions: '전월 20만원 이상. 통합 월 할인한도 적용.', homeLabel: '편의점' },
+      { id: 'kb-nori2-subscription', name: '넷플릭스·유튜브 1천원 할인', type: 'count_amount', priority: 'core', categories: ['ott'], fixedBenefit: 1000, minAmount: 10000, minPrevSpend: 200000, monthlyLimitCount: 2, monthlyCap: 2000, capPoolId: 'kb-nori2-monthly-cap', summary: '1만원 이상 결제 시 1천원, 월 2회', targets: '넷플릭스, 유튜브 프리미엄', exclusions: '공식 결제 조건 확인', conditions: '전월 20만원 이상. 통합 월 할인한도 적용.', homeLabel: '구독' },
+      { id: 'kb-nori2-delivery', name: '배달앱 1천원 할인', type: 'count_amount', priority: 'normal', categories: ['restaurant'], fixedBenefit: 1000, minAmount: 10000, minPrevSpend: 200000, monthlyLimitCount: 1, monthlyCap: 1000, capPoolId: 'kb-nori2-monthly-cap', summary: '배달의민족·요기요 1만원 이상 1천원, 월 1회', targets: '배달의민족, 요기요', exclusions: '공식 결제 조건 확인', conditions: '전월 20만원 이상. 통합 월 할인한도 적용.', homeLabel: '배달' },
+      { id: 'kb-nori2-telecom', name: '이동통신 2,500원 할인', type: 'count_amount', priority: 'core', categories: ['telecom'], fixedBenefit: 2500, minAmount: 50000, minPrevSpend: 200000, monthlyLimitCount: 1, monthlyCap: 2500, capPoolId: 'kb-nori2-monthly-cap', summary: '이동통신 자동납부 5만원 이상 2,500원, 월 1회', targets: 'SKT, KT, LG U+, Liiv M 자동납부', exclusions: '결합상품 제외', conditions: '전월 20만원 이상. 통합 월 할인한도 적용.', homeLabel: '통신' },
+      { id: 'kb-nori2-movie', name: 'CGV 4천원 할인', type: 'count_amount', priority: 'core', categories: ['movie'], fixedBenefit: 4000, minAmount: 10000, minPrevSpend: 200000, monthlyLimitCount: 2, monthlyCap: 8000, capPoolId: 'kb-nori2-monthly-cap', summary: 'CGV 1만원 이상 4천원, 월 2회', targets: 'CGV 현장·공식 홈페이지·앱', exclusions: '상품권·매점 이용 제외', conditions: '전월 20만원 이상. 통합 월 할인한도 적용.', homeLabel: 'CGV' },
+      { id: 'kb-nori2-themepark', name: '놀이공원 1만5천원 할인', type: 'count_amount', priority: 'normal', categories: ['themepark'], fixedBenefit: 15000, minAmount: 30000, minPrevSpend: 200000, monthlyLimitCount: 1, monthlyCap: 15000, capPoolId: 'kb-nori2-monthly-cap', summary: '에버랜드·롯데월드 3만원 이상 1만5천원, 월 1회', targets: '에버랜드, 롯데월드 티켓', exclusions: '상품권·매점 이용 제외', conditions: '전월 20만원 이상. 통합 월 할인한도 적용.', homeLabel: '놀이공원' },
+      { id: 'kb-nori2-kbpay-offline', name: 'KB Pay 오프라인 2% 추가', type: 'amount_cap_pool', priority: 'core', categories: ['simplepay'], rate: 0.02, monthlyCap: 3000, minPrevSpend: 300000, capPoolId: 'kb-nori2-monthly-cap', summary: 'KB Pay 오프라인 2% 추가, 월 3천원', targets: '오프라인 KB Pay 결제', exclusions: '공식 제외 가맹점', conditions: '전월 30만원 이상. 일상혜택과 중복 가능, 통합한도 적용.', homeLabel: 'KB Pay 오프' },
+      { id: 'kb-nori2-kbpay-online', name: 'KB Pay 온라인 2% 추가', type: 'amount_cap_pool', priority: 'core', categories: ['simplepay'], rate: 0.02, monthlyCap: 2000, minPrevSpend: 300000, capPoolId: 'kb-nori2-monthly-cap', summary: 'KB Pay 온라인 2% 추가, 월 2천원', targets: '온라인 KB Pay 결제', exclusions: '공식 제외 가맹점', conditions: '전월 30만원 이상. 일상혜택과 중복 가능, 통합한도 적용.', homeLabel: 'KB Pay 온라인' }
     ]
   }
 ];

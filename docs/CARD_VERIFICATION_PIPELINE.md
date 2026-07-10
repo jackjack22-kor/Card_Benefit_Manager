@@ -26,11 +26,12 @@
 | 카탈로그 ID | 카드 | 공식 상세 검증 | 계산 모델 |
 | --- | --- | --- | --- |
 | `cg-crd-2280` | 현대 American Express The Platinum Card | 완료 | `hyundai-amex-platinum` 연결 |
-| `kb-09297` | KB WE:SH All+ 카드 | 완료 | 준비 중 |
-| `kb-09922` | KB ALL 카드 | 완료 | 준비 중 |
-| `kb-07964` | KB 노리2 체크카드(KB Pay) | 완료 | 준비 중 |
+| `kb-09297` | KB WE:SH All+ 카드 | 완료 | `kb-wesh-all-plus` 연결 |
+| `kb-09922` | KB ALL 카드 | 완료 | `kb-all` 연결 |
+| `kb-07964` | KB 노리2 체크카드(KB Pay) | 완료 | `kb-nori2-check` 연결 |
 
 KB 공식 레코드와 중복되던 CardGorilla 후보 3건은 원본에는 남기고 공개 목록·대기열에서만 제외한다.
+신규 KB 계산 모델 3종은 기존 사용자의 카드 목록을 갑자기 바꾸지 않도록 기본 숨김으로 추가하며, 사용자가 설정에서 직접 표시할 때만 개인 계산 화면에 나타난다.
 
 ## 검증 명령
 

@@ -179,7 +179,8 @@ export function getMonthlyBenefitValueForBenefit(state, card, benefit, monthKey 
   if (isCapContainerBenefit(benefit)) return getAppliedPoolValue(state, card, benefit.id, monthKey);
   const usage = getBenefitUsage(state, benefit.id, monthKey);
   if (hasExplicitBenefitValue(usage)) return readBenefitValue(usage);
-  return getAutoMonthlyBenefitValue(state, card, benefit, monthKey);
+  const autoValue = getAutoMonthlyBenefitValue(state, card, benefit, monthKey);
+  return capAutoValueByPool(state, card, benefit, monthKey, autoValue);
 }
 
 export function getTotalMonthlyBenefitValue(state, cards = getOrderedCards(state), monthKey = selectedMonthKey(state)) {
@@ -208,14 +209,13 @@ function hasExplicitBenefitValue(usage = {}) {
 
 function getAutoMonthlyBenefitValue(state, card, benefit, monthKey) {
   if (isCapContainerBenefit(benefit)) return getAppliedPoolValue(state, card, benefit.id, monthKey);
-  const override = {
-    ...(state.cardOverrides?.[card.id] || {}),
-    ...(state.monthlyCardUsage?.[monthKey]?.[card.id] || {})
-  };
+  const override = getCardOverride(state, card.id);
   const monthlySpend = Number(override.currentMonthSpend || 0);
   const usage = getBenefitUsage(state, benefit.id, monthKey);
   const benefitAmount = getBenefitAmountInput(state, card, benefit, monthKey, monthlySpend);
   const hasManualAmount = Boolean(usage.manualAmountOverride && Object.prototype.hasOwnProperty.call(usage, 'usedAmount'));
+
+  if (!isBenefitPrevMonthSpendMet(card, benefit, override)) return 0;
 
   if (benefit.type === 'count_amount') {
     return Math.round(calculateCountAmountUsageValue(state, card, benefit, monthKey));
@@ -230,7 +230,7 @@ function getAutoMonthlyBenefitValue(state, card, benefit, monthKey) {
   const patternValue = getPatternMonthlyBenefitValue(state, card, benefit, monthlySpend, benefitAmount, monthKey, override);
   if (patternValue !== null) return Math.round(patternValue);
 
-  if (benefit.deriveFromMonthlySpend && (benefit.type === 'amount_cap' || benefit.type === 'amount_cap_pool' || benefit.type === 'reward_cap_pool')) {
+  if (benefitAmount > 0 && (benefit.type === 'amount_cap' || benefit.type === 'amount_cap_pool' || benefit.type === 'reward_cap_pool')) {
     return Math.round(calculateCappedRateValue(card, benefit, benefitAmount, inferPrevSpend(card, override)));
   }
 
@@ -380,9 +380,34 @@ function getExplicitPoolValue(state, card, benefit, monthKey, excludeIds = []) {
 }
 
 function getAppliedPoolValue(state, card, poolId, monthKey) {
-  return card.benefits
+  const applied = card.benefits
     .filter((item) => item.capPoolId === poolId && !isCapContainerBenefit(item))
     .reduce((sum, item) => sum + getMonthlyBenefitValueForBenefit(state, card, item, monthKey), 0);
+  const pool = card.benefits.find((item) => item.id === poolId);
+  const cap = pool ? calculateMonthlyCap(pool, getPoolCapBasis(state, card, pool, monthKey)) : 0;
+  return cap ? Math.min(applied, cap) : applied;
+}
+
+function capAutoValueByPool(state, card, benefit, monthKey, value) {
+  if (!benefit.capPoolId || value <= 0) return value;
+  const pool = card.benefits.find((item) => item.id === benefit.capPoolId);
+  if (!pool) return value;
+  const cap = calculateMonthlyCap(pool, getPoolCapBasis(state, card, pool, monthKey));
+  if (cap <= 0) return 0;
+  const benefitIndex = card.benefits.findIndex((item) => item.id === benefit.id);
+  const usedBefore = card.benefits
+    .slice(0, Math.max(0, benefitIndex))
+    .filter((item) => item.capPoolId === benefit.capPoolId && !isCapContainerBenefit(item))
+    .reduce((sum, item) => sum + getMonthlyBenefitValueForBenefit(state, card, item, monthKey), 0);
+  return Math.max(0, Math.min(value, cap - usedBefore));
+}
+
+function getPoolCapBasis(state, card, pool, monthKey) {
+  const override = getCardOverride(state, card.id);
+  const prevSpend = inferPrevSpend(card, override);
+  if (pool.capBasis === 'previous_month') return prevSpend;
+  const monthSpend = Number(state.monthlyCardUsage?.[monthKey]?.[card.id]?.currentMonthSpend || override.currentMonthSpend || 0);
+  return Math.max(prevSpend, monthSpend);
 }
 
 function isAutomaticBaseReward(benefit) {
@@ -598,7 +623,7 @@ function estimateBenefitValue(state, card, benefit, categoryId, amount, prevSpen
   const monthKey = selectedMonthKey(state);
   const usage = getBenefitUsage(state, benefit.id, monthKey);
   const requiresSpend = requiresPrevMonthSpend(benefit);
-  const isMet = getCardOverride(state, card.id).prevMonthStatus !== 'unmet';
+  const isMet = isBenefitPrevMonthSpendMet(card, benefit, getCardOverride(state, card.id));
 
   if (requiresSpend && !isMet) {
     return { value: 0, rate: 0, reason: `${benefit.name}: 전월실적 미달로 제외` };
@@ -683,12 +708,20 @@ function estimateBenefitValue(state, card, benefit, categoryId, amount, prevSpen
 }
 
 function requiresPrevMonthSpend(benefit) {
+  if (Number(benefit.minPrevSpend || 0) > 0) return true;
   if (benefit.monthlyCapBySpend || benefit.rateBySpend) return true;
   const conditions = String(benefit.conditions || '');
   const hasPrevMonthText = conditions.includes('\uC804\uC6D4');
   const isPrevMonthExempt = conditions.includes('\uC804\uC6D4\uC2E4\uC801 \uAD00\uACC4\uC5C6')
     || conditions.includes('\uC804\uC6D4\uC2E4\uC801\uAD00\uACC4\uC5C6');
   return hasPrevMonthText && !isPrevMonthExempt;
+}
+
+function isBenefitPrevMonthSpendMet(card, benefit, override) {
+  if (!requiresPrevMonthSpend(benefit)) return true;
+  if (override.prevMonthStatus === 'unmet') return false;
+  const minimum = Number(benefit.minPrevSpend || 0);
+  return minimum <= 0 || inferPrevSpend(card, override) >= minimum;
 }
 
 function effectiveMonthlyCap(card, benefit, prevSpend) {
